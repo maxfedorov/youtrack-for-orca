@@ -1,4 +1,4 @@
-import { Button, Callout, EmptyState, Skeleton, Stack, Table, Text, read, set } from 'orca'
+import { Box, Button, Callout, EmptyState, Skeleton, Stack, Table, Text, read, set } from 'orca'
 import {
   MAX_ISSUES, appliedQuery, defaultQuery, hasMore, issues, lastPageFull, links, listError, listStatus, loadMore, moreError, refreshList,
   runSearch, selectedIssue, syncList, total, totalKnown
@@ -9,15 +9,19 @@ import { IssueRowActions } from './IssueRowActions'
 import { SearchBar } from './SearchBar'
 import type { IssueRow } from '../protocol'
 
+// Every column stays visible; a narrow sidebar scrolls the table sideways (see TABLE_MIN_WIDTH).
 const COLUMNS = [
-  { key: 'id', label: 'ID', sortable: true },
+  { key: 'id', label: 'ID', sortable: true, width: 'sm' },
   { key: 'summary', label: 'Summary', sortable: true, minWidth: 'md' },
-  { key: 'state', label: 'State', sortable: true, hideBelow: 'sm' },
-  { key: 'priority', label: 'Priority', sortable: true, hideBelow: 'md' },
-  { key: 'assignee', label: 'Assignee', sortable: true, hideBelow: 'md' },
-  { key: 'created', label: 'Created', sortable: true, hideBelow: 'md' },
-  { key: 'updated', label: 'Updated', sortable: true, hideBelow: 'sm' }
+  { key: 'state', label: 'State', sortable: true, width: 'sm' },
+  { key: 'priority', label: 'Priority', sortable: true, width: 'md' },
+  { key: 'assignee', label: 'Assignee', sortable: true, width: 'md' },
+  { key: 'created', label: 'Created', sortable: true, width: 'sm' },
+  { key: 'updated', label: 'Updated', sortable: true, width: 'sm' }
 ]
+// Fixed columns take 672px (4 x 6rem + 2 x 9rem) and Summary needs 9rem (144px) at least, so 816px; the extra
+// 24px covers row borders. Below this the table's own overflow-hidden would clip, so the Box scrolls instead.
+const TABLE_MIN_WIDTH = 840
 
 const toRow = (row: IssueRow) => ({
   key: row.id,
@@ -79,20 +83,24 @@ function Results() {
   const capped = rows.length >= MAX_ISSUES && (known ? read(total) > MAX_ISSUES : read(lastPageFull))
   return (
     <Stack gap="xs">
-      <Table
-        label="Issues"
-        columns={COLUMNS}
-        rows={rows.map(toRow)}
-        sort={sort ?? undefined}
-        selectionMode="single"
-        selected={selected ? [selected.id] : []}
-        hasMore={read(hasMore) && rows.length < MAX_ISSUES}
-        loading={status === 'loading' || undefined}
-        onSortChange={({ column }) => void runSearch(applySort(read(query), column))}
-        onSelectionChange={({ keys }) => set(selectedIssue, Array.from(keys as Iterable<string>)[0] ?? null)}
-        onRowAction={({ key }) => set(view, { kind: 'detail', issueId: String(key) })}
-        onLoadMore={() => void loadMore()}
-      />
+      <Box scroll="x">
+        <Box minWidth={TABLE_MIN_WIDTH}>
+        <Table
+          label="Issues"
+          columns={COLUMNS}
+          rows={rows.map(toRow)}
+          sort={sort ?? undefined}
+          selectionMode="single"
+          selected={selected ? [selected.id] : []}
+          hasMore={read(hasMore) && rows.length < MAX_ISSUES}
+          loading={status === 'loading' || undefined}
+          onSortChange={({ column }) => void runSearch(applySort(read(query), column))}
+          onSelectionChange={({ keys }) => set(selectedIssue, Array.from(keys as Iterable<string>)[0] ?? null)}
+          onRowAction={({ key }) => set(view, { kind: 'detail', issueId: String(key) })}
+          onLoadMore={() => void loadMore()}
+        />
+        </Box>
+      </Box>
       <Text muted size="sm">
         {known ? countText(read(total)) : countText(rows.length, read(hasMore))}
       </Text>

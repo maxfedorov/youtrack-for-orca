@@ -406,3 +406,18 @@ test('500 cap note appears from a full last page when the total is unknown, not 
   assert.equal(second.find({ text: 'Showing the first 500 issues. Refine the query.' }), null)
   await second.unmount()
 })
+
+test('table keeps every column and scrolls sideways instead of hiding columns', async () => {
+  const host = mockHost({ requests: requests() })
+  const view = await mount(panel, { host })
+  const columns = view.find(table).props.columns
+  assert.deepEqual(columns.map((c: any) => c.key), ['id', 'summary', 'state', 'priority', 'assignee', 'created', 'updated'])
+  assert.ok(columns.every((c: any) => c.hideBelow === undefined))
+  assert.ok(view.find({ type: 'Box', scroll: 'x' }))
+  const inner = view.find({ type: 'Box', minWidth: 840 })
+  assert.ok(inner)
+  const within = (outer: any, node: any) => JSON.stringify(node.path).startsWith(JSON.stringify(outer.path).slice(0, -1))
+  assert.ok(within(view.find({ type: 'Box', scroll: 'x' }), inner))
+  assert.ok(within(inner, view.find(table)))
+  await view.unmount()
+})
