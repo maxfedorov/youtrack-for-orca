@@ -12,6 +12,8 @@ const MAX_LAUNCHES = 50
  */
 
 const keyOf = (server, issueId) => `${server}|${issueId}`
+/** Stored lists may hold anything a damaged or older storage left; only objects are entries. */
+const entries = (list) => (Array.isArray(list) ? list.filter((e) => e !== null && typeof e === 'object' && !Array.isArray(e)) : [])
 
 /** @param {Storage} storage */
 export function createLinkStore(storage) {
@@ -24,7 +26,7 @@ export function createLinkStore(storage) {
   /** Newest live workspace id in an entry list, or undefined. */
   function newestLive(list, liveIds) {
     let best
-    for (const e of Array.isArray(list) ? list : []) {
+    for (const e of entries(list)) {
       if (liveIds.has(e.workspaceId) && (best === undefined || e.createdAt >= best.createdAt)) best = e
     }
     return best?.workspaceId
@@ -36,7 +38,7 @@ export function createLinkStore(storage) {
       serial(async () => {
         const all = await read()
         const key = keyOf(server, issueId)
-        const list = (Array.isArray(all[key]) ? all[key] : []).filter((e) => e.workspaceId !== workspaceId)
+        const list = entries(all[key]).filter((e) => e.workspaceId !== workspaceId)
         list.push({ workspaceId, createdAt })
         all[key] = list.slice(-MAX_LINKS_PER_ISSUE)
         await storage.set('links', all)
@@ -70,7 +72,7 @@ export function createLinkStore(storage) {
         const all = await read()
         const next = {}
         for (const [key, list] of Object.entries(all)) {
-          const kept = (Array.isArray(list) ? list : []).filter((e) => liveIds.has(e.workspaceId) || !(e.createdAt < before))
+          const kept = entries(list).filter((e) => liveIds.has(e.workspaceId) || !(e.createdAt < before))
           if (kept.length) next[key] = kept
         }
         await storage.set('links', next)
@@ -82,8 +84,7 @@ export function createLinkStore(storage) {
 export function createLaunchTracker(storage) {
   const serial = createSerial()
   async function read() {
-    const v = await storage.get('launches')
-    return Array.isArray(v) ? v : []
+    return entries(await storage.get('launches'))
   }
 
   return {
