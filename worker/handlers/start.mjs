@@ -113,11 +113,15 @@ export function registerStartHandlers(ctx) {
     }
     const r = await orcaCli.createWorktree(input)
     if (!r.ok) return r
-    const { workspaceId } = r.data
+    const { workspaceId, terminalId, paneKey } = r.data
     await links.add(s.data.alias, id, workspaceId, now())
-    // createWorktree does not expose the agent's terminal id, so the workspace id is stored as the
-    // terminal id; the finished-notification matches `agent.status.changed` by terminal or workspace.
-    if (input.agent) await launches.track({ terminalId: workspaceId, server: s.data.alias, issueId: id, workspaceId, at: now() })
+    // The finished-notification matches `agent.status.changed` by terminal, pane or workspace, so keep
+    // every id the answer has; without a terminal handle the workspace id stands in for it.
+    if (input.agent) {
+      const launch = { terminalId: terminalId ?? workspaceId, server: s.data.alias, issueId: id, workspaceId, at: now() }
+      if (paneKey) launch.paneKey = paneKey
+      await launches.track(launch)
+    }
     return ok({ workspaceId })
   })
 

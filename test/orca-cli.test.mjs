@@ -95,7 +95,9 @@ test('createWorktree parses workspace id from fixture', async () => {
       workspaceId: 'identity:wt2:local:00000000-0000-4000-8000-0000000000aa',
       name: 'demo-1-fix-login',
       branch: 'demo/demo-1-fix-login',
-      path: '/Users/demo/orca/workspaces/demo-repo/demo-1-fix-login'
+      path: '/Users/demo/orca/workspaces/demo-repo/demo-1-fix-login',
+      terminalId: 'term_00000000-0000-4000-8000-0000000000bb',
+      paneKey: '00000000-0000-0000-0000-000000000000:00000000-0000-0000-0000-000000000000'
     }
   })
 })
@@ -168,4 +170,19 @@ test('results never carry undefined values', async () => {
   const repos = JSON.stringify({ ok: true, result: { repos: [{ id: 'r1' }] } })
   const l = await createOrcaCli({ run: fakeRun({ 'repo list': { stdout: repos } }) }).repos()
   assert.deepEqual(l.data, [{ id: 'r1', name: 'r1' }])
+})
+
+test('createWorktree returns the agent terminal handle and pane key', async () => {
+  const r = await createOrcaCli({ run: fakeRun(created) }).createWorktree(input)
+  assert.equal(r.data.terminalId, 'term_00000000-0000-4000-8000-0000000000bb')
+  assert.equal(r.data.paneKey, '00000000-0000-0000-0000-000000000000:00000000-0000-0000-0000-000000000000')
+})
+
+test('createWorktree omits the terminal keys when the answer has no launch', async () => {
+  const body = JSON.parse(created['worktree create'].stdout)
+  delete body.result.launch
+  const r = await createOrcaCli({ run: fakeRun({ 'worktree create': { stdout: JSON.stringify(body) } }) }).createWorktree(input)
+  assert.equal(r.ok, true)
+  assert.equal('terminalId' in r.data, false)
+  assert.equal('paneKey' in r.data, false)
 })

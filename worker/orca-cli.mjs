@@ -82,6 +82,9 @@ export function createOrcaCli({ bin, run = (args, opts) => runProcess(bin, args,
         branch: String(wt.branch ?? '').replace(/^refs\/heads\//, '')
       }
       if (typeof wt.path === 'string') out.path = wt.path
+      const outcome = res.data.launch?.outcome
+      if (typeof outcome?.handle === 'string' && outcome.handle) out.terminalId = outcome.handle
+      if (typeof outcome?.paneKey === 'string' && outcome.paneKey) out.paneKey = outcome.paneKey
       return ok(out)
     },
 

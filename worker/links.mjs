@@ -88,18 +88,25 @@ export function createLaunchTracker(storage) {
 
   return {
     /** @param {{ terminalId: string, server: string, issueId: string, workspaceId: string, at: number }} launch */
-    track: ({ terminalId, server, issueId, workspaceId, at }) =>
+    track: ({ terminalId, paneKey, server, issueId, workspaceId, at }) =>
       serial(async () => {
         const list = (await read()).filter((e) => e.terminalId !== terminalId)
-        list.push({ terminalId, server, issueId, workspaceId, at })
+        const entry = { terminalId, server, issueId, workspaceId, at }
+        if (paneKey) entry.paneKey = paneKey
+        list.push(entry)
         await storage.set('launches', list.slice(-MAX_LAUNCHES))
       }),
 
-    /** Returns the launch once and forgets it. @returns {Promise<{ server: string, issueId: string } | null>} */
-    takeFinished: (terminalId) =>
+    /**
+     * Returns the launch once and forgets it. `ids` is a terminal id or `{ terminalId, paneKey, workspaceId }`;
+     * a terminal match wins over a pane match, which wins over a workspace match.
+     * @returns {Promise<{ server: string, issueId: string } | null>} */
+    takeFinished: (ids) =>
       serial(async () => {
         const list = await read()
-        const found = list.find((e) => e.terminalId === terminalId)
+        const { terminalId, paneKey, workspaceId } = typeof ids === 'string' ? { terminalId: ids } : (ids ?? {})
+        const by = (key, value) => (value ? list.find((e) => e[key] === value) : undefined)
+        const found = by('terminalId', terminalId) ?? by('paneKey', paneKey) ?? by('workspaceId', workspaceId)
         if (!found) return null
         await storage.set('launches', list.filter((e) => e !== found))
         return { server: found.server, issueId: found.issueId }

@@ -133,3 +133,20 @@ test('ignores agents not launched by plugin', async () => {
   assert.equal(shown().length, 0)
   assert.equal(orca.posts.length, 0)
 })
+
+test('matches a launch by pane key or by workspace when the terminal differs', async () => {
+  const { store, n, shown } = notifier()
+  await store.track({ terminalId: 'term_1', paneKey: 'tab:pane', server: 'one', issueId: 'DEMO-3', workspaceId: 'identity:w3', at: 1 })
+  await store.track({ terminalId: 'term_2', server: 'one', issueId: 'DEMO-4', workspaceId: 'identity:w4', at: 1 })
+  await n.onAgentStatus({ workspaceId: null, paneKey: 'tab:pane', state: 'done', receivedAt: 1 })
+  await n.onAgentStatus({ workspaceId: 'identity:w4', terminalId: 'other', state: 'done', receivedAt: 1 })
+  assert.deepEqual(shown().map((s) => s.title), ['Agent finished DEMO-3', 'Agent finished DEMO-4'])
+})
+
+test('a launch is matched by its terminal handle before its workspace', async () => {
+  const { store, n, shown } = notifier()
+  await store.track({ terminalId: 'term_a', server: 'one', issueId: 'DEMO-5', workspaceId: 'identity:w', at: 1 })
+  await store.track({ terminalId: 'term_b', server: 'one', issueId: 'DEMO-6', workspaceId: 'identity:w', at: 2 })
+  await n.onAgentStatus({ workspaceId: 'identity:w', terminalId: 'term_b', state: 'done', receivedAt: 1 })
+  assert.deepEqual(shown().map((s) => s.title), ['Agent finished DEMO-6'])
+})

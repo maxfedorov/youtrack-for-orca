@@ -528,3 +528,12 @@ test('links keeps a link created after the workspace list was read', async () =>
   await call('yt.links', { server: 'one' })
   assert.deepEqual(Object.keys(orca.storage.data().links), ['one|DEMO-9'])
 })
+
+test('start.run tracks the launch by terminal handle and keeps the workspace id', async () => {
+  const cli = fakeCli({ createWorktree: async (a) => ok({ workspaceId: 'identity:new', name: a.name, branch: 'b', terminalId: 'term_1', paneKey: 'tab:pane' }) })
+  const { call, orca } = setup({ cli })
+  await call('yt.start.run', RUN)
+  assert.deepEqual(orca.storage.data().launches, [
+    { terminalId: 'term_1', paneKey: 'tab:pane', server: 'one', issueId: 'DEMO-1', workspaceId: 'identity:new', at: 1000 },
+  ])
+})

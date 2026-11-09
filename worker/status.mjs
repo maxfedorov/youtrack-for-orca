@@ -85,13 +85,15 @@ export function createStatusBar({
  */
 export function createFinishNotifier({ host, launches, post }) {
   return {
-    /** @param {{ workspaceId: string | null, terminalId?: string, state: string, mainAgent?: { state: string } }} event */
+    /** @param {{ workspaceId: string | null, terminalId?: string, paneKey?: string, state: string, mainAgent?: { state: string } }} event */
     async onAgentStatus(event) {
       try {
         if ((event.mainAgent?.state ?? event.state) !== 'done') return
-        let found = null
-        if (event.terminalId) found = await launches.takeFinished(event.terminalId)
-        if (!found && event.workspaceId) found = await launches.takeFinished(event.workspaceId)
+        const found = await launches.takeFinished({
+          terminalId: event.terminalId,
+          paneKey: event.paneKey,
+          workspaceId: event.workspaceId ?? undefined
+        })
         if (!found) return
         await host.call('notifications.show', { title: `Agent finished ${found.issueId}`, body: found.server })
         post?.('yt.agentFinished', { server: found.server, issueId: found.issueId, workspaceId: event.workspaceId ?? null })
