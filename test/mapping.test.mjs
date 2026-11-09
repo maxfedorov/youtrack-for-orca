@@ -160,7 +160,7 @@ test('instances without an alias are dropped', () => {
 test('saved searches without a query are skipped', () => {
   assert.equal(toSavedQuery({ id: '1', name: 'n' }), null)
   assert.deepEqual(toSavedQuery({ query: 'q' }), { id: '', name: '', query: 'q' })
-  assert.deepEqual(toSavedQueries([{ id: '1', name: 'n' }, { id: '2', query: 'q' }, null]), [{ id: '2', name: '', query: 'q' }])
+  assert.deepEqual(toSavedQueries([{ id: '1', name: 'n' }, { id: '2', query: 'q' }, null, { id: '3', name: 'ok', query: 'q' }]), [{ id: '3', name: 'ok', query: 'q' }])
 })
 
 const types = load('yt-issue-view-field-types.json')

@@ -138,8 +138,9 @@ export function toSavedQuery(raw) {
   return { id: text(raw.id), name: text(raw.name), query: raw.query }
 }
 
-/** @param {any} list `search list --json` */
-export const toSavedQueries = (list) => (Array.isArray(list) ? list : []).map(toSavedQuery).filter((q) => q !== null)
+/** Saved searches that can be offered: a query, an id and a name. @param {any} list `search list --json` */
+export const toSavedQueries = (list) =>
+  (Array.isArray(list) ? list : []).map(toSavedQuery).filter((q) => q !== null && q.id !== '' && q.name !== '')
 
 /** @param {any} raw item of `instance list --json` @returns {Server} */
 export function toServer(raw) {

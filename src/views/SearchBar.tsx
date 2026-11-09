@@ -1,5 +1,5 @@
 import { Button, IconButton, Input, Row, Select, Stack, Text, atom, read, set, update } from 'orca'
-import { appliedQuery, listError, listStatus, runSearch, savedQueries } from '../listState'
+import { appliedQuery, listError, listStatus, loadSavedQueries, runSearch, savedQueries } from '../listState'
 import { call, query, server } from '../state'
 
 const naming = atom(false)
@@ -21,8 +21,10 @@ async function saveSearch(): Promise<void> {
     set(saveError, answer.message)
     return
   }
-  update(savedQueries, (list) => [...list, answer.data])
   set(naming, false)
+  // Without an id it cannot be chosen from the list; read the list as the server has it.
+  if (answer.data.id && answer.data.name) update(savedQueries, (list) => [...list, answer.data])
+  else void loadSavedQueries()
 }
 
 export function SearchBar() {
