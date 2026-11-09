@@ -58,9 +58,9 @@ export function SearchBar() {
           }}
         />
         {match ? (
-          <IconButton icon="star" label={`Saved as ${match.name}`} disabled />
+          <IconButton icon="star" label={`Saved as ${match.name}`} variant="solid" tone="accent" onPress={() => {}} />
         ) : (
-          <IconButton icon="star" label="Save search" disabled={invalid || !text.trim()} onPress={startNaming} />
+          <IconButton icon="star" label="Save search" variant="outline" disabled={invalid || !text.trim()} onPress={startNaming} />
         )}
       </Row>
       {saved.length === 0 ? (
