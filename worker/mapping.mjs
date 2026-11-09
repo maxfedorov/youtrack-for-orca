@@ -62,6 +62,43 @@ export function toIssueRow(raw, baseUrl) {
   return row
 }
 
+const EMPTY = '\u2014'
+const MAX_FIELDS = 100
+const MAX_FIELD_VALUE = 1000
+
+/** @param {string} v */
+const clip = (v) => (v.length <= MAX_FIELD_VALUE ? v : v.slice(0, MAX_FIELD_VALUE - 1).replace(/[\ud800-\udbff]$/, '') + '\u2026')
+
+/** Readable text of one value of a custom field; '' when there is nothing to show. @param {any} v @param {string} type */
+function fieldText(v, type) {
+  if (v == null) return ''
+  if (Array.isArray(v)) return v.map((x) => fieldText(x, type)).filter(Boolean).join(', ')
+  if (typeof v === 'object') {
+    for (const key of ['presentation', 'text', 'fullName', 'name', 'login']) {
+      if (typeof v[key] === 'string' && v[key] !== '') return v[key]
+    }
+    return ''
+  }
+  if (typeof v === 'number' && /^Date/.test(type) && Number.isFinite(v)) {
+    const d = new Date(v)
+    return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, type.startsWith('DateTime') ? 16 : 10).replace('T', ' ')
+  }
+  return String(v)
+}
+
+/** All custom fields of an issue as display strings, in YouTrack order. @param {any} raw @returns {{ name: string, value: string }[]} */
+function toFields(raw) {
+  const list = Array.isArray(raw?.customFields) ? raw.customFields : []
+  return list
+    .filter((f) => typeof f?.name === 'string' && f.name !== '')
+    .slice(0, MAX_FIELDS)
+    .map((f) => {
+      const shown = fieldText(f.value, text(f.$type).replace(/^(Single|Multi)/, ''))
+      const empty = f.projectCustomField?.emptyFieldText
+      return { name: f.name, value: clip(shown || (typeof empty === 'string' && empty ? empty : EMPTY)) }
+    })
+}
+
 /**
  * @param {any} rawView `issue view --json`
  * @param {any[] | null} rawComments `issue comment list --json`, or null
@@ -81,6 +118,7 @@ export function toIssueDetail(rawView, rawComments, baseUrl) {
   /** @type {IssueDetail} */
   const detail = {
     ...toIssueRow(rawView, baseUrl),
+    fields: toFields(rawView),
     project: {
       shortName: text(rawView.project?.shortName),
       name: text(rawView.project?.name)

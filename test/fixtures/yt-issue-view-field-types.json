@@ -1,0 +1,22 @@
+{
+  "idReadable": "DEMO-2",
+  "summary": "Demo issue with every field type",
+  "description": "",
+  "project": { "shortName": "DEMO", "name": "Demo project" },
+  "customFields": [
+    { "name": "Priority", "$type": "SingleEnumIssueCustomField", "value": { "name": "Major", "$type": "EnumBundleElement" }, "projectCustomField": { "emptyFieldText": "No Priority" } },
+    { "name": "State", "$type": "StateIssueCustomField", "value": { "name": "In Progress", "$type": "StateBundleElement" }, "projectCustomField": { "emptyFieldText": "No State" } },
+    { "name": "Assignee", "$type": "SingleUserIssueCustomField", "value": { "login": "demo", "fullName": "Demo User", "$type": "User" }, "projectCustomField": { "emptyFieldText": "Unassigned" } },
+    { "name": "Reviewers", "$type": "MultiUserIssueCustomField", "value": [{ "login": "a", "fullName": "Ann Demo" }, { "login": "b", "fullName": "Bob Demo" }], "projectCustomField": { "emptyFieldText": "No reviewers" } },
+    { "name": "Fix versions", "$type": "MultiVersionIssueCustomField", "value": [{ "name": "1.0" }, { "name": "1.1" }], "projectCustomField": { "emptyFieldText": "Unscheduled" } },
+    { "name": "Affected versions", "$type": "MultiVersionIssueCustomField", "value": [], "projectCustomField": { "emptyFieldText": "Unknown" } },
+    { "name": "Subsystem", "$type": "SingleOwnedIssueCustomField", "value": null, "projectCustomField": { "emptyFieldText": "No Subsystem" } },
+    { "name": "Notes", "$type": "TextIssueCustomField", "value": { "text": "Demo note text", "$type": "TextFieldValue" } },
+    { "name": "Empty note", "$type": "TextIssueCustomField", "value": { "text": "", "$type": "TextFieldValue" } },
+    { "name": "Due date", "$type": "DateIssueCustomField", "value": 1794182400000 },
+    { "name": "Checked at", "$type": "DateIssueCustomField", "value": null },
+    { "name": "Estimation", "$type": "PeriodIssueCustomField", "value": { "minutes": 150, "presentation": "2h 30m", "$type": "PeriodValue" } },
+    { "name": "Points", "$type": "SimpleIssueCustomField", "value": 5 },
+    { "name": "Label", "$type": "SimpleIssueCustomField", "value": "demo-label" }
+  ]
+}

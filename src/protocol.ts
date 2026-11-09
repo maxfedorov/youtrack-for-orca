@@ -17,6 +17,8 @@ export type IssueRow = {
   updated: number; resolved: boolean; url: string
 }
 export type IssueDetail = IssueRow & {
+  /** Every custom field of the issue as display strings, in the order YouTrack lists them. */
+  fields: { name: string; value: string }[]
   project: { shortName: string; name: string }; type?: Value; descriptionMd: string; comments: Comment[]
   /** Description or comments were cut (long text, only the newest 200 comments kept). */
   truncated?: true

@@ -17,6 +17,13 @@ const detail = (n: number, over: Record<string, unknown> = {}) => ({
   ...issue(n),
   project: { shortName: 'DEMO', name: 'Demo' },
   type: { name: 'Bug' },
+  fields: [
+    { name: 'Priority', value: 'Major' },
+    { name: 'State', value: 'Open' },
+    { name: 'Assignee', value: 'Jane Doe' },
+    { name: 'Subsystem', value: 'No Subsystem' },
+    { name: 'Estimation', value: '2h 30m' }
+  ],
   descriptionMd: `Description of **issue ${n}**`,
   comments: [{ id: 'c1', author: { login: 'bob', fullName: 'Bob Roe' }, created: 1_700_000_100_000, textMd: 'First *comment*' }],
   ...over
@@ -92,15 +99,15 @@ test('renders fields read-only', async () => {
   assert.equal(view.find({ type: 'Input' }), null)
   const items = view.find({ type: 'KeyValue' }).props.items
   assert.deepEqual(items.map((i: any) => [i.label, i.value]), [
-    ['State', 'Open'], ['Assignee', 'Jane Doe'], ['Priority', 'Major'], ['Type', 'Bug']
+    ['Priority', 'Major'], ['State', 'Open'], ['Assignee', 'Jane Doe'], ['Subsystem', 'No Subsystem'], ['Estimation', '2h 30m']
   ])
   assert.equal(view.find({ type: 'Markdown' }).props.content, 'Description of **issue 1**')
   clean(view)
   await view.unmount()
 })
 
-test('absent fields are omitted', async () => {
-  const bare = { ...detail(1), state: undefined, assignee: undefined, priority: undefined, type: undefined }
+test('an issue without fields shows no field list', async () => {
+  const bare = { ...detail(1), fields: [] }
   const host = mockHost({ requests: requests({ 'yt.issue.get': ok(bare) }) })
   const view = await open(host)
   assert.equal(view.find({ type: 'KeyValue' }), null)

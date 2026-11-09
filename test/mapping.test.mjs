@@ -157,3 +157,56 @@ test('saved searches without a query are skipped', () => {
   assert.deepEqual(toSavedQuery({ query: 'q' }), { id: '', name: '', query: 'q' })
   assert.deepEqual(toSavedQueries([{ id: '1', name: 'n' }, { id: '2', query: 'q' }, null]), [{ id: '2', name: '', query: 'q' }])
 })
+
+const types = load('yt-issue-view-field-types.json')
+const fieldsOf = (raw) => toIssueDetail(raw, [], BASE).fields
+const fieldMap = () => Object.fromEntries(fieldsOf(types).map((f) => [f.name, f.value]))
+
+test('detail fields keep YouTrack order and include every custom field', () => {
+  assert.deepEqual(
+    fieldsOf(types).map((f) => f.name),
+    ['Priority', 'State', 'Assignee', 'Reviewers', 'Fix versions', 'Affected versions', 'Subsystem', 'Notes', 'Empty note', 'Due date', 'Checked at', 'Estimation', 'Points', 'Label']
+  )
+})
+
+test('field values: enum, state and version use the name', () => {
+  const m = fieldMap()
+  assert.equal(m.Priority, 'Major')
+  assert.equal(m.State, 'In Progress')
+  assert.equal(m['Fix versions'], '1.0, 1.1')
+})
+
+test('field values: users use the full name, multi users are comma separated', () => {
+  const m = fieldMap()
+  assert.equal(m.Assignee, 'Demo User')
+  assert.equal(m.Reviewers, 'Ann Demo, Bob Demo')
+})
+
+test('field values: text, period and simple values are readable strings', () => {
+  const m = fieldMap()
+  assert.equal(m.Notes, 'Demo note text')
+  assert.equal(m.Estimation, '2h 30m')
+  assert.equal(m.Points, '5')
+  assert.equal(m.Label, 'demo-label')
+})
+
+test('field values: dates are formatted as YYYY-MM-DD (UTC)', () => {
+  assert.equal(fieldMap()['Due date'], '2026-11-09')
+})
+
+test('empty field values use the empty text of the project field, else a dash', () => {
+  const m = fieldMap()
+  assert.equal(m.Subsystem, 'No Subsystem')
+  assert.equal(m['Affected versions'], 'Unknown')
+  assert.equal(m['Checked at'], '\u2014')
+  assert.equal(m['Empty note'], '\u2014')
+})
+
+test('missing customFields gives no fields', () => {
+  assert.deepEqual(fieldsOf({ idReadable: 'DEMO-3' }), [])
+})
+
+test('fields without a name are skipped and values are always strings', () => {
+  const f = fieldsOf({ idReadable: 'DEMO-3', customFields: [{ value: 'x' }, { name: 'N', value: { weird: true } }, null] })
+  assert.deepEqual(f, [{ name: 'N', value: '\u2014' }])
+})

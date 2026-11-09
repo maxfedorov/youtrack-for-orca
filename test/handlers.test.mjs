@@ -551,3 +551,14 @@ test('odd records from the CLI do not break env or saved searches', async () => 
   assert.deepEqual(saved.data, [{ id: '2', name: 'ok', query: 'q' }])
   strict(saved)
 })
+
+test('many large custom fields still fit the answer budget', async () => {
+  const customFields = Array.from({ length: 300 }, (_, i) => ({
+    name: `Field ${i}`, $type: 'TextIssueCustomField', value: { text: 'ж'.repeat(50_000) },
+  }))
+  const yt = fakeYt({ viewIssue: async (s, id) => ok({ ...rawIssue(id), description: 'ж'.repeat(100_000), customFields }) })
+  const r = await setup({ yt }).call('yt.issue.get', { server: 'one', id: 'DEMO-1' })
+  assert.ok(Buffer.byteLength(JSON.stringify(r), 'utf8') <= 900_000)
+  assert.ok(r.data.fields.length > 0)
+  assert.ok(r.data.fields.every((f) => f.value.length <= 1000))
+})

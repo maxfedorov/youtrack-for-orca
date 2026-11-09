@@ -41,7 +41,7 @@ function requests(over: Record<string, unknown> = {}) {
     'yt.savedQueries': ok([]),
     'yt.links': ok({}),
     'yt.setQuery': ok({}),
-    'yt.issue.get': (i: any) => ok({ ...issue(Number(i.id.split('-')[1])), project: { shortName: 'DEMO', name: 'Demo' }, descriptionMd: 'Text', comments: [] }),
+    'yt.issue.get': (i: any) => ok({ ...issue(Number(i.id.split('-')[1])), project: { shortName: 'DEMO', name: 'Demo' }, fields: [], descriptionMd: 'Text', comments: [] }),
     'yt.start.prepare': ok(prepare()),
     'yt.refs.search': (i: any) => ok({ refs: i.query === 'dev' ? ['origin/dev', 'origin/devel'] : ['origin/main', 'origin/other'] }),
     'yt.start.run': ok({ workspaceId: 'w9' }),

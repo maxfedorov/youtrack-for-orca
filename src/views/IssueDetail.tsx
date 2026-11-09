@@ -71,12 +71,7 @@ function OpenInBrowser({ url }: { url: string }) {
 
 function Body({ issue }: { issue: Detail }) {
   const workspaceId = read(links)[issue.id]
-  const items = [
-    issue.state ? { label: 'State', value: issue.state.name } : null,
-    issue.assignee ? { label: 'Assignee', value: issue.assignee.fullName || issue.assignee.login } : null,
-    issue.priority ? { label: 'Priority', value: issue.priority.name } : null,
-    issue.type ? { label: 'Type', value: issue.type.name } : null
-  ].filter((item) => item !== null)
+  const items = issue.fields.map((field) => ({ label: field.name, value: field.value }))
   return (
     <Stack gap="sm">
       <Row gap="xs" align="center" justify="between">
