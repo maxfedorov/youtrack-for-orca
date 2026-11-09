@@ -294,3 +294,9 @@ test('a started workspace or agent is reported as started even when saving the l
   assert.ok(logs.length >= 2)
   assert.ok(logs.every((m) => !/disk full/.test(m)))
 })
+
+test('search answers each issue once', async () => {
+  const { call } = setup({ yt: fakeYt({ listIssues: async () => ok([rawIssue('DEMO-1'), rawIssue('DEMO-1'), rawIssue('DEMO-2')]) }) })
+  const r = await call('yt.issues.search', { server: 'one', query: '', offset: 0, limit: 10 })
+  assert.deepEqual(r.data.issues.map((i) => i.id), ['DEMO-1', 'DEMO-2'])
+})

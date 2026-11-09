@@ -85,9 +85,20 @@ function OpenInBrowser({ url }: { url: string }) {
   return <IconButton icon="open-external" label="Open in browser" variant="ghost" onPress={() => void openInBrowser(url)} />
 }
 
+/** Comment keys, unique even when the CLI repeats or leaves out an id. */
+function commentKeys(issue: Detail): string[] {
+  const seen = new Set<string>()
+  return issue.comments.map((comment, index) => {
+    const key = comment.id && !seen.has(comment.id) ? comment.id : `${comment.id}#${index}`
+    seen.add(key)
+    return key
+  })
+}
+
 function Body({ issue }: { issue: Detail }) {
   const workspaceId = read(links)[issue.id]
   const items = issue.fields.map((field) => ({ label: field.name, value: field.value }))
+  const keys = commentKeys(issue)
   return (
     <Stack gap="sm">
       <Row gap="xs" align="center" justify="between">
@@ -123,8 +134,8 @@ function Body({ issue }: { issue: Detail }) {
       {issue.comments.length === 0 ? (
         <Text muted>No comments</Text>
       ) : (
-        issue.comments.map((comment) => (
-          <Stack key={comment.id} gap="xs">
+        issue.comments.map((comment, index) => (
+          <Stack key={keys[index]} gap="xs">
             <Row gap="xs" align="center">
               <Text weight="medium">{comment.author.fullName || comment.author.login}</Text>
               <RelativeTime at={comment.created} format="short" muted />

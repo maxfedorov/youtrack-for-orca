@@ -47,7 +47,8 @@ export async function runSearch(text: string): Promise<void> {
   const answer = await call('yt.issues.search', { server: current, query: text, offset: 0, limit: PAGE_SIZE })
   if (mine !== seq) return
   if (answer.ok) {
-    set(issues, answer.data.issues)
+    const seen = new Set<string>()
+    set(issues, answer.data.issues.filter((row) => !seen.has(row.id) && Boolean(seen.add(row.id))))
     set(total, answer.data.total ?? answer.data.issues.length)
     set(totalKnown, answer.data.total !== undefined)
     set(lastPageFull, answer.data.issues.length >= PAGE_SIZE)
@@ -107,7 +108,7 @@ export async function loadSavedQueries(): Promise<void> {
   const current = read(server)
   if (!current) return
   const answer = await call('yt.savedQueries', { server: current })
-  if (answer.ok && read(server) === current) set(savedQueries, answer.data)
+  if (answer.ok && read(server) === current) set(savedQueries, answer.data.filter((item) => item.id && item.name))
 }
 
 /** First load of the list for the selected server: search with its stored query, saved searches, links. */

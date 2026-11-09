@@ -5,6 +5,8 @@ import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_I
 
 const MAX_LIMIT = 50
 const MAX_WINDOW = 500
+/** Table rows need unique keys; the first row of an id wins. */
+const unique = (rows) => rows.filter((r, i) => rows.findIndex((o) => o.idReadable === r.idReadable) === i)
 
 export function registerYoutrackHandlers(ctx) {
   const { orca, orcaCli, state, resolveServer } = ctx
@@ -66,7 +68,7 @@ export function registerYoutrackHandlers(ctx) {
     if (!list.ok) return list
     if (!Array.isArray(list.data)) return unexpected()
     const data = {
-      issues: list.data.slice(0, size).filter(hasId).map((r) => toIssueRow(r, s.data.url)),
+      issues: unique(list.data.slice(0, size).filter(hasId)).map((r) => toIssueRow(r, s.data.url)),
       hasMore: list.data.length > size
     }
     if (count?.ok) data.total = count.data
