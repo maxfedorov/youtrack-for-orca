@@ -33,3 +33,33 @@ export const isPlainUrl = (v) => typeof v === 'string' && v.length <= 200 && PLA
 
 export const normalizeUrl = (u) => String(u).replace(/\/+$/, '').toLowerCase()
 export const issueUrl = (baseUrl, id) => `${String(baseUrl).replace(/\/+$/, '')}/issue/${id}`
+
+export const AGENT_ID = /^[a-z0-9][a-z0-9-]{0,63}$/
+export const MAX_DESCRIPTION = 100_000
+export const MAX_COMMENT = 20_000
+export const MAX_COMMENTS = 200
+
+/**
+ * Keep an issue detail well under the 1 MiB answer limit: cut the description and long comments,
+ * keep the newest comments. `truncated: true` marks the detail and each cut comment.
+ */
+export function capDetail(detail) {
+  let truncated = false
+  const out = { ...detail }
+  if (out.descriptionMd.length > MAX_DESCRIPTION) {
+    out.descriptionMd = out.descriptionMd.slice(0, MAX_DESCRIPTION)
+    truncated = true
+  }
+  let comments = out.comments
+  if (comments.length > MAX_COMMENTS) {
+    comments = comments.slice(-MAX_COMMENTS)
+    truncated = true
+  }
+  out.comments = comments.map((c) => {
+    if (c.textMd.length <= MAX_COMMENT) return c
+    truncated = true
+    return { ...c, textMd: c.textMd.slice(0, MAX_COMMENT), truncated: true }
+  })
+  if (truncated) out.truncated = true
+  return out
+}

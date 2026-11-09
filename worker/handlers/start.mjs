@@ -2,7 +2,7 @@
 import { ok, fail, CODES } from '../result.mjs'
 import { toIssueDetail } from '../mapping.mjs'
 import { issueVars, workspaceName, PROMPT_LIMIT } from '../prompt.mjs'
-import { guard, invalid, token, issueUrl, ISSUE_ID, settingString, isPlainUrl } from './common.mjs'
+import { guard, invalid, token, issueUrl, ISSUE_ID, settingString, isPlainUrl, capDetail, AGENT_ID } from './common.mjs'
 
 const DEFAULT_BRANCH_TEMPLATE = '{{id_lower}}-{{summary_slug}}'
 const INSTALL = {
@@ -43,10 +43,7 @@ export function registerStartHandlers(ctx) {
     if (prompt != null && typeof prompt !== 'string') return invalid('Invalid prompt')
     if (prompt && prompt.length > PROMPT_LIMIT) return tooLong()
     if (agent != null && typeof agent !== 'string') return invalid('Invalid agent')
-    if (agent) {
-      const { installed, other } = detectAgents()
-      if (![...installed, ...other].includes(agent)) return invalid('Unknown agent')
-    }
+    if (agent && !AGENT_ID.test(agent)) return invalid('Invalid agent')
     return ok({ agent: agent || '', prompt: prompt && prompt.trim() ? prompt : '' })
   }
 
@@ -60,7 +57,7 @@ export function registerStartHandlers(ctx) {
       listWorkspaces()
     ])
     if (!view.ok) return view
-    const issue = toIssueDetail(view.data, null, s.data.url)
+    const issue = capDetail(toIssueDetail(view.data, null, s.data.url))
     const vars = issueVars({ issue, server: s.data.alias, branch: '' })
     const get = (k) => orca.settings.get(k)
     const agents = detectAgents()
@@ -77,7 +74,7 @@ export function registerStartHandlers(ctx) {
       defaultRepoId: repo ? repo.id : null,
       name: workspaceName(settingString(await get('branchTemplate'), DEFAULT_BRANCH_TEMPLATE), vars),
       agents,
-      defaultAgent: agents.installed.includes(defaultAgent) ? defaultAgent : '',
+      defaultAgent: AGENT_ID.test(defaultAgent) ? defaultAgent : '',
       launchMode: (await get('defaultLaunchMode')) === 'current' ? 'current' : 'worktree',
       includeDescription: (await get('includeDescription')) === true,
       promptTemplate: settingString(await get('promptTemplate'), ''),
@@ -106,13 +103,14 @@ export function registerStartHandlers(ctx) {
   handle('yt.start.run', async ({ server, id, repoId, name, baseBranch, agent, prompt }) => {
     if (!orcaCli) return noOrcaCli()
     if (typeof id !== 'string' || !ISSUE_ID.test(id)) return invalid('Invalid issue id')
-    const bad = token(repoId, 'repository') ?? token(name, 'name') ?? (baseBranch ? token(baseBranch, 'base branch') : null)
+    const trimmed = typeof name === 'string' ? name.trim() : name
+    const bad = token(repoId, 'repository') ?? token(trimmed, 'name') ?? (baseBranch ? token(baseBranch, 'base branch') : null)
     if (bad) return invalid(bad)
     const launch = checkLaunch({ agent, prompt })
     if (!launch.ok) return launch
     const s = await resolveServer(server)
     if (!s.ok) return s
-    const input = { repoId, name: name.trim(), issueId: id, issueUrl: issueUrl(s.data.url, id) }
+    const input = { repoId, name: trimmed, issueId: id, issueUrl: issueUrl(s.data.url, id) }
     if (baseBranch) input.baseBranch = baseBranch
     if (launch.data.agent) {
       input.agent = launch.data.agent
@@ -140,10 +138,10 @@ export function registerStartHandlers(ctx) {
     const params = { workspaceId, agent }
     if (launch.data.prompt) params.prompt = launch.data.prompt
     const r = await host('agent.launch', params)
-    const terminalId = r?.terminalId
-    if (typeof terminalId !== 'string') return fail(CODES.UNKNOWN, 'Orca did not report the new terminal.')
-    await launches.track({ terminalId, server: s.data.alias, issueId: id, workspaceId, at: now() })
-    return ok({ terminalId })
+    // Without a terminal id the launch is tracked by workspace id (the notifier matches either).
+    const terminalId = typeof r?.terminalId === 'string' ? r.terminalId : null
+    await launches.track({ terminalId: terminalId ?? workspaceId, server: s.data.alias, issueId: id, workspaceId, at: now() })
+    return ok(terminalId ? { terminalId } : {})
   })
 
   handle('yt.links', async ({ server }) => {

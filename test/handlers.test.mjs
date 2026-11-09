@@ -65,6 +65,10 @@ function setup({ yt = fakeYt(), cli = fakeCli(), host = {}, settings = {}, platf
   return { orca, yt, cli, call, links, launches, state }
 }
 
+async function posted(orca, name) {
+  for (let i = 0; i < 200 && !orca.posts.some((p) => p.name === name); i++) await new Promise((r) => setImmediate(r))
+  assert.ok(orca.posts.some((p) => p.name === name), `no ${name} event`)
+}
 const strict = (v) => assert.deepEqual(JSON.parse(JSON.stringify(v)), v)
 
 test('env reports CLI_NOT_FOUND when youtrack is null', async () => {
@@ -196,7 +200,7 @@ test('start.prepare gathers repos, workspaces, agents, name and vars', async () 
 })
 
 test('start.prepare without orcaCli or a matching workspace', async () => {
-  const { call } = setup({ cli: null, host: { 'workspace.readContext': null }, settings: { defaultAgent: 'nope' } })
+  const { call } = setup({ cli: null, host: { 'workspace.readContext': null }, settings: { defaultAgent: '' } })
   const r = await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
   assert.deepEqual(r.data.repos, [])
   assert.equal(r.data.orcaCli, false)
@@ -254,7 +258,7 @@ test('start.run validates input before touching the CLI', async () => {
   const { call, cli } = setup()
   const bad = [
     { id: '--x-1' }, { server: 'nope' }, { repoId: '' }, { repoId: '-r' }, { name: '' }, { name: '-n' },
-    { baseBranch: '--x' }, { agent: 'rm -rf' }, { prompt: 5 },
+    { baseBranch: '--x' }, { agent: 'rm -rf' }, { agent: '-x' }, { name: '  -n ' }, { prompt: 5 },
   ]
   for (const b of bad) assert.equal((await call('yt.start.run', { ...RUN, ...b })).ok, false, JSON.stringify(b))
   assert.equal(cli.calls.length, 0)
@@ -285,6 +289,7 @@ test('runInExisting needs a known agent and omits a blank prompt', async () => {
   const { call, orca } = setup({ host: { 'agent.launch': { terminalId: 't9' } } })
   const base = { server: 'one', id: 'DEMO-1', workspaceId: 'identity:main' }
   assert.equal((await call('yt.runInExisting', { ...base, agent: '', prompt: 'x' })).ok, false)
+  assert.equal((await call('yt.runInExisting', { ...base, agent: 'a b', prompt: 'x' })).ok, false)
   await call('yt.runInExisting', { ...base, agent: 'codex', prompt: '  ' })
   assert.deepEqual(orca.hostCalls.find((c) => c.method === 'agent.launch').params, { workspaceId: 'identity:main', agent: 'codex' })
 })
@@ -351,7 +356,7 @@ test('servers.add streams the auth url and posts the alias when done', async () 
   const { call, orca } = setup({ yt: fakeYt({ instances: async () => ok([{ alias: 'new', url: 'https://new.youtrack.cloud/', status: 'authenticated', active: false }]) }) })
   const r = await call('yt.servers.add', { url: 'https://new.youtrack.cloud' })
   assert.deepEqual(r, ok({ started: true }))
-  await new Promise((res) => setTimeout(res, 20))
+  await posted(orca, 'yt.servers.added')
   assert.deepEqual(orca.posts[0], { name: 'yt.servers.authUrl', payload: { url: 'https://auth.example/x' } })
   assert.deepEqual(orca.posts[1], { name: 'yt.servers.added', payload: ok({ alias: 'new' }) })
   assert.equal((await call('yt.servers.add', { url: 'ftp://x' })).ok, false)
@@ -360,11 +365,66 @@ test('servers.add streams the auth url and posts the alias when done', async () 
 test('servers.add posts a failure result', async () => {
   const { call, orca } = setup({ yt: fakeYt({ loginWeb: async () => fail('AUTH_FAILED', 'denied') }) })
   await call('yt.servers.add', { url: 'https://new.youtrack.cloud' })
-  await new Promise((res) => setTimeout(res, 20))
+  await posted(orca, 'yt.servers.added')
   assert.deepEqual(orca.posts.at(-1), { name: 'yt.servers.added', payload: fail('AUTH_FAILED', 'denied') })
 })
 
 test('unexpected exceptions become UNKNOWN', async () => {
   const { call } = setup({ yt: fakeYt({ instances: async () => { throw new Error('kaboom') } }) })
   assert.deepEqual(await call('yt.env'), fail('UNKNOWN', 'kaboom'))
+})
+
+test('any well-formed agent id is accepted, even if not detected', async () => {
+  const { call, cli } = setup({ host: { 'agent.launch': { terminalId: 't' } } })
+  assert.equal((await call('yt.start.run', { ...RUN, agent: 'my-agent2' })).ok, true)
+  assert.equal(cli.calls[0].a.agent, 'my-agent2')
+  assert.equal((await call('yt.runInExisting', { server: 'one', id: 'DEMO-1', workspaceId: 'identity:main', agent: 'my-agent2', prompt: '' })).ok, true)
+})
+
+test('start.prepare keeps the default agent setting even when not detected', async () => {
+  const a = await setup({ settings: { defaultAgent: 'zzz-agent' } }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.equal(a.data.defaultAgent, 'zzz-agent')
+  const b = await setup({ settings: { defaultAgent: '' } }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.equal(b.data.defaultAgent, '')
+})
+
+test('runInExisting without a terminal id still succeeds and tracks the workspace', async () => {
+  const { call, orca } = setup({ host: { 'agent.launch': {} } })
+  const r = await call('yt.runInExisting', { server: 'one', id: 'DEMO-1', workspaceId: 'identity:main', agent: 'claude', prompt: 'x' })
+  assert.deepEqual(r, ok({}))
+  assert.equal(orca.storage.data().launches[0].terminalId, 'identity:main')
+})
+
+const bigYt = () => fakeYt({
+  viewIssue: async (s, id) => ok({ ...rawIssue(id), description: 'd'.repeat(100_001) }),
+  listComments: async () => ok(Array.from({ length: 205 }, (_, i) => ({
+    id: `c${i}`, author: { login: 'a', fullName: 'A' }, created: i, text: i === 204 ? 'y'.repeat(20_001) : 'ok',
+  }))),
+})
+
+test('issue.get caps description, comment text and comment count', async () => {
+  const r = await setup({ yt: bigYt() }).call('yt.issue.get', { server: 'one', id: 'DEMO-1' })
+  assert.equal(r.data.descriptionMd.length, 100_000)
+  assert.equal(r.data.comments.length, 200)
+  assert.equal(r.data.comments[0].id, 'c5')
+  assert.equal(r.data.comments[199].textMd.length, 20_000)
+  assert.equal(r.data.comments[199].truncated, true)
+  assert.ok(!('truncated' in r.data.comments[0]))
+  assert.equal(r.data.truncated, true)
+  assert.ok(JSON.stringify(r).length < 1024 * 1024)
+  strict(r)
+})
+
+test('small issues carry no truncated flag; prepare caps the description in vars', async () => {
+  const small = await setup().call('yt.issue.get', { server: 'one', id: 'DEMO-1' })
+  assert.ok(!('truncated' in small.data))
+  const p = await setup({ yt: bigYt() }).call('yt.start.prepare', { server: 'one', id: 'DEMO-1' })
+  assert.equal(p.data.vars.description.length, 100_000)
+})
+
+test('servers.add survives an error thrown while finishing sign-in', async () => {
+  const { call, orca } = setup({ yt: fakeYt({ instances: async () => { throw new Error('late') } }) })
+  await call('yt.servers.add', { url: 'https://new.youtrack.cloud' })
+  await posted(orca, 'yt.servers.added')
+  assert.equal(orca.posts.at(-1).payload.ok, false)
 })

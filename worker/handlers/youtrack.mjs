@@ -1,7 +1,7 @@
 /** Requests about servers, issues and saved queries (everything answered by the youtrack CLI). */
 import { ok, fail, CODES } from '../result.mjs'
 import { toIssueRow, toIssueDetail, toSavedQuery, toServer } from '../mapping.mjs'
-import { guard, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, isPlainUrl, normalizeUrl, settingString } from './common.mjs'
+import { guard, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, isPlainUrl, normalizeUrl, settingString, capDetail } from './common.mjs'
 
 const MAX_LIMIT = 50
 const MAX_WINDOW = 500
@@ -67,7 +67,7 @@ export function registerYoutrackHandlers(ctx) {
     if (!s.ok) return s
     const [view, comments] = await Promise.all([youtrack.viewIssue(s.data.alias, id), youtrack.listComments(s.data.alias, id)])
     if (!view.ok) return view
-    return ok(toIssueDetail(view.data, comments.ok ? comments.data : null, s.data.url))
+    return ok(capDetail(toIssueDetail(view.data, comments.ok ? comments.data : null, s.data.url)))
   })
 
   handle('yt.savedQueries', async ({ server }) => {
@@ -90,10 +90,10 @@ export function registerYoutrackHandlers(ctx) {
   handle('yt.servers.add', async ({ url }) => {
     if (!isPlainUrl(url)) return invalid('Enter a server address like https://example.youtrack.cloud')
     if (!youtrack) return fail(CODES.CLI_NOT_FOUND, 'The youtrack CLI was not found.')
-    login(url).then(
-      (result) => orca.panels.post('yt.servers.added', result),
-      (e) => orca.panels.post('yt.servers.added', fail(CODES.UNKNOWN, e instanceof Error ? e.message : String(e)))
-    )
+    login(url)
+      .catch((e) => fail(CODES.UNKNOWN, e instanceof Error ? e.message : String(e)))
+      .then((result) => orca.panels.post('yt.servers.added', result))
+      .catch(() => {})
     return ok({ started: true })
   })
 

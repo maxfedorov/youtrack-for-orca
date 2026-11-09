@@ -9,7 +9,8 @@ export type Result<T> = { ok: true; data: T } | { ok: false; error: { code: Erro
 
 export type Value = { name: string; color?: string }
 export type User = { login: string; fullName: string }
-export type Comment = { id: string; author: User; created: number; textMd: string }
+/** `truncated`: the text was cut; the UI can offer "Open in browser". */
+export type Comment = { id: string; author: User; created: number; textMd: string; truncated?: true }
 export type Server = { alias: string; url: string; active: boolean; status: string }
 export type IssueRow = {
   id: string; summary: string; state?: Value; priority?: Value; assignee?: User
@@ -17,6 +18,8 @@ export type IssueRow = {
 }
 export type IssueDetail = IssueRow & {
   project: { shortName: string; name: string }; type?: Value; descriptionMd: string; comments: Comment[]
+  /** Description or comments were cut (long text, only the newest 200 comments kept). */
+  truncated?: true
 }
 export type SavedQuery = { id: string; name: string; query: string }
 export type Repo = { id: string; name: string; path?: string; worktreeBaseRef?: string }
@@ -78,7 +81,7 @@ declare module 'orca' {
     /** Agent in an existing workspace; no issue-to-workspace link is stored. */
     'yt.runInExisting': {
       input: { server: string; id: string; workspaceId: string; agent: string; prompt: string }
-      output: Result<{ terminalId: string }>
+      output: Result<{ terminalId?: string }>
     }
     /** Issue id -> newest live workspace id. */
     'yt.links': { input: { server: string }; output: Result<Record<string, string>> }
