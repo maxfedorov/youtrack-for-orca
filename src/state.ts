@@ -1,5 +1,6 @@
 import { atom, plugin, set } from 'orca'
 import type { ErrorCode, Result, Server } from './protocol'
+import { validAnswer } from './shapes'
 
 export type Env = {
   cli: { found: boolean; version?: string; installCommand?: string }
@@ -24,25 +25,52 @@ export const refreshTick = atom(0)
 /** Message of the last failed request, shown by the panel; null when none. */
 export const panelError = atom<string | null>(null)
 
-/** Turns a Result into data or an error state; never throws. */
-export function unwrap<T>(result: Result<T> | null | undefined): Unwrapped<T> {
-  if (result && result.ok) return { ok: true, data: result.data }
-  if (result && !result.ok) return { ok: false, code: result.error.code, message: result.error.message }
-  return { ok: false, code: 'UNKNOWN', message: 'No answer from the worker' }
+const UNEXPECTED = 'The plugin got an unexpected answer. Try again.'
+/** Messages for the ways `plugin.request` rejects, by host error code. */
+const REJECTED: Record<string, string> = {
+  timeout: 'The plugin did not answer in time. Try again.',
+  unavailable: 'The plugin is not available right now. Try again.',
+  unknown_method: 'This action is not available in this version of the plugin.'
 }
 
-/** `plugin.request` that turns a rejection into a failed result. */
+/** Turns a Result into data or an error state; never throws, whatever the answer is. */
+export function unwrap<T>(result: Result<T> | null | undefined): Unwrapped<T> {
+  const r = result as unknown
+  if (typeof r !== 'object' || r === null || Array.isArray(r)) return { ok: false, code: 'UNKNOWN', message: 'No answer from the worker' }
+  const answer = r as { ok?: unknown; data?: unknown; error?: { code?: unknown; message?: unknown } | null }
+  if (answer.ok === true && 'data' in answer) return { ok: true, data: answer.data as T }
+  if (answer.ok === false) {
+    const error = typeof answer.error === 'object' && answer.error !== null ? answer.error : {}
+    const code = typeof error.code === 'string' && error.code ? (error.code as ErrorCode) : 'UNKNOWN'
+    const message = typeof error.message === 'string' && error.message ? error.message : 'The request failed. Try again.'
+    return { ok: false, code, message }
+  }
+  return { ok: false, code: 'UNKNOWN', message: UNEXPECTED }
+}
+
+/** Why a `plugin.request` rejected, in words for the error callout. */
+function rejected(error: unknown): string {
+  const code = typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined
+  if (typeof code === 'string' && REJECTED[code]) return REJECTED[code]
+  return error instanceof Error && error.message ? error.message : 'The request failed. Try again.'
+}
+
+/**
+ * `plugin.request` that always resolves: a rejection, a malformed Result or data of a shape the
+ * screens cannot read all become a failed result.
+ */
 export async function call<N extends keyof import('orca').PluginRequests>(
   name: N,
   input: import('orca').PluginRequests[N]['input']
 ): Promise<Unwrapped<Extract<import('orca').PluginRequests[N]['output'], { ok: true }>['data']>> {
   try {
-    const answer = unwrap(await plugin.request(name, input) as never)
+    let answer = unwrap(await plugin.request(name, input) as never)
+    if (answer.ok && !validAnswer(name, answer.data)) answer = { ok: false, code: 'UNKNOWN', message: UNEXPECTED }
     if (answer.ok) set(panelError, null)
     else if (answer.code === 'CLI_NOT_FOUND' && name !== 'yt.env') void loadEnv()
     return answer as never
   } catch (error) {
-    return { ok: false, code: 'UNKNOWN', message: error instanceof Error ? error.message : String(error) }
+    return { ok: false, code: 'UNKNOWN', message: rejected(error) }
   }
 }
 
