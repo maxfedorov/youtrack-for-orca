@@ -64,6 +64,14 @@ export async function runProcess(file, args, opts, execFileImpl = execFile) {
         return resolve({ exitCode: null, stdout: '', stderr: '', timedOut: false, spawnError: e?.code ?? 'EXEC_FAILED' })
       }
       if (opts.onStderrLine && child?.stderr) {
+        // A throw here would be an uncaught exception in a stream callback, which stops the worker.
+        const emitLine = (line) => {
+          try {
+            opts.onStderrLine(line)
+          } catch {
+            // the line is dropped
+          }
+        }
         let buf = ''
         child.stderr.setEncoding?.('utf8')
         child.stderr.on('data', (chunk) => {
@@ -72,15 +80,17 @@ export async function runProcess(file, args, opts, execFileImpl = execFile) {
           while ((i = buf.indexOf('\n')) >= 0) {
             const line = buf.slice(0, i).replace(/\r$/, '')
             buf = buf.slice(i + 1)
-            if (line) opts.onStderrLine(line)
+            if (line) emitLine(line)
           }
         })
         child.stderr.on('end', () => {
-          if (buf.trim()) opts.onStderrLine(buf.replace(/\r$/, ''))
+          if (buf.trim()) emitLine(buf.replace(/\r$/, ''))
           buf = ''
         })
       }
       if (child?.stdin) {
+        // Writing to a process that already exited fails with EPIPE; the exit callback reports the run.
+        child.stdin.on?.('error', () => {})
         if (opts.input !== undefined) child.stdin.end(opts.input)
         else child.stdin.end()
       }
