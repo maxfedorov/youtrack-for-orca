@@ -1,5 +1,6 @@
 /** Status bar count, the "agent finished" notification, and the hook that refreshes the count after changes. */
 import { CODES } from './result.mjs'
+import { toServers } from './mapping.mjs'
 
 const ITEM = 'count'
 const DEFAULT_INTERVAL_MS = 300_000
@@ -30,7 +31,7 @@ export function createStatusBar({
   async function compute(youtrack) {
     const inst = await youtrack.instances()
     if (!inst.ok) return inst
-    const servers = inst.data
+    const servers = toServers(inst.data)
     const stored = await state.getServer()
     const chosen = servers.find((s) => s.alias === stored) ?? servers.find((s) => s.active) ?? servers[0]
     if (!chosen) return { ok: false, error: { code: CODES.NO_SERVERS } }
@@ -96,7 +97,7 @@ export function createFinishNotifier({ host, launches, post }) {
         })
         if (!found) return
         await host.call('notifications.show', { title: `Agent finished ${found.issueId}`, body: found.server })
-        post?.('yt.agentFinished', { server: found.server, issueId: found.issueId, workspaceId: event.workspaceId ?? null })
+        await post?.('yt.agentFinished', { server: found.server, issueId: found.issueId, workspaceId: event.workspaceId ?? null })
       } catch {
         // a failed notification must not break the event stream
       }

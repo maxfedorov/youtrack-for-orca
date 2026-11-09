@@ -9,6 +9,7 @@ import { detectAgents } from './agents.mjs'
 import { registerHandlers } from './handlers.mjs'
 import { createOpenPanelCommand } from './open-panel.mjs'
 import { createStatusBar, createFinishNotifier, refreshAfter } from './status.mjs'
+import { safePost } from './handlers/common.mjs'
 
 const REFRESHING = ['yt.setServer', 'yt.start.run', 'yt.runInExisting', 'yt.savedQueries.create']
 let statusBar = null
@@ -37,7 +38,7 @@ export default async function activate(orca) {
     now: () => Date.now()
   })
 
-  const notifier = createFinishNotifier({ host: orca.host, launches, post: (name, payload) => orca.panels.post(name, payload) })
+  const notifier = createFinishNotifier({ host: orca.host, launches, post: (name, payload) => safePost(orca, name, payload) })
   orca.events.on('agent.status.changed', notifier.onAgentStatus)
 
   orca.commands.register('youtrack.openPanel', createOpenPanelCommand({ orcaCli, host: orca.host }))
