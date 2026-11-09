@@ -17,3 +17,22 @@ export function fakeRun(map = {}) {
   run.calls = calls
   return run
 }
+
+/**
+ * In-memory stand-in for the worker's `orca.storage`.
+ * `data()` returns a plain-object snapshot of what is stored.
+ */
+export function fakeStorage(initial = {}) {
+  const map = new Map(Object.entries(initial))
+  return {
+    async get(key) {
+      return map.has(key) ? structuredClone(map.get(key)) : null
+    },
+    async set(key, value) {
+      map.set(key, structuredClone(value))
+    },
+    data() {
+      return Object.fromEntries(map)
+    },
+  }
+}
