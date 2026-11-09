@@ -80,6 +80,20 @@ test('invalid query is not saved and disables star', async () => {
   await view.unmount()
 })
 
+test('saved star is disabled while the matching query has an error', async () => {
+  const host = mockHost({
+    requests: requests({
+      'yt.savedQueries': ok([{ id: 's1', name: 'Mine', query: 'for: me #Unresolved' }]),
+      'yt.issues.search': fail('QUERY_INVALID', "HTTP 400: Can't parse search query")
+    })
+  })
+  const view = await mount(panel, { host })
+  const star = view.find({ role: 'button', label: 'Saved as Mine' })
+  assert.equal(star.props.disabled, true)
+  assert.equal(star.props.variant, 'solid')
+  await view.unmount()
+})
+
 test('zero results shows empty state with reset', async () => {
   const host = mockHost({
     requests: requests({ 'yt.env': env({ query: 'project: NOPE' }), 'yt.issues.search': (i: any) => (i.query === 'project: NOPE' ? ok({ issues: [], hasMore: false, total: 0 }) : page(1, 2, false, 2)) })
