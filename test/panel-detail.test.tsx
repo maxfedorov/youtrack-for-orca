@@ -158,7 +158,7 @@ test('start leaves the detail view for the start view', async () => {
   const host = mockHost({ requests: requests() })
   const view = await open(host)
   await view.press({ role: 'button', text: 'Start →' })
-  assert.equal(view.find({ role: 'button', text: '← Back' }), null)
+  assert.ok(view.find({ text: 'Start DEMO-1' }))
   await view.unmount()
 })
 

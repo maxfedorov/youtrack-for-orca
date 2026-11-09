@@ -4,6 +4,7 @@ import { loadLinks } from './listState'
 import { Header } from './views/Header'
 import { IssueDetail } from './views/IssueDetail'
 import { IssueList } from './views/IssueList'
+import { StartView } from './views/StartView'
 import { onAdded, authUrl, Setup } from './views/Setup'
 
 /** Runs once before the first render. */
@@ -16,7 +17,7 @@ export function setup(ctx: PanelContext): void {
   void loadEnv()
 }
 
-/** The screen for the current view; Task for start replaces the placeholder. */
+/** The screen for the current view. */
 function Screen() {
   const current = read(view)
   switch (current.kind) {
@@ -27,7 +28,7 @@ function Screen() {
     case 'detail':
       return <IssueDetail id={current.issueId ?? ''} />
     case 'start':
-      return <Text muted>Loading…</Text>
+      return <StartView id={current.issueId ?? ''} />
   }
 }
 

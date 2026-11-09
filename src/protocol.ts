@@ -80,7 +80,7 @@ declare module 'orca' {
     'yt.refs.search': { input: { repoId: string; query: string }; output: Result<{ refs: string[] }> }
     /** New worktree. Without `agent` no prompt is sent. */
     'yt.start.run': {
-      input: { server: string; id: string; repoId: string; name: string; baseBranch?: string; agent?: string; prompt: string }
+      input: { server: string; id: string; repoId: string; name: string; baseBranch?: string; agent?: string; prompt?: string }
       output: Result<{ workspaceId: string }>
     }
     /** Agent in an existing workspace; no issue-to-workspace link is stored. */
