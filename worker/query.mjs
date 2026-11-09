@@ -22,7 +22,7 @@ const norm = (s) => s.replace(/^\{|\}$/g, '').trim().replace(/\s+/g, ' ').toLowe
 export function parseSort(query) {
   const idx = String(query ?? '').search(/\bsort\s+by\s*:/i)
   if (idx < 0) return null
-  // Only the first clause matters once the rest is dropped; use the last as the effective one.
+  // With several clauses the last one is the effective one; applySort drops all of them.
   const clauses = String(query).slice(idx).split(/(?=\bsort\s+by\s*:)/i)
   const m = PARSE.exec(clauses[clauses.length - 1])
   if (!m) return null

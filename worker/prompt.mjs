@@ -68,20 +68,41 @@ export function renderTemplate(template, vars) {
  */
 export function workspaceName(branchTemplate, vars) {
   const slug = slugify(renderTemplate(branchTemplate, vars).text)
-  return slug || slugify(vars.id_lower ?? '')
+  return slug || slugify(vars.id_lower ?? '') || 'issue'
 }
 
 /** @param {string} text @param {number} budget */
 function truncate(text, budget) {
   if (text.length <= budget) return text
   if (budget < MARKER.length + 1) return ''
-  return text.slice(0, budget - MARKER.length - 1) + '\n' + MARKER
+  let end = budget - MARKER.length - 1
+  const last = text.charCodeAt(end - 1)
+  if (last >= 0xd800 && last <= 0xdbff) end -= 1 // do not split a surrogate pair
+  return text.slice(0, end) + '\n' + MARKER
+}
+
+/** Make sure issue text cannot contain a line that looks like a block marker. */
+function neutralize(text) {
+  return String(text ?? '').replace(/-{3}\s*(BEGIN|END)\s+YOUTRACK\s+ISSUE/gi, '[$1 YOUTRACK ISSUE')
+}
+
+const OVERHEAD = BEGIN.length + END.length + 2 // two newlines inside the block
+
+/**
+ * The untrusted block with a neutralized, truncated body; '' when it cannot fit in `room`.
+ * @param {string} description
+ * @param {number} room total characters available for the whole block
+ */
+function untrustedBlock(description, room) {
+  const body = truncate(neutralize(description), room - OVERHEAD)
+  return body ? `${BEGIN}\n${body}\n${END}` : ''
 }
 
 /**
- * Render the template and optionally append the issue description block.
- * The result never exceeds PROMPT_LIMIT, unless the template alone does
- * (then it is returned as rendered, for the caller to reject).
+ * Render the template; issue text only ever appears inside the untrusted block,
+ * either where `{{description}}` stands or appended when `includeDescription` is set
+ * and the template has no such placeholder. The result never exceeds PROMPT_LIMIT,
+ * unless the template alone does (then it is returned as rendered, for the caller to reject).
  * @param {{ template: string, vars: Record<string, string>, includeDescription: boolean, description?: string }} p
  * @returns {string}
  */
@@ -89,16 +110,13 @@ export function buildPrompt({ template, vars, includeDescription, description = 
   const bare = renderTemplate(template, { ...vars, description: '' }).text
   if (bare.length >= PROMPT_LIMIT) return bare
 
-  // Share what is left among `{{description}}` placeholders in the template.
   const uses = (String(template).match(/\{\{\s*description\s*\}\}/g) ?? []).length
-  const inline = uses
-    ? truncate(vars.description ?? '', Math.floor((PROMPT_LIMIT - bare.length) / uses))
-    : ''
-  const text = renderTemplate(template, { ...vars, description: inline }).text
-  if (!includeDescription || !description) return text
-
-  const wrap = (body) => `${text}\n\n${BEGIN}\n${body}\n${END}`
-  const room = PROMPT_LIMIT - wrap('').length
-  const body = truncate(description, room)
-  return body ? wrap(body) : text
+  if (uses) {
+    const room = Math.floor((PROMPT_LIMIT - bare.length) / uses)
+    const block = vars.description ? untrustedBlock(vars.description, room) : ''
+    return renderTemplate(template, { ...vars, description: block }).text
+  }
+  if (!includeDescription || !description) return bare
+  const block = untrustedBlock(description, PROMPT_LIMIT - bare.length - 2)
+  return block ? `${bare}\n\n${block}` : bare
 }
