@@ -19,7 +19,12 @@ export function createYoutrackHolder({ getSetting, env, platform, homedir, exist
     get: () => current,
     /** Resolves the binary again; the wrapper is rebuilt only when the binary changed. */
     async refresh() {
-      const setting = await getSetting()
+      let setting = ''
+      try {
+        setting = await getSetting()
+      } catch {
+        // an unreadable setting falls back to PATH and the well-known install dirs
+      }
       const next = resolveYoutrack({ settingPath: typeof setting === 'string' ? setting : '', env, platform, homedir, exists })
       if (next !== bin) {
         bin = next
