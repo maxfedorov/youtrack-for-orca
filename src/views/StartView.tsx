@@ -5,6 +5,7 @@ import {
 } from '../startState'
 import { AgentPicker } from './start/AgentPicker'
 import { BranchPicker } from './start/BranchPicker'
+import { server } from '../state'
 import type { StartPrepare } from '../protocol'
 
 const BackButton = () => (
@@ -106,7 +107,7 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
 
 export function StartView({ id }: { id: string }) {
   sync(id)
-  const ready = read(loadedFor) === id ? read(status) : 'loading'
+  const ready = read(loadedFor) === `${read(server)}|${id}` ? read(status) : 'loading'
   const p = read(prep)
   return (
     <Stack gap="sm">

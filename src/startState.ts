@@ -17,7 +17,7 @@ type Status = 'idle' | 'loading' | 'ok' | 'error'
 export const prep = atom<StartPrepare | null>(null)
 export const status = atom<Status>('idle')
 export const failure = atom('')
-/** The issue the atoms of this view belong to; null when nothing is loaded. */
+/** The server and issue (`alias|id`) the atoms of this view belong to; null when nothing is loaded. */
 export const loadedFor = atom<string | null>(null)
 
 export const mode = atom<Mode>('worktree')
@@ -162,7 +162,7 @@ export async function load(id: string): Promise<void> {
   const current = read(server)
   if (!current) return
   const mine = ++seq
-  set(loadedFor, id)
+  set(loadedFor, `${current}|${id}`)
   set(status, 'loading')
   const answer = await call('yt.start.prepare', { server: current, id })
   if (mine !== seq) return
@@ -178,7 +178,7 @@ export async function load(id: string): Promise<void> {
 
 /** Called while rendering (state cannot change there, so loading is queued): loads when the issue changed. */
 export function sync(id: string): void {
-  if (read(loadedFor) === id || queued === id) return
+  if (read(loadedFor) === `${read(server)}|${id}` || queued === id) return
   queued = id
   queueMicrotask(() => {
     queued = null
