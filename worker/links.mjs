@@ -2,6 +2,8 @@
 // launches are still waiting for their "finished" notification.
 // Storage is read and written on every call; nothing is cached in memory.
 
+import { createSerial } from './serial.mjs'
+
 const MAX_LINKS_PER_ISSUE = 20
 const MAX_LAUNCHES = 50
 
@@ -13,6 +15,7 @@ const keyOf = (server, issueId) => `${server}|${issueId}`
 
 /** @param {Storage} storage */
 export function createLinkStore(storage) {
+  const serial = createSerial()
   async function read() {
     const v = await storage.get('links')
     return v && typeof v === 'object' && !Array.isArray(v) ? v : {}
@@ -29,14 +32,15 @@ export function createLinkStore(storage) {
 
   return {
     /** @param {string} server @param {string} issueId @param {string} workspaceId @param {number} createdAt */
-    async add(server, issueId, workspaceId, createdAt) {
-      const all = await read()
-      const key = keyOf(server, issueId)
-      const list = (Array.isArray(all[key]) ? all[key] : []).filter((e) => e.workspaceId !== workspaceId)
-      list.push({ workspaceId, createdAt })
-      all[key] = list.slice(-MAX_LINKS_PER_ISSUE)
-      await storage.set('links', all)
-    },
+    add: (server, issueId, workspaceId, createdAt) =>
+      serial(async () => {
+        const all = await read()
+        const key = keyOf(server, issueId)
+        const list = (Array.isArray(all[key]) ? all[key] : []).filter((e) => e.workspaceId !== workspaceId)
+        list.push({ workspaceId, createdAt })
+        all[key] = list.slice(-MAX_LINKS_PER_ISSUE)
+        await storage.set('links', all)
+      }),
 
     /** @returns {Promise<string | null>} */
     async latest(server, issueId, liveIds) {
@@ -57,21 +61,26 @@ export function createLinkStore(storage) {
       return out
     },
 
-    /** Drops entries whose workspace is not in `liveIds`. */
-    async prune(liveIds) {
-      const all = await read()
-      const next = {}
-      for (const [key, list] of Object.entries(all)) {
-        const kept = (Array.isArray(list) ? list : []).filter((e) => liveIds.has(e.workspaceId))
-        if (kept.length) next[key] = kept
-      }
-      await storage.set('links', next)
-    },
+    /**
+     * Drops entries whose workspace is not in `liveIds`. With `before`, entries created at or after that
+     * time stay: `liveIds` was read then, so a newer workspace may be missing from it.
+     */
+    prune: (liveIds, before = Infinity) =>
+      serial(async () => {
+        const all = await read()
+        const next = {}
+        for (const [key, list] of Object.entries(all)) {
+          const kept = (Array.isArray(list) ? list : []).filter((e) => liveIds.has(e.workspaceId) || !(e.createdAt < before))
+          if (kept.length) next[key] = kept
+        }
+        await storage.set('links', next)
+      }),
   }
 }
 
 /** @param {Storage} storage */
 export function createLaunchTracker(storage) {
+  const serial = createSerial()
   async function read() {
     const v = await storage.get('launches')
     return Array.isArray(v) ? v : []
@@ -79,19 +88,21 @@ export function createLaunchTracker(storage) {
 
   return {
     /** @param {{ terminalId: string, server: string, issueId: string, workspaceId: string, at: number }} launch */
-    async track({ terminalId, server, issueId, workspaceId, at }) {
-      const list = (await read()).filter((e) => e.terminalId !== terminalId)
-      list.push({ terminalId, server, issueId, workspaceId, at })
-      await storage.set('launches', list.slice(-MAX_LAUNCHES))
-    },
+    track: ({ terminalId, server, issueId, workspaceId, at }) =>
+      serial(async () => {
+        const list = (await read()).filter((e) => e.terminalId !== terminalId)
+        list.push({ terminalId, server, issueId, workspaceId, at })
+        await storage.set('launches', list.slice(-MAX_LAUNCHES))
+      }),
 
     /** Returns the launch once and forgets it. @returns {Promise<{ server: string, issueId: string } | null>} */
-    async takeFinished(terminalId) {
-      const list = await read()
-      const found = list.find((e) => e.terminalId === terminalId)
-      if (!found) return null
-      await storage.set('launches', list.filter((e) => e !== found))
-      return { server: found.server, issueId: found.issueId }
-    },
+    takeFinished: (terminalId) =>
+      serial(async () => {
+        const list = await read()
+        const found = list.find((e) => e.terminalId === terminalId)
+        if (!found) return null
+        await storage.set('launches', list.filter((e) => e !== found))
+        return { server: found.server, issueId: found.issueId }
+      }),
   }
 }

@@ -23,3 +23,14 @@ test('getQuery falls back to default', async () => {
   await state.setQuery('a', '')
   assert.equal(await state.getQuery('a', 'default'), '')
 })
+
+test('concurrent setQuery calls for different servers are all kept', async () => {
+  const inner = fakeStorage()
+  const slow = {
+    get: async (k) => { const v = await inner.get(k); await new Promise((r) => setTimeout(r, 2)); return v },
+    set: async (k, v) => { await new Promise((r) => setTimeout(r, 2)); await inner.set(k, v) },
+  }
+  const state = createStateStore(slow)
+  await Promise.all([state.setQuery('a', '1'), state.setQuery('b', '2')])
+  assert.deepEqual(inner.data().queries, { a: '1', b: '2' })
+})

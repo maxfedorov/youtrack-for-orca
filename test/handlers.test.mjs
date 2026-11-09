@@ -518,3 +518,13 @@ test('a request that finds the CLI gone refreshes the resolved CLI', async () =>
   const again = await orca.handlers.get('yt.issues.search')({ server: 'one', query: '', offset: 0, limit: 5 })
   assert.equal(again.error.code, 'CLI_NOT_FOUND')
 })
+
+test('links keeps a link created after the workspace list was read', async () => {
+  const { call, links, orca } = setup({ host: { 'workspace.list': async () => {
+    await links_add_during_list()
+    return { workspaces: WS, truncated: false }
+  } } })
+  async function links_add_during_list() { await links.add('one', 'DEMO-9', 'identity:fresh', 1000) }
+  await call('yt.links', { server: 'one' })
+  assert.deepEqual(Object.keys(orca.storage.data().links), ['one|DEMO-9'])
+})

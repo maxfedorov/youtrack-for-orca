@@ -142,9 +142,10 @@ export function registerStartHandlers(ctx) {
   handle('yt.links', async ({ server }) => {
     const s = await resolveServer(server)
     if (!s.ok) return s
+    const snapshotAt = now()
     const { list, truncated } = await listWorkspaces()
     const live = new Set(list.map((w) => w.id))
-    if (!truncated) await links.prune(live)
+    if (!truncated) await links.prune(live, snapshotAt)
     return ok(await links.forServer(s.data.alias, live))
   })
 

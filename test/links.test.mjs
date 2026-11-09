@@ -66,3 +66,54 @@ test('track keeps at most 50 launches', async () => {
   assert.equal(await launches.takeFinished('t0'), null)
   assert.deepEqual(await launches.takeFinished('t54'), { server: 's', issueId: 'A-1' })
 })
+
+/** Storage whose reads and writes take a few ticks, so unserialized updates interleave. */
+function slowStorage(initial = {}) {
+  const inner = fakeStorage(initial)
+  const tick = () => new Promise((r) => setTimeout(r, 2))
+  return {
+    async get(k) { const v = await inner.get(k); await tick(); return v },
+    async set(k, v) { await tick(); await inner.set(k, v) },
+    data: () => inner.data(),
+  }
+}
+
+test('a link added while pruning is kept', async () => {
+  const storage = slowStorage({ links: { 's|A-1': [{ workspaceId: 'w1', createdAt: 1 }] } })
+  const links = createLinkStore(storage)
+  // the workspace list was read at time 2, before the new workspace existed
+  await Promise.all([links.prune(new Set(['w1']), 2), links.add('s', 'A-2', 'w2', 2)])
+  assert.deepEqual(Object.keys(storage.data().links).sort(), ['s|A-1', 's|A-2'])
+})
+
+test('concurrent adds are all kept', async () => {
+  const storage = slowStorage()
+  const links = createLinkStore(storage)
+  await Promise.all([links.add('s', 'A-1', 'w1', 1), links.add('s', 'A-2', 'w2', 2), links.add('s', 'A-3', 'w3', 3)])
+  assert.equal(Object.keys(storage.data().links).length, 3)
+})
+
+test('two concurrent takeFinished calls return the launch once', async () => {
+  const storage = slowStorage()
+  const launches = createLaunchTracker(storage)
+  await launches.track({ terminalId: 't1', server: 's', issueId: 'A-1', workspaceId: 'w', at: 1 })
+  const results = await Promise.all([launches.takeFinished('t1'), launches.takeFinished('t1')])
+  assert.equal(results.filter(Boolean).length, 1)
+})
+
+test('track and takeFinished do not lose each other', async () => {
+  const storage = slowStorage()
+  const launches = createLaunchTracker(storage)
+  await launches.track({ terminalId: 't1', server: 's', issueId: 'A-1', workspaceId: 'w', at: 1 })
+  await Promise.all([launches.takeFinished('t1'), launches.track({ terminalId: 't2', server: 's', issueId: 'A-2', workspaceId: 'w', at: 2 })])
+  assert.deepEqual(storage.data().launches.map((l) => l.terminalId), ['t2'])
+})
+
+test('prune only drops links older than the workspace snapshot', async () => {
+  const storage = fakeStorage()
+  const links = createLinkStore(storage)
+  await links.add('s', 'A-1', 'old', 4)
+  await links.add('s', 'A-2', 'new', 5)
+  await links.prune(new Set(), 5)
+  assert.deepEqual(Object.keys(storage.data().links), ['s|A-2'])
+})
