@@ -1,5 +1,5 @@
 import { atom, Button, Callout, Code, EmptyState, Input, Link, Row, Stack, Text, read, set } from 'orca'
-import { call, env, loadEnv, panelError, server, view } from '../state'
+import { call, env, loadEnv, panelError, server, unwrap, view } from '../state'
 import { onServerChanged } from '../listState'
 import { signIn } from './Header'
 
@@ -11,17 +11,19 @@ export const authUrl = atom<string | null>(null)
 export const addError = atom<string | null>(null)
 
 /** Called from the panel's event subscription. */
-export function onAdded(result: Parameters<typeof import('../state').unwrap>[0]): void {
+export function onAdded(payload: unknown): void {
   set(adding, false)
   set(authUrl, null)
-  if (result && result.ok) {
+  const result = typeof payload === 'object' && payload !== null ? (payload as { ok?: unknown; data?: unknown }) : null
+  if (result?.ok === true) {
     set(addError, null)
     set(urlDraft, '')
-    const alias = result.data && typeof (result.data as { alias?: unknown }).alias === 'string' ? (result.data as { alias: string }).alias : null
+    const data = result.data as { alias?: unknown } | null | undefined
+    const alias = data && typeof data === 'object' && typeof data.alias === 'string' && data.alias ? data.alias : null
     if (read(view).kind === 'add' && alias) void selectAdded(alias)
     else void loadEnv()
   } else {
-    set(addError, result && !result.ok ? result.error.message : 'Could not add the server')
+    set(addError, result?.ok === false ? unwrap(result as never).message : 'Could not add the server')
   }
 }
 

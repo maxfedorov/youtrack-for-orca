@@ -1,6 +1,7 @@
 import { Button, Callout, plugin, read, set, Stack, Text, type PanelContext } from 'orca'
 import { env, loadEnv, panelError, view } from './state'
 import { loadLinks } from './listState'
+import { postedUrl } from './shapes'
 import { Header } from './views/Header'
 import { IssueDetail } from './views/IssueDetail'
 import { IssueList } from './views/IssueList'
@@ -10,7 +11,10 @@ import { onAdded, authUrl, AddServer, Setup } from './views/Setup'
 /** Runs once before the first render. */
 export function setup(ctx: PanelContext): void {
   ctx.subscriptions.push(
-    plugin.on('yt.servers.authUrl', ({ url }) => set(authUrl, url)),
+    plugin.on('yt.servers.authUrl', (payload) => {
+      const url = postedUrl(payload)
+      if (url) set(authUrl, url)
+    }),
     plugin.on('yt.servers.added', (result) => onAdded(result)),
     plugin.on('yt.agentFinished', () => void loadLinks())
   )
