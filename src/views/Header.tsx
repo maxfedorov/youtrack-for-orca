@@ -1,6 +1,7 @@
 import { Badge, Button, IconButton, Row, Select, Stack, read, set } from 'orca'
 import { onServerChanged, refreshAll } from '../listState'
-import { call, env, panelError, server, view } from '../state'
+import { openAddServer } from './Setup'
+import { call, env, panelError, server } from '../state'
 
 export function signIn(url: string): void {
   void call('yt.terminal.run', { command: 'login', url }).then((answer) => {
@@ -34,7 +35,7 @@ export function Header() {
         />
         <Row gap="xs">
           <IconButton icon="refresh" label="Refresh" onPress={() => void refreshAll()} />
-          <IconButton icon="add" label="Add server" onPress={() => set(view, { kind: 'add' })} />
+          <IconButton icon="add" label="Add server" onPress={openAddServer} />
         </Row>
       </Row>
       {current && current.status !== 'authenticated' ? (

@@ -229,3 +229,85 @@ test('refresh shows a server that was added elsewhere', async () => {
   )
   await view.unmount()
 })
+
+const waiting = { text: 'Waiting for sign-in in the browser…' }
+const noServers = () => env({ servers: [], server: null })
+
+test('cancel stops waiting for sign-in and ignores a late failure', async () => {
+  const host = mockHost({ requests: { 'yt.env': noServers(), 'yt.servers.add': ok({ started: true }) } })
+  const view = await mount(panel, { host })
+  await view.type({ label: 'Server URL' }, 'https://yt.example.com')
+  await view.press({ role: 'button', text: 'Add server' })
+  assert.ok(view.find(waiting))
+  await view.press({ role: 'button', text: 'Cancel' })
+  assert.equal(view.find(waiting), null)
+  assert.equal(Boolean(view.find({ type: 'Input', label: 'Server URL' }).props.disabled), false)
+  assert.equal(Boolean(view.find({ role: 'button', text: 'Add server' }).props.disabled), false)
+  await view.post('yt.servers.added', { ok: false, error: { code: 'UNKNOWN', message: 'Sign-in failed' } })
+  assert.equal(view.find({ text: 'Sign-in failed' }), null)
+  assert.deepEqual(view.errors, [])
+  await view.unmount()
+})
+
+test('leaving the add-server form forgets the waiting sign-in; it opens clean', async () => {
+  const host = mockHost({ requests: withList({ 'yt.env': env(), 'yt.servers.add': ok({ started: true }) }) })
+  const view = await mount(panel, { host })
+  await view.press({ role: 'button', label: 'Add server' })
+  await view.type({ label: 'Server URL' }, 'https://fresh.example.com')
+  await view.press({ role: 'button', text: 'Add server' })
+  assert.ok(view.find(waiting))
+  await view.press({ role: 'button', text: '← Back' })
+  await view.press({ role: 'button', label: 'Add server' })
+  assert.equal(view.find(waiting), null)
+  assert.equal(view.valueOf({ type: 'Input', label: 'Server URL' }), '')
+  assert.deepEqual(view.errors, [])
+  await view.unmount()
+})
+
+test('a sign-in that never reports back turns into an error after the deadline', async () => {
+  const { SIGN_IN_DEADLINE_MS } = await import('../src/views/Setup')
+  const real = globalThis.setTimeout
+  let fire: (() => void) | null = null
+  globalThis.setTimeout = ((fn: () => void, ms?: number, ...rest: unknown[]) =>
+    ms === SIGN_IN_DEADLINE_MS ? ((fire = fn), real(() => {}, 0)) : real(fn, ms, ...rest)) as typeof setTimeout
+  try {
+    const host = mockHost({ requests: { 'yt.env': noServers(), 'yt.servers.add': ok({ started: true }) } })
+    const view = await mount(panel, { host })
+    await view.type({ label: 'Server URL' }, 'https://yt.example.com')
+    await view.press({ role: 'button', text: 'Add server' })
+    assert.ok(fire, 'no sign-in deadline was set')
+    assert.ok(SIGN_IN_DEADLINE_MS >= 10 * 60_000)
+    ;(fire as unknown as () => void)()
+    await view.settled()
+    assert.equal(view.find(waiting), null)
+    assert.ok(view.find({ text: 'Sign-in did not finish. Try again, or sign in in the terminal.' }))
+    assert.ok(view.find({ role: 'button', text: 'Sign in in terminal' }))
+    assert.deepEqual(view.errors, [])
+    await view.unmount()
+  } finally {
+    globalThis.setTimeout = real
+  }
+})
+
+test('check again finds a server added while its sign-in post was lost', async () => {
+  let added = false
+  const host = mockHost({
+    requests: withList({
+      'yt.env': () => (added ? env({ servers: [server('yt')], server: 'yt' }) : noServers()),
+      'yt.servers.add': ok({ started: true }),
+      'yt.setServer': ok({})
+    })
+  })
+  const view = await mount(panel, { host })
+  await view.type({ label: 'Server URL' }, 'https://yt.example.com')
+  await view.press({ role: 'button', text: 'Add server' })
+  await view.press({ role: 'button', text: 'Check again' })
+  assert.ok(view.find(waiting))
+  assert.ok(view.find({ text: 'Not signed in yet.' }))
+  added = true
+  await view.press({ role: 'button', text: 'Check again' })
+  assert.equal(view.find(waiting), null)
+  assert.ok(view.find({ type: 'Table' }) || view.find({ type: 'EmptyState' }))
+  assert.deepEqual(view.errors, [])
+  await view.unmount()
+})
