@@ -1,7 +1,70 @@
 # YouTrack for Orca
 
-An Orca plugin that lists YouTrack issues in the right sidebar and launches coding agents on them.
-It uses the `youtrack` CLI for data and the Orca CLI for workspaces; it never stores tokens.
+An Orca plugin that shows your YouTrack issues in the right sidebar and
+starts a coding agent on any of them.
+
+## Requirements
+
+- Orca 1.4.248 or newer.
+- The YouTrack CLI (`youtrack`):
+
+  | OS            | Install                                   |
+  | ------------- | ----------------------------------------- |
+  | macOS / Linux | `brew install jetbrains/utils/youtrack`   |
+  | Windows       | `winget install JetBrains.YouTrackCLI`    |
+
+- A YouTrack server known to the CLI. Add one with `youtrack auth login <url>`, or from the plugin's
+  panel ("Add a YouTrack server").
+
+If the CLI is missing, the panel shows the install command for your system and can open it in a terminal.
+
+## Features
+
+- Issue list for a YouTrack search query, with your saved searches in a drop-down.
+- Star button (☆) to save the current query as a saved search.
+- Sortable columns; the list reloads when you change the server or press Refresh.
+- Read-only issue details: description, fields and comments.
+- **Start**: begin work on an issue in a new worktree or in the current workspace. Pick the project,
+  branch name, base branch, agent and edit the prompt before it is sent.
+- Status bar item with the number of issues matching the default query.
+- Desktop notification when an agent started from an issue finishes.
+- Command palette: "YouTrack: Open panel".
+
+## What the plugin runs
+
+Only two programs: `youtrack` (to read issues and saved searches) and `orca` (to create worktrees and
+launch agents). The plugin makes no network requests of its own and stores no tokens; everything that
+talks to YouTrack goes through the CLI.
+
+## Security notes
+
+- YouTrack permanent tokens have no scopes: a token can do whatever its user can do. The CLI keeps the
+  token; the plugin never sees it.
+- An agent that has shell access can run `youtrack` and so use the CLI's stored credentials. Start agents
+  only where that is acceptable, and review the prompt before sending it.
+- Issue text and comments are untrusted input. The default prompt tells the agent to treat them as data,
+  not instructions, and the description is only included if you ask for it.
+
+## Settings
+
+| Setting                 | Default                                | Meaning                                                                 |
+| ----------------------- | -------------------------------------- | ----------------------------------------------------------------------- |
+| Default query           | `for: me #Unresolved`                  | Query used on first open and for the status bar count.                  |
+| Prompt template         | reads the issue through the CLI        | Prompt sent to the agent.                                               |
+| Branch name template    | `{{id_lower}}-{{summary_slug}}`        | Name of the new workspace and branch.                                   |
+| Default agent           | `claude`                               | Agent preselected in the Start view; empty means terminal only.         |
+| Default launch mode     | New worktree                           | `New worktree` or `Current workspace`.                                  |
+| Include issue description | off                                  | Initial state of the checkbox in the Start view.                        |
+| youtrack CLI path       | empty (auto-detect)                    | Full path to the `youtrack` executable if it is not found.              |
+
+Placeholders for the prompt and branch templates: `{{id}}`, `{{id_lower}}`, `{{summary}}`,
+`{{summary_slug}}`, `{{url}}`, `{{project}}`, `{{server}}`, `{{state}}`, `{{priority}}`, `{{assignee}}`,
+`{{description}}`, `{{branch}}`.
+
+## Tip
+
+Run `youtrack skill install` to give your agents the CLI's own skill, so they know how to use `youtrack`
+beyond the commands in the prompt.
 
 ## Development
 
