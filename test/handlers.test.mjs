@@ -417,7 +417,7 @@ const bigYt = () => fakeYt({
 
 test('issue.get caps description, comment text and comment count', async () => {
   const r = await setup({ yt: bigYt() }).call('yt.issue.get', { server: 'one', id: 'DEMO-1' })
-  assert.equal(r.data.descriptionMd.length, 100_000)
+  assert.equal(r.data.descriptionMd.length, 60_000)
   assert.equal(r.data.comments.length, 200)
   assert.equal(r.data.comments[0].id, 'c5')
   assert.equal(r.data.comments[199].textMd.length, 20_000)
@@ -432,7 +432,7 @@ test('small issues carry no truncated flag; prepare caps the description in vars
   const small = await setup().call('yt.issue.get', { server: 'one', id: 'DEMO-1' })
   assert.ok(!('truncated' in small.data))
   const p = await setup({ yt: bigYt() }).call('yt.start.prepare', { server: 'one', id: 'DEMO-1' })
-  assert.equal(p.data.vars.description.length, 100_000)
+  assert.equal(p.data.vars.description.length, 60_000)
 })
 
 test('servers.add survives an error thrown while finishing sign-in', async () => {
@@ -450,7 +450,9 @@ test('issue answers stay within the byte budget for multibyte text', async () =>
     }))),
   })
   const r = await setup({ yt }).call('yt.issue.get', { server: 'one', id: 'DEMO-1' })
-  assert.ok(Buffer.byteLength(JSON.stringify(r), 'utf8') <= 900_000)
+  assert.ok(Buffer.byteLength(JSON.stringify(r), 'utf8') <= 400_000)
+  assert.ok(Buffer.byteLength(r.data.descriptionMd, 'utf8') <= 60_000)
+  assert.ok(r.data.comments.every((c) => Buffer.byteLength(c.textMd, 'utf8') <= 60_000))
   assert.ok(r.data.commentsOmitted > 0)
   assert.equal(r.data.truncated, true)
   assert.equal(r.data.comments.at(-1).id, 'c199')
@@ -461,7 +463,7 @@ test('cuts do not split surrogate pairs', async () => {
   const yt = fakeYt({ viewIssue: async (s, id) => ok({ ...rawIssue(id), description: '😀'.repeat(60_000) }) })
   const r = await setup({ yt }).call('yt.issue.get', { server: 'one', id: 'DEMO-1' })
   const d = r.data.descriptionMd
-  assert.equal(d.length, 100_000)
+  assert.ok(Buffer.byteLength(d, 'utf8') <= 60_000 && Buffer.byteLength(d, 'utf8') > 59_990)
   assert.ok(!/[\ud800-\udbff]$/.test(d))
   assert.ok(!/[\ud800-\udbff](?![\udc00-\udfff])/.test(d))
 })
@@ -558,7 +560,7 @@ test('many large custom fields still fit the answer budget', async () => {
   }))
   const yt = fakeYt({ viewIssue: async (s, id) => ok({ ...rawIssue(id), description: 'ж'.repeat(100_000), customFields }) })
   const r = await setup({ yt }).call('yt.issue.get', { server: 'one', id: 'DEMO-1' })
-  assert.ok(Buffer.byteLength(JSON.stringify(r), 'utf8') <= 900_000)
+  assert.ok(Buffer.byteLength(JSON.stringify(r), 'utf8') <= 400_000)
   assert.ok(r.data.fields.length > 0)
   assert.ok(r.data.fields.every((f) => f.value.length <= 1000))
 })

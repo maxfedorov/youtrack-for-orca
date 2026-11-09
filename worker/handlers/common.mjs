@@ -11,6 +11,10 @@ export const invalid = (message) => fail(CODES.UNKNOWN, message)
 /** The panel <-> worker answer limit is 1 MiB; stay under it with some room. */
 export const MAX_ANSWER_BYTES = 1_000_000
 
+/** Error messages are shown as panel text; long CLI output is cut. */
+export const MAX_MESSAGE = 2000
+export const shortMessage = (m) => (m.length <= MAX_MESSAGE ? m : `${cut(m, MAX_MESSAGE - 1)}\u2026`)
+
 const errorName = (e) => (e instanceof Error ? e.name : typeof e)
 
 /**
@@ -23,7 +27,7 @@ function toAnswer(r) {
   if (!r.ok) {
     const code = typeof r.error?.code === 'string' && r.error.code ? r.error.code : CODES.UNKNOWN
     const message = typeof r.error?.message === 'string' && r.error.message ? r.error.message : 'The request failed.'
-    return fail(code, message)
+    return fail(code, shortMessage(message))
   }
   let text
   try {
@@ -51,7 +55,7 @@ export function guard(fn, { name = 'request', log } = {}) {
       } catch {
         // logging is best effort
       }
-      return fail(CODES.UNKNOWN, e instanceof Error && e.message ? e.message : 'Something went wrong.')
+      return fail(CODES.UNKNOWN, e instanceof Error && e.message ? shortMessage(e.message) : 'Something went wrong.')
     }
   }
 }
@@ -92,11 +96,14 @@ export const normalizeUrl = (u) => String(u).replace(/\/+$/, '').toLowerCase()
 export const issueUrl = (baseUrl, id) => `${String(baseUrl).replace(/\/+$/, '')}/issue/${id}`
 
 export const AGENT_ID = /^[a-z0-9][a-z0-9-]{0,63}$/
-export const MAX_DESCRIPTION = 100_000
+/** Panels draw Markdown up to 64 KiB, so the description stays below that in UTF-8 bytes. */
+export const MAX_DESCRIPTION_BYTES = 60_000
+/** Characters; 20 000 UTF-16 units are at most 60 000 UTF-8 bytes, under the Markdown limit too. */
 export const MAX_COMMENT = 20_000
 export const MAX_COMMENTS = 200
 
-export const MAX_DETAIL_BYTES = 900_000
+/** A panel render is refused above about 512 KiB, so the whole detail stays well under it. */
+export const MAX_DETAIL_BYTES = 400_000
 const bytes = (v) => Buffer.byteLength(JSON.stringify(v), 'utf8')
 
 /** Cut to at most `n` UTF-16 units without leaving half of a surrogate pair. */
@@ -106,8 +113,21 @@ function cut(text, n) {
   return text.slice(0, code >= 0xd800 && code <= 0xdbff ? n - 1 : n)
 }
 
+/** Cut to at most `max` UTF-8 bytes, on a character boundary. */
+function cutBytes(text, max) {
+  if (Buffer.byteLength(text, 'utf8') <= max) return text
+  let lo = 0
+  let hi = Math.min(text.length, max)
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2)
+    if (Buffer.byteLength(cut(text, mid), 'utf8') <= max) lo = mid
+    else hi = mid - 1
+  }
+  return cut(text, lo)
+}
+
 /**
- * Keep an issue detail under the 1 MiB answer limit: cut the description and long comments, keep the
+ * Keep an issue detail small enough for the panel to draw (and far under the 1 MiB answer limit): cut the description and long comments, keep the
  * newest comments, then drop the oldest comments (and finally shorten the description) until the
  * serialized detail fits in MAX_DETAIL_BYTES. `truncated: true` marks the detail and each cut comment;
  * `commentsOmitted` counts comments dropped.
@@ -115,8 +135,9 @@ function cut(text, n) {
 export function capDetail(detail) {
   let truncated = false
   const out = { ...detail }
-  if (out.descriptionMd.length > MAX_DESCRIPTION) {
-    out.descriptionMd = cut(out.descriptionMd, MAX_DESCRIPTION)
+  const description = cutBytes(out.descriptionMd, MAX_DESCRIPTION_BYTES)
+  if (description !== out.descriptionMd) {
+    out.descriptionMd = description
     truncated = true
   }
   let comments = out.comments
