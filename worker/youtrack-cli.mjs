@@ -31,16 +31,19 @@ export function resolveYoutrack({ settingPath, env, platform, homedir, exists })
   return candidates.find((c) => c && exists(c)) ?? null
 }
 
-/** Parse stderr line by line; return the first `{ error: {...} }` object found. */
+/** Find the first `{ error: {...} }` object in stderr; the JSON may be one line or indented. */
 function parseCliError(stderr) {
-  for (const line of String(stderr ?? '').split(/\r?\n/)) {
-    const t = line.trim()
-    if (!t.startsWith('{')) continue
-    try {
-      const e = JSON.parse(t)?.error
-      if (e && typeof e === 'object') return e
-    } catch {
-      // not JSON, e.g. a `warning:` line
+  const lines = String(stderr ?? '').split(/\r?\n/)
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].trim().startsWith('{')) continue
+    for (let j = i; j < lines.length; j++) {
+      try {
+        const e = JSON.parse(lines.slice(i, j + 1).join('\n'))?.error
+        if (e && typeof e === 'object') return e
+        break
+      } catch {
+        // incomplete or not JSON, e.g. a `warning:` line; try a longer slice
+      }
     }
   }
   return null

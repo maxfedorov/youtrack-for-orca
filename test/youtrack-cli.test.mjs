@@ -215,3 +215,14 @@ test('runProcess passes args array, input and a token-free env', async () => {
   assert.equal('YOUTRACK_TOKEN' in seen.opts.env, false)
   assert.equal(seen.input, 'in')
 })
+
+test('an indented JSON error on stderr is classified', () => {
+  const stderr = JSON.stringify(
+    { error: { code: 'api_error', message: "HTTP 400: Can't parse search query, please check and update query syntax" } },
+    null,
+    2
+  )
+  const r = classifyCliError({ exitCode: 1, stderr: `warning: something\n${stderr}\n` })
+  assert.equal(r.code, 'QUERY_INVALID')
+  assert.match(r.message, /Can't parse search query/)
+})
