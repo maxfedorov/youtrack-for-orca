@@ -11,7 +11,7 @@ type Status = 'idle' | 'loading' | 'ok' | 'error'
 const detail = atom<Detail | null>(null)
 const status = atom<Status>('idle')
 const failure = atom('')
-/** The issue the atoms above belong to; null when nothing is loaded. */
+/** The server and issue (`alias|id`) the atoms above belong to; null when nothing is loaded. */
 const loadedFor = atom<string | null>(null)
 
 let seq = 0
@@ -22,7 +22,7 @@ async function load(id: string): Promise<void> {
   if (!current) return
   const mine = ++seq
   seenTick = read(refreshTick)
-  set(loadedFor, id)
+  set(loadedFor, `${current}|${id}`)
   set(status, 'loading')
   const answer = await call('yt.issue.get', { server: current, id })
   if (mine !== seq) return
@@ -41,7 +41,7 @@ let queued: string | null = null
 /** Called while rendering (state cannot change there, so loading is queued): loads when the issue changed, and reloads when the header's refresh was pressed. */
 function sync(id: string): void {
   const tick = read(refreshTick)
-  const stale = read(loadedFor) !== id
+  const stale = read(loadedFor) !== `${read(server)}|${id}`
   if (!stale && tick === seenTick) return
   if (queued === id) return
   queued = id
@@ -133,7 +133,7 @@ function Body({ issue }: { issue: Detail }) {
 
 export function IssueDetail({ id }: { id: string }) {
   sync(id)
-  const state = read(loadedFor) === id ? read(status) : 'loading'
+  const state = read(loadedFor) === `${read(server)}|${id}` ? read(status) : 'loading'
   const issue = read(detail)
   return (
     <Stack gap="sm">

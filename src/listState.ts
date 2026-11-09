@@ -1,5 +1,5 @@
 import { atom, read, set, update } from 'orca'
-import { call, env, query, refreshTick, server } from './state'
+import { call, env, query, refreshTick, server, view } from './state'
 import type { IssueRow, SavedQuery } from './protocol'
 
 export const PAGE_SIZE = 50
@@ -139,6 +139,7 @@ export function syncList(): void {
 /** After `yt.setServer`: drop the old server's data, take the new server's stored query and load everything for it. */
 export async function onServerChanged(): Promise<void> {
   seq++
+  set(view, { kind: 'list' })
   set(issues, [])
   set(total, 0)
   set(totalKnown, false)
