@@ -99,5 +99,7 @@ declare module 'orca' {
     'yt.servers.authUrl': { url: string }
     /** Outcome of 'yt.servers.add': the alias of the new server. */
     'yt.servers.added': Result<{ alias: string }>
+    /** An agent started by the plugin finished. */
+    'yt.agentFinished': { server: string; issueId: string; workspaceId: string | null }
   }
 }
