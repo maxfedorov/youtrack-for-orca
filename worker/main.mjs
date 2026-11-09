@@ -7,6 +7,7 @@ import { createLinkStore, createLaunchTracker } from './links.mjs'
 import { createStateStore } from './state.mjs'
 import { detectAgents } from './agents.mjs'
 import { registerHandlers } from './handlers.mjs'
+import { createOpenPanelCommand } from './open-panel.mjs'
 import { createStatusBar, createFinishNotifier, refreshAfter } from './status.mjs'
 
 const REFRESHING = ['yt.setServer', 'yt.start.run', 'yt.runInExisting', 'yt.savedQueries.create']
@@ -40,10 +41,7 @@ export default async function activate(orca) {
   const notifier = createFinishNotifier({ host: orca.host, launches, post: (name, payload) => orca.panels.post(name, payload) })
   orca.events.on('agent.status.changed', notifier.onAgentStatus)
 
-  orca.commands.register('youtrack.openPanel', async () => {
-    const r = orcaCli ? await orcaCli.openPanel('youtrack', 'issues') : null
-    if (!r?.ok) await orca.host.call('commands.run', { action: 'sidebar.right.toggle' })
-  })
+  orca.commands.register('youtrack.openPanel', createOpenPanelCommand({ orcaCli, host: orca.host }))
 
   await statusBar.start()
 }
