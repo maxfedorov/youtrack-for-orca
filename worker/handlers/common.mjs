@@ -39,27 +39,56 @@ export const MAX_DESCRIPTION = 100_000
 export const MAX_COMMENT = 20_000
 export const MAX_COMMENTS = 200
 
+export const MAX_DETAIL_BYTES = 900_000
+const bytes = (v) => Buffer.byteLength(JSON.stringify(v), 'utf8')
+
+/** Cut to at most `n` UTF-16 units without leaving half of a surrogate pair. */
+function cut(text, n) {
+  if (text.length <= n) return text
+  const code = text.charCodeAt(n - 1)
+  return text.slice(0, code >= 0xd800 && code <= 0xdbff ? n - 1 : n)
+}
+
 /**
- * Keep an issue detail well under the 1 MiB answer limit: cut the description and long comments,
- * keep the newest comments. `truncated: true` marks the detail and each cut comment.
+ * Keep an issue detail under the 1 MiB answer limit: cut the description and long comments, keep the
+ * newest comments, then drop the oldest comments (and finally shorten the description) until the
+ * serialized detail fits in MAX_DETAIL_BYTES. `truncated: true` marks the detail and each cut comment;
+ * `commentsOmitted` counts comments dropped.
  */
 export function capDetail(detail) {
   let truncated = false
   const out = { ...detail }
   if (out.descriptionMd.length > MAX_DESCRIPTION) {
-    out.descriptionMd = out.descriptionMd.slice(0, MAX_DESCRIPTION)
+    out.descriptionMd = cut(out.descriptionMd, MAX_DESCRIPTION)
     truncated = true
   }
   let comments = out.comments
+  let omitted = 0
   if (comments.length > MAX_COMMENTS) {
+    omitted = comments.length - MAX_COMMENTS
     comments = comments.slice(-MAX_COMMENTS)
-    truncated = true
   }
-  out.comments = comments.map((c) => {
+  comments = comments.map((c) => {
     if (c.textMd.length <= MAX_COMMENT) return c
     truncated = true
-    return { ...c, textMd: c.textMd.slice(0, MAX_COMMENT), truncated: true }
+    return { ...c, textMd: cut(c.textMd, MAX_COMMENT), truncated: true }
   })
+  // Each comment adds its own size plus a comma to the serialized array.
+  const sizes = comments.map((c) => bytes(c) + 1)
+  let total = bytes({ ...out, comments: [] }) + sizes.reduce((a, b) => a + b, 0)
+  let first = 0
+  while (total > MAX_DETAIL_BYTES && first < comments.length) total -= sizes[first++]
+  omitted += first
+  out.comments = comments.slice(first)
+  while (total > MAX_DETAIL_BYTES && out.descriptionMd.length > 0) {
+    out.descriptionMd = cut(out.descriptionMd, Math.floor(out.descriptionMd.length / 2))
+    total = bytes(out)
+    truncated = true
+  }
+  if (omitted > 0) {
+    out.commentsOmitted = omitted
+    truncated = true
+  }
   if (truncated) out.truncated = true
   return out
 }

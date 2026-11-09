@@ -428,3 +428,27 @@ test('servers.add survives an error thrown while finishing sign-in', async () =>
   await posted(orca, 'yt.servers.added')
   assert.equal(orca.posts.at(-1).payload.ok, false)
 })
+
+test('issue answers stay within the byte budget for multibyte text', async () => {
+  const yt = fakeYt({
+    viewIssue: async (s, id) => ok({ ...rawIssue(id), description: 'ж'.repeat(100_000) }),
+    listComments: async () => ok(Array.from({ length: 200 }, (_, i) => ({
+      id: `c${i}`, author: { login: 'a', fullName: 'A' }, created: i, text: 'ж'.repeat(20_000),
+    }))),
+  })
+  const r = await setup({ yt }).call('yt.issue.get', { server: 'one', id: 'DEMO-1' })
+  assert.ok(Buffer.byteLength(JSON.stringify(r), 'utf8') <= 900_000)
+  assert.ok(r.data.commentsOmitted > 0)
+  assert.equal(r.data.truncated, true)
+  assert.equal(r.data.comments.at(-1).id, 'c199')
+  assert.equal(r.data.comments.length + r.data.commentsOmitted, 200)
+})
+
+test('cuts do not split surrogate pairs', async () => {
+  const yt = fakeYt({ viewIssue: async (s, id) => ok({ ...rawIssue(id), description: '😀'.repeat(60_000) }) })
+  const r = await setup({ yt }).call('yt.issue.get', { server: 'one', id: 'DEMO-1' })
+  const d = r.data.descriptionMd
+  assert.equal(d.length, 100_000)
+  assert.ok(!/[\ud800-\udbff]$/.test(d))
+  assert.ok(!/[\ud800-\udbff](?![\udc00-\udfff])/.test(d))
+})

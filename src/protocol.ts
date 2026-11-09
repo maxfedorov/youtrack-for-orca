@@ -20,6 +20,8 @@ export type IssueDetail = IssueRow & {
   project: { shortName: string; name: string }; type?: Value; descriptionMd: string; comments: Comment[]
   /** Description or comments were cut (long text, only the newest 200 comments kept). */
   truncated?: true
+  /** Number of older comments left out. */
+  commentsOmitted?: number
 }
 export type SavedQuery = { id: string; name: string; query: string }
 export type Repo = { id: string; name: string; path?: string; worktreeBaseRef?: string }
