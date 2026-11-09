@@ -53,7 +53,7 @@ declare module 'orca' {
     'yt.env': {
       input: Record<string, never>
       output: Result<{
-        cli: { found: boolean; version?: string }
+        cli: { found: boolean; version?: string; installCommand?: string }
         orcaCli: { found: boolean }
         servers: Server[]
         server: string | null

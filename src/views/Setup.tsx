@@ -9,11 +9,6 @@ export const authUrl = atom<string | null>(null)
 /** Failure of the last add; offers the terminal sign-in. */
 export const addError = atom<string | null>(null)
 
-export function installCommand(platform: string = typeof navigator === 'undefined' ? '' : navigator.userAgent): string {
-  if (/windows|win32/i.test(platform)) return 'winget install youtrack-cli'
-  return 'brew install youtrack-cli'
-}
-
 /** Called from the panel's event subscription. */
 export function onAdded(result: Parameters<typeof import('../state').unwrap>[0]): void {
   set(adding, false)
@@ -41,10 +36,10 @@ async function add(): Promise<void> {
 }
 
 function InstallScreen() {
-  const command = installCommand()
+  const command = read(env)?.cli.installCommand
   return (
     <EmptyState title="Install youtrack CLI" icon="terminal" description="The plugin talks to YouTrack through the youtrack command line tool.">
-      <Code block>{command}</Code>
+      {command ? <Code block>{command}</Code> : null}
       <Row gap="xs">
         <Button
           onPress={() =>
@@ -83,7 +78,7 @@ function AddServerScreen() {
         Add server
       </Button>
       {waiting ? <Text muted>Waiting for sign-in in the browser…</Text> : null}
-      {waiting && link ? <Link href={link}>{link}</Link> : null}
+      {waiting && link ? (/^https?:\/\//i.test(link) ? <Link href={link}>{link}</Link> : <Text>{link}</Text>) : null}
       {failure ? (
         <Callout tone="danger">
           <Stack gap="xs">

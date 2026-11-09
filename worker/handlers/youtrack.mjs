@@ -1,7 +1,7 @@
 /** Requests about servers, issues and saved queries (everything answered by the youtrack CLI). */
 import { ok, fail, CODES } from '../result.mjs'
 import { toIssueRow, toIssueDetail, toSavedQuery, toServer } from '../mapping.mjs'
-import { guard, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, isPlainUrl, normalizeUrl, settingString, capDetail } from './common.mjs'
+import { guard, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, isPlainUrl, normalizeUrl, settingString, capDetail, INSTALL } from './common.mjs'
 
 const MAX_LIMIT = 50
 const MAX_WINDOW = 500
@@ -13,13 +13,15 @@ export function registerYoutrackHandlers(ctx) {
   handle('yt.env', async () => {
     const defaultQuery = settingString(await orca.settings.get('defaultQuery'), '')
     const base = { orcaCli: { found: orcaCli != null }, query: defaultQuery }
-    if (!youtrack) return ok({ cli: { found: false }, servers: [], server: null, ...base })
+    const installCommand = INSTALL[ctx.platform]
+    const withInstall = (cli) => (installCommand ? { ...cli, installCommand } : cli)
+    if (!youtrack) return ok({ cli: withInstall({ found: false }), servers: [], server: null, ...base })
     const [version, inst] = await Promise.all([youtrack.version(), youtrack.instances()])
     if (!inst.ok) return inst
     const servers = inst.data.map(toServer)
     const stored = await state.getServer()
     const chosen = servers.find((s) => s.alias === stored) ?? servers.find((s) => s.active) ?? servers[0]
-    const cli = { found: true }
+    const cli = withInstall({ found: true })
     if (version.ok) cli.version = version.data
     const server = chosen ? chosen.alias : null
     return ok({ ...base, cli, servers, server, query: server ? await state.getQuery(server, defaultQuery) : defaultQuery })

@@ -7,9 +7,10 @@ const env = (over: Record<string, unknown> = {}) =>
   ok({ cli: { found: true }, orcaCli: { found: true }, servers: [server('main')], server: 'main', query: 'for: me', ...over })
 
 test('no CLI shows install screen', async () => {
-  const host = mockHost({ requests: { 'yt.env': env({ cli: { found: false }, servers: [], server: null }) } })
+  const host = mockHost({ requests: { 'yt.env': env({ cli: { found: false, installCommand: 'brew install jetbrains/utils/youtrack' }, servers: [], server: null }) } })
   const view = await mount(panel, { host })
   assert.ok(view.find({ type: 'EmptyState', label: 'Install youtrack CLI' }))
+  assert.ok(view.find({ type: 'Code', text: 'brew install jetbrains/utils/youtrack' }))
   assert.ok(view.find({ role: 'button', text: 'Open terminal with command' }))
   assert.ok(view.find({ role: 'button', text: 'Check again' }))
   assert.deepEqual(view.refusals, [])
@@ -17,7 +18,7 @@ test('no CLI shows install screen', async () => {
 })
 
 test('Check again re-requests env', async () => {
-  const host = mockHost({ requests: { 'yt.env': env({ cli: { found: false }, servers: [], server: null }) } })
+  const host = mockHost({ requests: { 'yt.env': env({ cli: { found: false, installCommand: 'brew install jetbrains/utils/youtrack' }, servers: [], server: null }) } })
   const view = await mount(panel, { host })
   const before = host.callsOf('plugin.request').length
   await view.press({ role: 'button', text: 'Check again' })
@@ -83,6 +84,39 @@ test('authenticated server has no badge; request error is shown', async () => {
   const failing = mockHost({ requests: { 'yt.env': { ok: false, error: { code: 'UNKNOWN', message: 'boom' } } } })
   const second = await mount(panel, { host: failing })
   assert.ok(second.find({ text: 'boom' }))
+  assert.ok(second.find({ role: 'button', text: 'Retry' }))
   assert.deepEqual(second.errors, [])
   await second.unmount()
+})
+
+test('Retry recovers from a failed env and clears the error', async () => {
+  let n = 0
+  const host = mockHost({ requests: { 'yt.env': () => (n++ === 0 ? { ok: false, error: { code: 'UNKNOWN', message: 'boom' } } : env()) } })
+  const view = await mount(panel, { host })
+  await view.press({ role: 'button', text: 'Retry' })
+  assert.equal(view.find({ text: 'boom' }), null)
+  assert.equal(view.find({ role: 'button', text: 'Retry' }), null)
+  await view.unmount()
+})
+
+test('failed setServer reverts the select', async () => {
+  const host = mockHost({
+    requests: { 'yt.env': env({ servers: [server('main'), server('other')] }), 'yt.setServer': { ok: false, error: { code: 'UNKNOWN', message: 'nope' } } }
+  })
+  const view = await mount(panel, { host })
+  await view.select({ label: 'Server' }, 'other')
+  assert.equal(view.valueOf({ label: 'Server' }), 'main')
+  assert.ok(view.find({ text: 'nope' }))
+  await view.unmount()
+})
+
+test('non-http auth url is plain text', async () => {
+  const host = mockHost({ requests: { 'yt.env': env({ servers: [], server: null }), 'yt.servers.add': ok({ started: true }) } })
+  const view = await mount(panel, { host })
+  await view.type({ label: 'Server URL' }, 'https://yt.example.com')
+  await view.press({ role: 'button', text: 'Add server' })
+  await view.post('yt.servers.authUrl', { url: 'javascript:alert(1)' })
+  assert.equal(view.find({ type: 'Link' }), null)
+  assert.ok(view.find({ text: 'javascript:alert(1)' }))
+  await view.unmount()
 })

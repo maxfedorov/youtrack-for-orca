@@ -92,3 +92,10 @@ export function capDetail(detail) {
   if (truncated) out.truncated = true
   return out
 }
+
+/** Shell line that installs the youtrack CLI, per platform; shown by `yt.env`, run by `yt.terminal.run`. */
+export const INSTALL = {
+  darwin: 'brew install jetbrains/utils/youtrack',
+  linux: 'brew install jetbrains/utils/youtrack',
+  win32: 'winget install JetBrains.YouTrackCLI'
+}

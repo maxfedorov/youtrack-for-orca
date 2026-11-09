@@ -1,5 +1,5 @@
-import { Callout, plugin, read, set, Stack, Text, type PanelContext } from 'orca'
-import { loadEnv, panelError, view } from './state'
+import { Button, Callout, plugin, read, set, Stack, Text, type PanelContext } from 'orca'
+import { env, loadEnv, panelError, view } from './state'
 import { Header } from './views/Header'
 import { onAdded, authUrl, Setup } from './views/Setup'
 
@@ -30,7 +30,18 @@ export default function Panel() {
   return (
     <Stack gap="sm">
       {read(view).kind === 'setup' ? null : <Header />}
-      {error ? <Callout tone="danger">{error}</Callout> : null}
+      {error ? (
+        <Callout tone="danger">
+          <Stack gap="xs">
+            <Text>{error}</Text>
+            {read(env) ? null : (
+              <Button variant="ghost" onPress={() => void loadEnv()}>
+                Retry
+              </Button>
+            )}
+          </Stack>
+        </Callout>
+      ) : null}
       <Screen />
     </Stack>
   )

@@ -2,7 +2,7 @@ import { atom, plugin, set } from 'orca'
 import type { ErrorCode, Result, Server } from './protocol'
 
 export type Env = {
-  cli: { found: boolean; version?: string }
+  cli: { found: boolean; version?: string; installCommand?: string }
   orcaCli: { found: boolean }
   servers: Server[]
   server: string | null
@@ -34,7 +34,9 @@ export async function call<N extends keyof import('orca').PluginRequests>(
   input: import('orca').PluginRequests[N]['input']
 ): Promise<Unwrapped<Extract<import('orca').PluginRequests[N]['output'], { ok: true }>['data']>> {
   try {
-    return unwrap(await plugin.request(name, input) as never) as never
+    const answer = unwrap(await plugin.request(name, input) as never)
+    if (answer.ok) set(panelError, null)
+    return answer as never
   } catch (error) {
     return { ok: false, code: 'UNKNOWN', message: error instanceof Error ? error.message : String(error) }
   }

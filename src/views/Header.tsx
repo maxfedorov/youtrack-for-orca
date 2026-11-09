@@ -8,9 +8,13 @@ export function signIn(url: string): void {
 }
 
 async function choose(alias: string): Promise<void> {
+  const previous = read(server)
   set(server, alias)
   const answer = await call('yt.setServer', { server: alias })
-  if (!answer.ok) set(panelError, answer.message)
+  if (!answer.ok) {
+    set(server, previous)
+    set(panelError, answer.message)
+  }
 }
 
 export function Header() {

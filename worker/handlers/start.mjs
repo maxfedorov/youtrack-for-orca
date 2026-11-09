@@ -2,14 +2,9 @@
 import { ok, fail, CODES } from '../result.mjs'
 import { toIssueDetail } from '../mapping.mjs'
 import { issueVars, workspaceName, PROMPT_LIMIT } from '../prompt.mjs'
-import { guard, invalid, token, issueUrl, ISSUE_ID, settingString, isPlainUrl, capDetail, AGENT_ID } from './common.mjs'
+import { guard, invalid, token, issueUrl, ISSUE_ID, settingString, isPlainUrl, capDetail, AGENT_ID, INSTALL } from './common.mjs'
 
 const DEFAULT_BRANCH_TEMPLATE = '{{id_lower}}-{{summary_slug}}'
-const INSTALL = {
-  darwin: 'brew install jetbrains/utils/youtrack',
-  linux: 'brew install jetbrains/utils/youtrack',
-  win32: 'winget install JetBrains.YouTrackCLI'
-}
 const noOrcaCli = () => fail(CODES.ORCA_CLI_NOT_FOUND, 'The Orca CLI was not found.')
 const tooLong = () => fail(CODES.PROMPT_TOO_LONG, `Prompt is longer than ${PROMPT_LIMIT} characters`)
 const shortBranch = (b) => String(b ?? '').replace(/^refs\/heads\//, '')
