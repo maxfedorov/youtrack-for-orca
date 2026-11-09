@@ -187,3 +187,24 @@ test('worker events of an unexpected shape are ignored', async () => {
   clean(view)
   await view.unmount()
 })
+
+test('an issue too large to draw shows an error with Open in browser instead of loading forever', async () => {
+  const comments = Array.from({ length: 12 }, (_, i) => ({ id: `c${i}`, author: { login: 'a', fullName: 'A' }, created: i, textMd: 'x'.repeat(50_000) }))
+  const huge = { ...detail(1), descriptionMd: 'y'.repeat(70_000), comments }
+  const view = await mount(panel, { host: mockHost({ requests: { ...healthy, 'yt.issue.get': ok(huge) } }) })
+  await view.activateRow(view.find(table), 'DEMO-1')
+  clean(view)
+  assert.ok(view.find({ text: 'This issue is too large to show here. Open it in the browser.' }))
+  assert.ok(view.find({ role: 'button', text: 'Open in browser' }))
+  assert.ok(view.find({ role: 'button', text: '← Back' }))
+  await view.unmount()
+})
+
+test('long error texts are shortened so the screen can still be drawn', async () => {
+  const long = { ok: false, error: { code: 'ORCA_CLI_FAILED', message: 'e'.repeat(40_000) } }
+  const view = await mount(panel, { host: mockHost({ requests: { ...healthy, 'yt.issues.search': long } }) })
+  clean(view)
+  const text = view.findAll({ type: 'Text' }).map((t: any) => t.props.children ?? t.text).find((t: any) => typeof t === 'string' && t.startsWith('eee'))
+  assert.ok(text && text.length <= 2001)
+  await view.unmount()
+})

@@ -25,6 +25,9 @@ export const refreshTick = atom(0)
 /** Message of the last failed request, shown by the panel; null when none. */
 export const panelError = atom<string | null>(null)
 
+/** Error texts are drawn in `Text`, which refuses more than 16 KiB; keep them short. */
+export const MAX_MESSAGE = 2000
+const short = (text: string) => (text.length <= MAX_MESSAGE ? text : `${text.slice(0, MAX_MESSAGE - 1).replace(/[\ud800-\udbff]$/, '')}…`)
 const UNEXPECTED = 'The plugin got an unexpected answer. Try again.'
 /** Messages for the ways `plugin.request` rejects, by host error code. */
 const REJECTED: Record<string, string> = {
@@ -43,7 +46,7 @@ export function unwrap<T>(result: Result<T> | null | undefined): Unwrapped<T> {
     const error = typeof answer.error === 'object' && answer.error !== null ? answer.error : {}
     const code = typeof error.code === 'string' && error.code ? (error.code as ErrorCode) : 'UNKNOWN'
     const message = typeof error.message === 'string' && error.message ? error.message : 'The request failed. Try again.'
-    return { ok: false, code, message }
+    return { ok: false, code, message: short(message) }
   }
   return { ok: false, code: 'UNKNOWN', message: UNEXPECTED }
 }
@@ -52,7 +55,7 @@ export function unwrap<T>(result: Result<T> | null | undefined): Unwrapped<T> {
 function rejected(error: unknown): string {
   const code = typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined
   if (typeof code === 'string' && REJECTED[code]) return REJECTED[code]
-  return error instanceof Error && error.message ? error.message : 'The request failed. Try again.'
+  return error instanceof Error && error.message ? short(error.message) : 'The request failed. Try again.'
 }
 
 /**

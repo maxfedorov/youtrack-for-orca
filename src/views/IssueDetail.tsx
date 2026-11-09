@@ -11,6 +11,16 @@ type Status = 'idle' | 'loading' | 'ok' | 'error'
 const detail = atom<Detail | null>(null)
 const status = atom<Status>('idle')
 const failure = atom('')
+/** The loaded issue is too large to draw; its link is offered instead. */
+const tooLarge = atom<string | null>(null)
+
+/** Orca refuses a render above about 512 KiB and draws Markdown above 64 KiB as a placeholder. */
+const MAX_DRAWN = 450_000
+const MAX_MARKDOWN = 60 * 1024
+const drawable = (issue: Detail) =>
+  JSON.stringify(issue).length <= MAX_DRAWN &&
+  issue.descriptionMd.length <= MAX_MARKDOWN &&
+  issue.comments.every((comment) => comment.textMd.length <= MAX_MARKDOWN)
 /** The server and issue (`alias|id`) the atoms above belong to; null when nothing is loaded. */
 const loadedFor = atom<string | null>(null)
 
@@ -26,11 +36,17 @@ async function load(id: string): Promise<void> {
   set(status, 'loading')
   const answer = await call('yt.issue.get', { server: current, id })
   if (mine !== seq) return
-  if (answer.ok) {
+  if (answer.ok && !drawable(answer.data)) {
+    set(tooLarge, answer.data.url)
+    set(failure, 'This issue is too large to show here. Open it in the browser.')
+    set(status, 'error')
+  } else if (answer.ok) {
     set(detail, answer.data)
     set(failure, '')
+    set(tooLarge, null)
     set(status, 'ok')
   } else {
+    set(tooLarge, null)
     set(failure, answer.message)
     set(status, 'error')
   }
@@ -139,9 +155,15 @@ export function IssueDetail({ id }: { id: string }) {
         <Callout tone="danger">
           <Stack gap="xs">
             <Text>{read(failure)}</Text>
-            <Button variant="ghost" onPress={() => void load(id)}>
-              Retry
-            </Button>
+            {read(tooLarge) ? (
+              <Button variant="outline" size="sm" onPress={() => void openInBrowser(read(tooLarge) ?? '')}>
+                Open in browser
+              </Button>
+            ) : (
+              <Button variant="ghost" onPress={() => void load(id)}>
+                Retry
+              </Button>
+            )}
           </Stack>
         </Callout>
       ) : state === 'ok' && issue && issue.id === id ? (
