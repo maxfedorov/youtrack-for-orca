@@ -278,3 +278,19 @@ test('every request answers hostile inputs and hostile dependencies with a Resul
   })
   assert.deepEqual(seen.map(String), [])
 })
+
+test('a started workspace or agent is reported as started even when saving the link fails', async () => {
+  const logs = []
+  const { call, orca } = setup({ host: { 'agent.launch': { terminalId: 't9' } }, orca: { log: (m) => logs.push(m) } })
+  orca.storage.set = async () => { throw new Error('disk full') }
+  const run = await call('yt.start.run', { server: 'one', id: 'DEMO-1', repoId: 'r1', name: 'n', agent: 'claude', prompt: 'p' })
+  assert.equal(run.ok, true)
+  assert.equal(run.data.workspaceId, 'identity:new')
+  assert.equal(typeof run.data.warning, 'string')
+  const existing = await call('yt.runInExisting', { server: 'one', id: 'DEMO-1', workspaceId: 'identity:main', agent: 'claude', prompt: 'p' })
+  assert.equal(existing.ok, true)
+  assert.equal(existing.data.terminalId, 't9')
+  assert.equal(typeof existing.data.warning, 'string')
+  assert.ok(logs.length >= 2)
+  assert.ok(logs.every((m) => !/disk full/.test(m)))
+})

@@ -9,12 +9,31 @@ const noOrcaCli = () => fail(CODES.ORCA_CLI_NOT_FOUND, 'The Orca CLI was not fou
 const tooLong = () => fail(CODES.PROMPT_TOO_LONG, `Prompt is longer than ${PROMPT_LIMIT} characters`)
 const shortBranch = (b) => String(b ?? '').replace(/^refs\/heads\//, '')
 
+const NOT_SAVED = 'Started, but the plugin could not save it: this issue may not show its workspace or a finished notice.'
+
 const inside = (dir, p) => p === dir || p.startsWith(dir.replace(/[\\/]+$/, '') + '/') || p.startsWith(dir.replace(/[\\/]+$/, '') + '\\')
 
 export function registerStartHandlers(ctx) {
   const { orca, orcaCli, links, launches, detectAgents, now, platform, resolveServer } = ctx
   const handle = (name, fn) => safeHandle(orca, name, fn)
   const host = (method, params) => orca.host.call(method, params)
+  /**
+   * Bookkeeping after the work already started: a failure must not report the start as failed (a
+   * retry would start it twice), so it is logged and returned as a warning.
+   */
+  async function remember(what, write) {
+    try {
+      await write()
+      return null
+    } catch (e) {
+      try {
+        orca.log?.(`${what} failed after start: ${e instanceof Error ? e.name : typeof e}`)
+      } catch {
+        // logging is best effort
+      }
+      return NOT_SAVED
+    }
+  }
 
   async function listWorkspaces() {
     const r = await host('workspace.list', {})
@@ -118,15 +137,17 @@ export function registerStartHandlers(ctx) {
     const r = await orcaCli.createWorktree(input)
     if (!r.ok) return r
     const { workspaceId, terminalId, paneKey } = r.data
-    await links.add(s.data.alias, id, workspaceId, now())
+    const saved = await remember('yt.start.run link', () => links.add(s.data.alias, id, workspaceId, now()))
+    let tracked = null
     // The finished-notification matches `agent.status.changed` by terminal, pane or workspace, so keep
     // every id the answer has; without a terminal handle the workspace id stands in for it.
     if (input.agent) {
       const launch = { terminalId: terminalId ?? workspaceId, server: s.data.alias, issueId: id, workspaceId, at: now() }
       if (paneKey) launch.paneKey = paneKey
-      await launches.track(launch)
+      tracked = await remember('yt.start.run launch', () => launches.track(launch))
     }
-    return ok({ workspaceId })
+    const warning = saved ?? tracked
+    return ok(warning ? { workspaceId, warning } : { workspaceId })
   })
 
   handle('yt.runInExisting', async ({ server, id, workspaceId, agent, prompt }) => {
@@ -143,8 +164,12 @@ export function registerStartHandlers(ctx) {
     const r = await host('agent.launch', params)
     // Without a terminal id the launch is tracked by workspace id (the notifier matches either).
     const terminalId = typeof r?.terminalId === 'string' ? r.terminalId : null
-    await launches.track({ terminalId: terminalId ?? workspaceId, server: s.data.alias, issueId: id, workspaceId, at: now() })
-    return ok(terminalId ? { terminalId } : {})
+    const warning = await remember('yt.runInExisting launch', () =>
+      launches.track({ terminalId: terminalId ?? workspaceId, server: s.data.alias, issueId: id, workspaceId, at: now() })
+    )
+    const data = terminalId ? { terminalId } : {}
+    if (warning) data.warning = warning
+    return ok(data)
   })
 
   handle('yt.links', async ({ server }) => {
