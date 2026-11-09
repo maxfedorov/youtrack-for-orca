@@ -4,7 +4,7 @@
  * handlers/start.mjs (repos, workspaces, agent launches, terminals).
  */
 import { fail, ok, CODES } from './result.mjs'
-import { toServer } from './mapping.mjs'
+import { toServers } from './mapping.mjs'
 import { registerYoutrackHandlers } from './handlers/youtrack.mjs'
 import { registerStartHandlers } from './handlers/start.mjs'
 
@@ -37,7 +37,7 @@ export function registerHandlers(orca, deps) {
       if (r.error.code === CODES.CLI_NOT_FOUND) await refreshYoutrack()
       return r
     }
-    const found = r.data.map(toServer).find((s) => s.alias === alias)
+    const found = toServers(r.data).find((s) => s.alias === alias)
     return found ? ok(found) : fail(CODES.UNKNOWN, 'Unknown server')
   }
   const ctx = { ...deps, platform: deps.platform ?? process.platform, orca, resolveServer, refreshYoutrack }

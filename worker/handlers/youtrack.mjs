@@ -1,6 +1,6 @@
 /** Requests about servers, issues and saved queries (everything answered by the youtrack CLI). */
 import { ok, fail, CODES } from '../result.mjs'
-import { toIssueRow, toIssueDetail, toSavedQuery, toServer } from '../mapping.mjs'
+import { toIssueRow, toIssueDetail, toSavedQuery, toSavedQueries, toServers } from '../mapping.mjs'
 import { guard, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, isPlainUrl, normalizeUrl, settingString, capDetail, INSTALL } from './common.mjs'
 
 const MAX_LIMIT = 50
@@ -27,7 +27,7 @@ export function registerYoutrackHandlers(ctx) {
       }
       return ok({ ...base, cli: withInstall({ found: true }), servers: [], server: null, error: inst.error.message })
     }
-    const servers = inst.data.map(toServer)
+    const servers = toServers(inst.data)
     const stored = await state.getServer()
     const chosen = servers.find((s) => s.alias === stored) ?? servers.find((s) => s.active) ?? servers[0]
     const cli = withInstall({ found: true })
@@ -85,7 +85,7 @@ export function registerYoutrackHandlers(ctx) {
     const s = await resolveServer(server)
     if (!s.ok) return s
     const r = await ctx.youtrack.savedSearches(s.data.alias)
-    return r.ok ? ok(r.data.map(toSavedQuery)) : r
+    return r.ok ? ok(toSavedQueries(r.data)) : r
   })
 
   handle('yt.savedQueries.create', async ({ server, name, query }) => {
@@ -95,7 +95,7 @@ export function registerYoutrackHandlers(ctx) {
     const s = await resolveServer(server)
     if (!s.ok) return s
     const r = await ctx.youtrack.createSavedSearch(s.data.alias, n, query)
-    return r.ok ? ok(toSavedQuery(r.data)) : r
+    return r.ok ? ok(toSavedQuery(r.data) ?? { id: '', name: n, query }) : r
   })
 
   handle('yt.servers.add', async ({ url }) => {

@@ -27,8 +27,11 @@ function toValue(v) {
 /** @param {any} v @returns {User | undefined} */
 function toUser(v) {
   if (v == null || typeof v.login !== 'string') return undefined
-  return { login: v.login, fullName: v.fullName ?? v.login }
+  return { login: v.login, fullName: typeof v.fullName === 'string' ? v.fullName : v.login }
 }
+
+const text = (v) => (v == null ? '' : String(v))
+const count = (v) => Number(v) || 0
 
 /** @param {string} baseUrl @param {string} id */
 function issueUrl(baseUrl, id) {
@@ -41,13 +44,14 @@ function issueUrl(baseUrl, id) {
  * @returns {IssueRow}
  */
 export function toIssueRow(raw, baseUrl) {
+  const id = text(raw?.idReadable)
   /** @type {IssueRow} */
   const row = {
-    id: raw.idReadable,
-    summary: raw.summary,
-    updated: raw.updated,
-    resolved: raw.resolved != null,
-    url: issueUrl(baseUrl, raw.idReadable)
+    id,
+    summary: text(raw?.summary),
+    updated: count(raw?.updated),
+    resolved: raw?.resolved != null,
+    url: issueUrl(baseUrl, id)
   }
   const state = toValue(fieldValue(raw, 'State'))
   if (state) row.state = state
@@ -65,22 +69,23 @@ export function toIssueRow(raw, baseUrl) {
  * @returns {IssueDetail}
  */
 export function toIssueDetail(rawView, rawComments, baseUrl) {
-  const comments = (rawComments ?? [])
+  const comments = (Array.isArray(rawComments) ? rawComments : [])
+    .filter((c) => c && c.deleted !== true)
     .map((c) => ({
-      id: c.id,
+      id: text(c.id),
       author: toUser(c.author) ?? { login: '', fullName: '' },
-      created: c.created,
-      textMd: c.text ?? ''
+      created: count(c.created),
+      textMd: text(c.text)
     }))
     .sort((a, b) => a.created - b.created)
   /** @type {IssueDetail} */
   const detail = {
     ...toIssueRow(rawView, baseUrl),
     project: {
-      shortName: rawView.project?.shortName ?? '',
-      name: rawView.project?.name ?? ''
+      shortName: text(rawView.project?.shortName),
+      name: text(rawView.project?.name)
     },
-    descriptionMd: rawView.description ?? '',
+    descriptionMd: text(rawView.description),
     comments
   }
   const type = toValue(fieldValue(rawView, 'Type'))
@@ -88,12 +93,24 @@ export function toIssueDetail(rawView, rawComments, baseUrl) {
   return detail
 }
 
-/** @param {any} raw @returns {{ id: string, name: string, query: string }} */
+/** @param {any} raw @returns {{ id: string, name: string, query: string } | null} null when there is no query */
 export function toSavedQuery(raw) {
-  return { id: raw.id, name: raw.name, query: raw.query }
+  if (typeof raw?.query !== 'string') return null
+  return { id: text(raw.id), name: text(raw.name), query: raw.query }
 }
+
+/** @param {any} list `search list --json` */
+export const toSavedQueries = (list) => (Array.isArray(list) ? list : []).map(toSavedQuery).filter((q) => q !== null)
 
 /** @param {any} raw item of `instance list --json` @returns {Server} */
 export function toServer(raw) {
-  return { alias: raw.alias, url: raw.url, active: raw.active, status: raw.status }
+  return {
+    alias: text(raw?.alias),
+    url: text(raw?.url),
+    active: raw?.active === true,
+    status: typeof raw?.status === 'string' && raw.status ? raw.status : 'unknown'
+  }
 }
+
+/** Servers of `instance list --json`; entries without an alias are dropped. @param {any} list @returns {Server[]} */
+export const toServers = (list) => (Array.isArray(list) ? list : []).map(toServer).filter((s) => s.alias !== '')

@@ -537,3 +537,17 @@ test('start.run tracks the launch by terminal handle and keeps the workspace id'
     { terminalId: 'term_1', paneKey: 'tab:pane', server: 'one', issueId: 'DEMO-1', workspaceId: 'identity:new', at: 1000 },
   ])
 })
+
+test('odd records from the CLI do not break env or saved searches', async () => {
+  const yt = fakeYt({
+    instances: async () => ok([{ alias: 'solo' }, { url: 'x' }]),
+    savedSearches: async () => ok([{ id: '1', name: 'no query' }, { id: '2', name: 'ok', query: 'q' }]),
+  })
+  const { call } = setup({ yt })
+  const env = await call('yt.env')
+  assert.deepEqual(env.data.servers, [{ alias: 'solo', url: '', active: false, status: 'unknown' }])
+  strict(env)
+  const saved = await call('yt.savedQueries', { server: 'solo' })
+  assert.deepEqual(saved.data, [{ id: '2', name: 'ok', query: 'q' }])
+  strict(saved)
+})
