@@ -1,0 +1,93 @@
+{
+  "customFields": [
+    {
+      "value": {
+        "name": "Show-stopper",
+        "$type": "EnumBundleElement"
+      },
+      "name": "Priority",
+      "$type": "SingleEnumIssueCustomField"
+    },
+    {
+      "value": {
+        "name": "Task",
+        "$type": "EnumBundleElement"
+      },
+      "name": "Type",
+      "$type": "SingleEnumIssueCustomField"
+    },
+    {
+      "value": {
+        "name": "Done",
+        "$type": "StateBundleElement"
+      },
+      "name": "State",
+      "$type": "StateIssueCustomField"
+    },
+    {
+      "value": null,
+      "name": "Assignee",
+      "$type": "SingleUserIssueCustomField"
+    },
+    {
+      "value": null,
+      "name": "Subsystem",
+      "$type": "SingleOwnedIssueCustomField"
+    },
+    {
+      "value": [],
+      "name": "Fix versions",
+      "$type": "MultiVersionIssueCustomField"
+    },
+    {
+      "value": [],
+      "name": "Affected versions",
+      "$type": "MultiVersionIssueCustomField"
+    },
+    {
+      "value": null,
+      "name": "Fixed in build",
+      "$type": "SingleBuildIssueCustomField"
+    },
+    {
+      "value": {
+        "$type": "PeriodValue"
+      },
+      "name": "Estimation",
+      "$type": "PeriodIssueCustomField"
+    },
+    {
+      "value": {
+        "$type": "PeriodValue"
+      },
+      "name": "Spent time",
+      "$type": "PeriodIssueCustomField"
+    }
+  ],
+  "description": "Demo description with **Markdown**.\n\nSecond paragraph.",
+  "created": 1794215333932,
+  "project": {
+    "shortName": "DEMO",
+    "name": "Demo project",
+    "id": "0-14",
+    "$type": "Project"
+  },
+  "summary": "Demo issue 1",
+  "updated": 1794215334499,
+  "idReadable": "DEMO-1",
+  "resolved": 1794215334022,
+  "reporter": {
+    "login": "demo",
+    "fullName": "Demo User",
+    "id": "0-2",
+    "$type": "User"
+  },
+  "updater": {
+    "login": "demo",
+    "fullName": "Demo User",
+    "id": "0-2",
+    "$type": "User"
+  },
+  "id": "0-15",
+  "$type": "Issue"
+}

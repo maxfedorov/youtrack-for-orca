@@ -1,0 +1,20 @@
+[
+  {
+    "author": {
+      "login": "demo",
+      "fullName": "Demo User",
+      "id": "0-2",
+      "$type": "User"
+    },
+    "deleted": false,
+    "text": "Demo comment with **Markdown**.",
+    "created": 1794215334060,
+    "visibility": {
+      "$type": "UnlimitedVisibility"
+    },
+    "updated": null,
+    "pinned": false,
+    "id": "0-3",
+    "$type": "IssueComment"
+  }
+]
