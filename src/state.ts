@@ -24,6 +24,8 @@ export const view = atom<View>({ kind: 'setup' })
 export const refreshTick = atom(0)
 /** Message of the last failed request, shown by the panel; null when none. */
 export const panelError = atom<string | null>(null)
+/** Something worked only in part (a warning); stays until dismissed. */
+export const notice = atom<string | null>(null)
 
 /** Error texts are drawn in `Text`, which refuses more than 16 KiB; keep them short. */
 export const MAX_MESSAGE = 2000
@@ -51,11 +53,23 @@ export function unwrap<T>(result: Result<T> | null | undefined): Unwrapped<T> {
   return { ok: false, code: 'UNKNOWN', message: UNEXPECTED }
 }
 
+const rejectionCode = (error: unknown) => (typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined)
+
 /** Why a `plugin.request` rejected, in words for the error callout. */
 function rejected(error: unknown): string {
-  const code = typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined
+  const code = rejectionCode(error)
   if (typeof code === 'string' && REJECTED[code]) return REJECTED[code]
   return error instanceof Error && error.message ? short(error.message) : 'The request failed. Try again.'
+}
+
+/**
+ * Requests that change something get the longest wait the platform allows, longer than the worker's own
+ * time limits, so a slow start is not reported as failed while it goes on.
+ */
+const TIMEOUTS: Partial<Record<string, number>> = {
+  'yt.start.run': 120_000,
+  'yt.runInExisting': 120_000,
+  'yt.savedQueries.create': 120_000
 }
 
 /**
@@ -67,13 +81,14 @@ export async function call<N extends keyof import('orca').PluginRequests>(
   input: import('orca').PluginRequests[N]['input']
 ): Promise<Unwrapped<Extract<import('orca').PluginRequests[N]['output'], { ok: true }>['data']>> {
   try {
-    let answer = unwrap(await plugin.request(name, input) as never)
+    const timeoutMs = TIMEOUTS[name]
+    let answer = unwrap((await (timeoutMs ? plugin.request(name, input, { timeoutMs }) : plugin.request(name, input))) as never)
     if (answer.ok && !validAnswer(name, answer.data)) answer = { ok: false, code: 'UNKNOWN', message: UNEXPECTED }
     if (answer.ok) set(panelError, null)
     else if (answer.code === 'CLI_NOT_FOUND' && name !== 'yt.env') void loadEnv()
     return answer as never
   } catch (error) {
-    return { ok: false, code: 'UNKNOWN', message: rejected(error) }
+    return { ok: false, code: rejectionCode(error) === 'timeout' ? 'TIMEOUT' : 'UNKNOWN', message: rejected(error) }
   }
 }
 

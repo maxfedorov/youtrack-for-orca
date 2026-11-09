@@ -1,7 +1,7 @@
 import { atom, read, set } from 'orca'
 import { buildPrompt, PROMPT_LIMIT } from '../worker/prompt.mjs'
 import { loadLinks } from './listState'
-import { call, server, view } from './state'
+import { call, notice, server, view } from './state'
 import type { Repo, StartPrepare } from './protocol'
 
 export const OTHER = '__other__'
@@ -37,6 +37,9 @@ export const prompt = atom('')
 export const promptEdited = atom(false)
 export const running = atom(false)
 export const runError = atom('')
+/** The last start timed out and may still be running; Start stays off until the form is reloaded. */
+export const startPending = atom(false)
+export const STILL_STARTING = 'Still starting — check the Orca sidebar before trying again.'
 
 let seq = 0
 let refsSeq = 0
@@ -60,7 +63,7 @@ export function chosenAgent(): string | undefined {
 export function canStart(): { ok: boolean; hint: string } {
   const agent = chosenAgent()
   const wantsOther = read(agentChoice) === OTHER && !agent
-  if (read(running)) return { ok: false, hint: '' }
+  if (read(running) || read(startPending)) return { ok: false, hint: '' }
   if (read(mode) === 'worktree') {
     if (!read(repoId) || !read(name).trim()) return { ok: false, hint: '' }
   } else if (!read(workspaceId)) {
@@ -152,6 +155,7 @@ function init(p: StartPrepare): void {
   set(prompt, templatePrompt(p, p.includeDescription))
   set(running, false)
   set(runError, '')
+  set(startPending, false)
 }
 
 export async function load(id: string): Promise<void> {
@@ -201,7 +205,7 @@ export async function submit(id: string): Promise<void> {
   const mine = seq
   set(running, true)
   set(runError, '')
-  let answer: { ok: true } | { ok: false; message: string }
+  let answer: { ok: true; data: { warning?: string } } | { ok: false; code: string; message: string }
   if (read(mode) === 'worktree') {
     const base = read(baseBranch)
     answer = await call('yt.start.run', {
@@ -215,9 +219,12 @@ export async function submit(id: string): Promise<void> {
   if (mine !== seq) return
   set(running, false)
   if (!answer.ok) {
-    set(runError, answer.message)
+    // A timeout does not mean it failed: the worktree or agent may still appear.
+    if (answer.code === 'TIMEOUT') set(startPending, true)
+    set(runError, answer.code === 'TIMEOUT' ? STILL_STARTING : answer.message)
     return
   }
   back()
+  if (answer.data.warning) set(notice, answer.data.warning)
   void loadLinks()
 }

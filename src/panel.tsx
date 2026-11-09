@@ -1,5 +1,5 @@
 import { Button, Callout, plugin, read, set, Stack, Text, type PanelContext } from 'orca'
-import { env, loadEnv, panelError, view } from './state'
+import { env, loadEnv, notice, panelError, view } from './state'
 import { loadLinks } from './listState'
 import { postedUrl } from './shapes'
 import { Header } from './views/Header'
@@ -52,6 +52,16 @@ export default function Panel() {
                 Retry
               </Button>
             )}
+          </Stack>
+        </Callout>
+      ) : null}
+      {read(notice) ? (
+        <Callout tone="warning">
+          <Stack gap="xs">
+            <Text>{read(notice) ?? ''}</Text>
+            <Button variant="ghost" onPress={() => set(notice, null)}>
+              Dismiss
+            </Button>
           </Stack>
         </Callout>
       ) : null}

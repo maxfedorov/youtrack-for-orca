@@ -87,12 +87,13 @@ declare module 'orca' {
     /** New worktree. Without `agent` no prompt is sent. */
     'yt.start.run': {
       input: { server: string; id: string; repoId: string; name: string; baseBranch?: string; agent?: string; prompt?: string }
-      output: Result<{ workspaceId: string }>
+      /** `warning`: it started, but the plugin could not save the link or the launch. */
+      output: Result<{ workspaceId: string; warning?: string }>
     }
     /** Agent in an existing workspace; no issue-to-workspace link is stored. */
     'yt.runInExisting': {
       input: { server: string; id: string; workspaceId: string; agent: string; prompt: string }
-      output: Result<{ terminalId?: string }>
+      output: Result<{ terminalId?: string; warning?: string }>
     }
     /** Issue id -> newest live workspace id. */
     'yt.links': { input: { server: string }; output: Result<Record<string, string>> }

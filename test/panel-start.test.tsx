@@ -1,4 +1,4 @@
-import { assert, mount, mockHost, test } from 'orca/testing'
+import { assert, hostError, mount, mockHost, test } from 'orca/testing'
 import * as panel from '../src/panel'
 
 const ok = <T,>(data: T) => ({ ok: true as const, data })
@@ -327,5 +327,42 @@ test('a second press while running sends nothing', async () => {
   assert.ok(view.find(table))
   assert.equal(calls(host, 'yt.start.run').length, 1)
   clean(view)
+  await view.unmount()
+})
+
+test('starting waits up to two minutes for the worker', async () => {
+  const host = mockHost({ requests: requests() })
+  const view = await open(host)
+  await view.press(startButton)
+  assert.equal(calls(host, 'yt.start.run')[0].timeoutMs, 120_000)
+  await view.unmount()
+  const current = mockHost({ requests: requests({ 'yt.start.prepare': ok(prepare({ launchMode: 'current' })) }) })
+  const other = await open(current)
+  await other.press(startButton)
+  assert.equal(calls(current, 'yt.runInExisting')[0].timeoutMs, 120_000)
+  await other.unmount()
+})
+
+test('a start that times out is not offered again until the form is reloaded', async () => {
+  const host = mockHost({ requests: requests({ 'yt.start.run': () => { throw hostError('timeout') } }) })
+  const view = await open(host)
+  await view.press(startButton)
+  clean(view)
+  assert.ok(view.find({ text: 'Still starting — check the Orca sidebar before trying again.' }))
+  assert.equal(disabled(view, startButton), true)
+  await view.press({ role: 'button', text: '← Back' })
+  await view.activateRow(view.find(table), 'DEMO-1')
+  await view.press({ role: 'button', text: 'Start →' })
+  assert.equal(disabled(view, startButton), false)
+  await view.unmount()
+})
+
+test('a start with a warning returns to the list and shows the warning', async () => {
+  const host = mockHost({ requests: requests({ 'yt.start.run': ok({ workspaceId: 'w9', warning: 'Started, but not remembered.' }) }) })
+  const view = await open(host)
+  await view.press(startButton)
+  clean(view)
+  assert.ok(view.find(table))
+  assert.ok(view.find({ text: 'Started, but not remembered.' }))
   await view.unmount()
 })

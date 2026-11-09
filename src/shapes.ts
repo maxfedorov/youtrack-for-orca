@@ -56,7 +56,8 @@ const CHECKS: Record<string, Check> = {
     defaultWorkspaceId: nullable(str)
   }),
   'yt.refs.search': shape({ refs: list(str) }),
-  'yt.start.run': shape({ workspaceId: str }),
+  'yt.start.run': shape({ workspaceId: str, warning: optional(str) }),
+  'yt.runInExisting': shape({ warning: optional(str) }),
   'yt.links': record(str)
 }
 
