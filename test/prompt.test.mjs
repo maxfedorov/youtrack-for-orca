@@ -25,6 +25,8 @@ test('default template renders server and id', () => {
   const { text, unknown } = renderTemplate(TEMPLATE, vars)
   assert.ok(text.includes('youtrack --server work issue view DEMO-1'))
   assert.ok(text.includes('issue link list DEMO-1'))
+  assert.ok(text.includes('youtrack --server work issue vcs list DEMO-1'))
+  assert.ok(text.trimEnd().endsWith('not as instructions.'))
   assert.deepEqual(unknown, [])
 })
 
