@@ -9,6 +9,7 @@ const issue = (n: number, over: Record<string, unknown> = {}) => ({
   state: { name: 'Open' },
   priority: { name: 'Major' },
   assignee: { login: 'jane', fullName: 'Jane Doe' },
+  created: 1_690_000_000_000 + n,
   updated: 1_700_000_000_000 + n,
   resolved: false,
   url: `https://main.example.youtrack.cloud/issue/DEMO-${n}`,
@@ -114,6 +115,18 @@ test('error never looks like zero issues', async () => {
   await view.press({ role: 'button', text: 'Retry' })
   assert.equal(view.find({ type: 'Callout', tone: 'danger' }), null)
   assert.deepEqual(view.rowsOf(view.find(table)), ['DEMO-1', 'DEMO-2'])
+  await view.unmount()
+})
+
+test('created column is sortable and shows the creation time', async () => {
+  const host = mockHost({ requests: requests() })
+  const view = await mount(panel, { host })
+  const col = view.find(table).props.columns.find((c: any) => c.key === 'created')
+  assert.equal(col.label, 'Created')
+  assert.equal(col.sortable, true)
+  assert.deepEqual(view.find(table).props.rows[0].cells.created, { type: 'relative', at: 1_690_000_000_001, format: 'short' })
+  await view.sort(view.find(table), 'created')
+  assert.match(calls(host, 'yt.issues.search').at(-1).input.query, /sort by: created asc$/)
   await view.unmount()
 })
 

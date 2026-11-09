@@ -3,7 +3,7 @@ import * as panel from '../src/panel'
 
 const ok = <T,>(data: T) => ({ ok: true as const, data })
 const issue = (n: number) => ({
-  id: `DEMO-${n}`, summary: `Issue ${n}`, state: { name: 'Open' }, updated: 1_700_000_000_000 + n, resolved: false,
+  id: `DEMO-${n}`, summary: `Issue ${n}`, state: { name: 'Open' }, created: 1_690_000_000_000 + n, updated: 1_700_000_000_000 + n, resolved: false,
   url: `https://main.example.com/issue/DEMO-${n}`
 })
 const servers = [

@@ -20,8 +20,13 @@ test('maps customFields by name', () => {
   assert.deepEqual(row.priority, { name: 'Show-stopper' })
   assert.equal(row.resolved, true)
   assert.equal(typeof row.updated, 'number')
+  assert.equal(row.created, issues[0].created)
   assert.equal('assignee' in row, false)
   assert.equal('type' in row, false)
+})
+
+test('missing created becomes 0', () => {
+  assert.equal(toIssueRow({ idReadable: 'DEMO-9' }, BASE).created, 0)
 })
 
 test('rows are strict JSON without undefined values', () => {
@@ -53,7 +58,7 @@ test('maps assignee, color and unresolved', () => {
 
 test('missing customFields yields no optional keys', () => {
   const row = toIssueRow({ idReadable: 'DEMO-2', summary: 's', updated: 1, resolved: null }, BASE)
-  assert.deepEqual(Object.keys(row).sort(), ['id', 'resolved', 'summary', 'updated', 'url'])
+  assert.deepEqual(Object.keys(row).sort(), ['created', 'id', 'resolved', 'summary', 'updated', 'url'])
 })
 
 test('builds browser url without double slash', () => {
@@ -114,7 +119,7 @@ const noUndefined = (v) => assert.equal(JSON.stringify(v).includes('undefined'),
 
 test('an empty raw issue maps to defaults, never undefined', () => {
   const row = toIssueRow({}, BASE)
-  assert.deepEqual(row, { id: '', summary: '', updated: 0, resolved: false, url: BASE + '/issue/' })
+  assert.deepEqual(row, { id: '', summary: '', created: 0, updated: 0, resolved: false, url: BASE + '/issue/' })
   strict(row)
   const partial = toIssueRow({ idReadable: 'DEMO-2' }, BASE)
   assert.equal(partial.summary, '')

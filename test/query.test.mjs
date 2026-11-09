@@ -16,6 +16,12 @@ test('applySort replaces the previous clause when the column changes', () => {
   )
 })
 
+test('created is a sortable column', () => {
+  assert.equal(SORT_FIELDS.created, 'created')
+  assert.equal(applySort('for: me', 'created'), 'for: me sort by: created asc')
+  assert.deepEqual(parseSort('for: me sort by: created desc'), { column: 'created', direction: 'desc' })
+})
+
 test('applySort wraps the field with a space in braces', () => {
   assert.equal(SORT_FIELDS.id, '{issue id}')
   assert.equal(applySort('', 'id'), 'sort by: {issue id} asc')

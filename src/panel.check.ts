@@ -21,6 +21,7 @@ const issue = (n: number) => ({
   state: { name: 'Open' },
   priority: { name: 'Major' },
   assignee: { login: 'jane', fullName: 'Jane Doe' },
+  created: 1_690_000_000_000 + n,
   updated: 1_700_000_000_000 + n,
   resolved: false,
   url: `https://main.example.youtrack.cloud/issue/DEMO-${n}`

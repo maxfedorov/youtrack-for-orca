@@ -15,6 +15,7 @@ const COLUMNS = [
   { key: 'state', label: 'State', sortable: true, hideBelow: 'sm' },
   { key: 'priority', label: 'Priority', sortable: true, hideBelow: 'md' },
   { key: 'assignee', label: 'Assignee', sortable: true, hideBelow: 'md' },
+  { key: 'created', label: 'Created', sortable: true, hideBelow: 'md' },
   { key: 'updated', label: 'Updated', sortable: true, hideBelow: 'sm' }
 ]
 
@@ -26,6 +27,7 @@ const toRow = (row: IssueRow) => ({
     state: row.state?.name ?? null,
     priority: row.priority?.name ?? null,
     assignee: row.assignee?.fullName ?? null,
+    created: { type: 'relative', at: row.created, format: 'short' },
     updated: { type: 'relative', at: row.updated, format: 'short' }
   }
 })

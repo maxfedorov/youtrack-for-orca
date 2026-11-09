@@ -52,7 +52,7 @@ test('listIssues builds argv', async () => {
   const yt = createYoutrack({ bin: 'youtrack', run })
   const r = await yt.listIssues('work', 'for: me', 0, 50)
   assert.deepEqual(r, { ok: true, data: [] })
-  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'list', '--query', 'for: me', '--limit', '50', '--offset', '0', '--fields', 'idReadable,summary,updated,resolved,State,Priority,Assignee', '--json', '--quiet'])
+  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'list', '--query', 'for: me', '--limit', '50', '--offset', '0', '--fields', 'idReadable,summary,created,updated,resolved,State,Priority,Assignee', '--json', '--quiet'])
   assert.equal(run.calls[0].opts.timeoutMs, 15000)
 })
 

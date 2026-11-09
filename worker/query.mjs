@@ -7,6 +7,7 @@ export const SORT_FIELDS = {
   state: 'State',
   priority: 'Priority',
   assignee: 'Assignee',
+  created: 'created',
   updated: 'updated',
 }
 

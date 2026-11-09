@@ -4,7 +4,7 @@
 /** @typedef {{ name: string, color?: string }} Value */
 /** @typedef {{ login: string, fullName: string }} User */
 /** @typedef {{ id: string, author: User, created: number, textMd: string }} Comment */
-/** @typedef {{ id: string, summary: string, state?: Value, priority?: Value, assignee?: User, updated: number, resolved: boolean, url: string }} IssueRow */
+/** @typedef {{ id: string, summary: string, state?: Value, priority?: Value, assignee?: User, created: number, updated: number, resolved: boolean, url: string }} IssueRow */
 /** @typedef {IssueRow & { project: { shortName: string, name: string }, type?: Value, descriptionMd: string, comments: Comment[] }} IssueDetail */
 /** @typedef {{ alias: string, url: string, active: boolean, status: string }} Server */
 
@@ -49,6 +49,7 @@ export function toIssueRow(raw, baseUrl) {
   const row = {
     id,
     summary: text(raw?.summary),
+    created: count(raw?.created),
     updated: count(raw?.updated),
     resolved: raw?.resolved != null,
     url: issueUrl(baseUrl, id)

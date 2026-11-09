@@ -14,7 +14,7 @@ export type Comment = { id: string; author: User; created: number; textMd: strin
 export type Server = { alias: string; url: string; active: boolean; status: string }
 export type IssueRow = {
   id: string; summary: string; state?: Value; priority?: Value; assignee?: User
-  updated: number; resolved: boolean; url: string
+  created: number; updated: number; resolved: boolean; url: string
 }
 export type IssueDetail = IssueRow & {
   /** Every custom field of the issue as display strings, in the order YouTrack lists them. */

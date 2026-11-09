@@ -5,7 +5,7 @@ const ok = <T,>(data: T) => ({ ok: true as const, data })
 const fail = (code: string, message: string) => ({ ok: false as const, error: { code, message } })
 const issue = (n: number) => ({
   id: `DEMO-${n}`, summary: `Issue ${n}`, state: { name: 'Open' }, priority: { name: 'Major' },
-  assignee: { login: 'jane', fullName: 'Jane Doe' }, updated: 1_700_000_000_000 + n, resolved: false,
+  assignee: { login: 'jane', fullName: 'Jane Doe' }, created: 1_690_000_000_000 + n, updated: 1_700_000_000_000 + n, resolved: false,
   url: `https://main.example.youtrack.cloud/issue/DEMO-${n}`
 })
 const env = ok({
