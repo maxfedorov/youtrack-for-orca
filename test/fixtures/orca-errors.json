@@ -1,0 +1,47 @@
+{
+  "reference-url-unsupported": {
+    "exitCode": 1,
+    "stream": "stdout",
+    "stdout": {
+      "id": "local",
+      "ok": false,
+      "error": {
+        "code": "invalid_argument",
+        "message": "Unsupported reference URL. Use a PR, MR or issue URL with an identifiable provider route."
+      },
+      "_meta": {
+        "runtimeId": null
+      }
+    }
+  },
+  "prompt-requires-agent": {
+    "exitCode": 1,
+    "stream": "stdout",
+    "stdout": {
+      "id": "local",
+      "ok": false,
+      "error": {
+        "code": "invalid_argument",
+        "message": "--prompt requires --agent"
+      },
+      "_meta": {
+        "runtimeId": null
+      }
+    }
+  },
+  "search-refs-empty-query": {
+    "exitCode": 1,
+    "stream": "stdout",
+    "stdout": {
+      "id": "local",
+      "ok": false,
+      "error": {
+        "code": "invalid_argument",
+        "message": "Missing required --query"
+      },
+      "_meta": {
+        "runtimeId": null
+      }
+    }
+  }
+}

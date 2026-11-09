@@ -1,0 +1,46 @@
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "ok": true,
+  "result": {
+    "repos": [
+      {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "path": "/Users/demo/projects/demo-repo",
+        "displayName": "demo-repo",
+        "badgeColor": "#737373",
+        "addedAt": 1794000000000,
+        "kind": "git",
+        "externalWorktreeVisibilityLegacy": false,
+        "projectGroupId": "00000000-0000-0000-0000-000000000000",
+        "projectGroupOrder": 2,
+        "gitUsername": "demo",
+        "repoIcon": {
+          "type": "image",
+          "src": "https://example.com/avatar.png",
+          "source": "github",
+          "label": "demo/demo-repo"
+        },
+        "upstream": null,
+        "gitRemoteIdentity": {
+          "canonicalKey": "github.com/demo/demo-repo",
+          "remoteName": "origin",
+          "remoteUrl": "git@github.com:demo/demo-repo.git"
+        },
+        "projectHostSetupMethod": "imported-existing-folder",
+        "hookSettings": {
+          "mode": "auto",
+          "setupRunPolicy": "run-by-default",
+          "setupAgentStartupPolicy": "start-immediately",
+          "scripts": {
+            "setup": "",
+            "archive": ""
+          }
+        },
+        "externalWorktreeVisibility": "hide"
+      }
+    ]
+  },
+  "_meta": {
+    "runtimeId": "00000000-0000-0000-0000-000000000000"
+  }
+}
