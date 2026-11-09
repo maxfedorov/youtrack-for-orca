@@ -8,16 +8,73 @@ const MAX_TOKEN = 500
 
 export const invalid = (message) => fail(CODES.UNKNOWN, message)
 
-/** Wrap a handler: unexpected exceptions become `UNKNOWN` results, never throws. */
-export function guard(fn) {
+/** The panel <-> worker answer limit is 1 MiB; stay under it with some room. */
+export const MAX_ANSWER_BYTES = 1_000_000
+
+const errorName = (e) => (e instanceof Error ? e.name : typeof e)
+
+/**
+ * A plain JSON copy of what a handler returned, shaped as a Result: anything else (no Result, a
+ * failure without code or message, values JSON cannot carry, an answer over the size limit) becomes
+ * an `UNKNOWN` failure, so the panel always gets an answer it can show.
+ */
+function toAnswer(r) {
+  if (!r || typeof r !== 'object' || typeof r.ok !== 'boolean') return fail(CODES.UNKNOWN, 'The request returned no answer.')
+  if (!r.ok) {
+    const code = typeof r.error?.code === 'string' && r.error.code ? r.error.code : CODES.UNKNOWN
+    const message = typeof r.error?.message === 'string' && r.error.message ? r.error.message : 'The request failed.'
+    return fail(code, message)
+  }
+  let text
+  try {
+    text = JSON.stringify(r.data === undefined ? { ok: true, data: {} } : r)
+  } catch {
+    return fail(CODES.UNKNOWN, 'The request returned an answer that cannot be sent.')
+  }
+  if (Buffer.byteLength(text, 'utf8') > MAX_ANSWER_BYTES) return fail(CODES.UNKNOWN, 'The answer is too large to show.')
+  return JSON.parse(text)
+}
+
+/**
+ * Wrap a handler: it always resolves to a JSON-safe Result. Unexpected exceptions become `UNKNOWN`
+ * results and are logged by request name only (the message may hold issue text).
+ * @param {(input: any) => Promise<any>} fn
+ * @param {{ name?: string, log?: (message: string) => void }} [o]
+ */
+export function guard(fn, { name = 'request', log } = {}) {
   return async (input) => {
     try {
-      return await fn(input && typeof input === 'object' ? input : {})
+      return toAnswer(await fn(input && typeof input === 'object' ? input : {}))
     } catch (e) {
-      return fail(CODES.UNKNOWN, e instanceof Error ? e.message : String(e))
+      try {
+        log?.(`${name} failed: ${errorName(e)}`)
+      } catch {
+        // logging is best effort
+      }
+      return fail(CODES.UNKNOWN, e instanceof Error && e.message ? e.message : 'Something went wrong.')
     }
   }
 }
+
+/** Register a panel request handler behind `guard`. */
+export function safeHandle(orca, name, fn) {
+  return orca.panels.handle(name, guard(fn, { name, log: (m) => orca.log?.(m) }))
+}
+
+/** Post to the panels; a failed post (no panel open, rate limit) is dropped, never thrown or left unhandled. */
+export function safePost(orca, name, payload) {
+  try {
+    Promise.resolve(orca.panels.post(name, payload)).catch(() => {})
+  } catch {
+    // dropped
+  }
+}
+
+/** A CLI issue object with a readable id; rows without one cannot be shown or opened. */
+export const hasId = (raw) => raw !== null && typeof raw === 'object' && !Array.isArray(raw) && typeof raw.idReadable === 'string' && raw.idReadable !== ''
+
+/** Shown when the youtrack CLI answered with JSON of an unexpected shape. */
+export const unexpected = () => fail(CODES.UNKNOWN, 'The youtrack CLI returned an unexpected answer.')
 
 /** A non-empty string value that cannot be mistaken for a command-line flag. */
 export function token(v, what) {

@@ -2,7 +2,7 @@
 import { ok, fail, CODES } from '../result.mjs'
 import { toIssueDetail } from '../mapping.mjs'
 import { issueVars, workspaceName, PROMPT_LIMIT } from '../prompt.mjs'
-import { guard, invalid, token, issueUrl, ISSUE_ID, settingString, isPlainUrl, capDetail, AGENT_ID, INSTALL } from './common.mjs'
+import { safeHandle, unexpected, hasId, invalid, token, issueUrl, ISSUE_ID, settingString, isPlainUrl, capDetail, AGENT_ID, INSTALL } from './common.mjs'
 
 const DEFAULT_BRANCH_TEMPLATE = '{{id_lower}}-{{summary_slug}}'
 const noOrcaCli = () => fail(CODES.ORCA_CLI_NOT_FOUND, 'The Orca CLI was not found.')
@@ -13,12 +13,15 @@ const inside = (dir, p) => p === dir || p.startsWith(dir.replace(/[\\/]+$/, '') 
 
 export function registerStartHandlers(ctx) {
   const { orca, orcaCli, links, launches, detectAgents, now, platform, resolveServer } = ctx
-  const handle = (name, fn) => orca.panels.handle(name, guard(fn))
+  const handle = (name, fn) => safeHandle(orca, name, fn)
   const host = (method, params) => orca.host.call(method, params)
 
   async function listWorkspaces() {
     const r = await host('workspace.list', {})
-    return { list: Array.isArray(r?.workspaces) ? r.workspaces : [], truncated: r?.truncated === true }
+    const list = (Array.isArray(r?.workspaces) ? r.workspaces : []).filter(
+      (w) => w !== null && typeof w === 'object' && typeof w.id === 'string' && w.id !== ''
+    )
+    return { list, truncated: r?.truncated === true }
   }
 
   /** The focused workspace: readContext has no id, so match branch and name against the list. */
@@ -29,7 +32,7 @@ export function registerStartHandlers(ctx) {
     } catch {
       return null
     }
-    if (!c) return null
+    if (!c || typeof c !== 'object') return null
     return list.find((w) => shortBranch(w.branch) === shortBranch(c.branch) && w.name === c.displayName) ?? null
   }
 
@@ -52,6 +55,7 @@ export function registerStartHandlers(ctx) {
       listWorkspaces()
     ])
     if (!view.ok) return view
+    if (!hasId(view.data)) return unexpected()
     const issue = capDetail(toIssueDetail(view.data, null, s.data.url))
     const vars = issueVars({ issue, server: s.data.alias, branch: '' })
     const get = (k) => orca.settings.get(k)
@@ -61,7 +65,7 @@ export function registerStartHandlers(ctx) {
     const repoList = repos.ok ? repos.data : []
     const repo =
       active &&
-      (repoList.find((r) => r.path && active.path && inside(r.path, active.path)) ??
+      (repoList.find((r) => typeof r.path === 'string' && r.path && typeof active.path === 'string' && active.path && inside(r.path, active.path)) ??
         repoList.find((r) => active.project && r.name === active.project))
     const data = {
       repos: repoList,
@@ -75,7 +79,7 @@ export function registerStartHandlers(ctx) {
       promptTemplate: settingString(await get('promptTemplate'), ''),
       vars,
       workspaces: ws.list.map((w) => {
-        const item = { id: w.id, name: w.name }
+        const item = { id: w.id, name: typeof w.name === 'string' && w.name ? w.name : w.id }
         if (typeof w.project === 'string') item.project = w.project
         if (typeof w.branch === 'string') item.branch = shortBranch(w.branch)
         return item
