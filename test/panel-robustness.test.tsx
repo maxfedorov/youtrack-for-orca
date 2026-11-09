@@ -172,6 +172,7 @@ for (const [label, answer] of GARBAGE) {
     await view.press({ role: 'button', text: 'Save' })
     clean(view)
     assert.ok(view.find({ type: 'Input', label: 'Search name' }))
+    assert.ok(view.findAll({ type: 'Text' }).some((t: any) => t.props.tone === 'danger'), 'no error text next to the form')
     await view.unmount()
   })
 }
@@ -206,5 +207,66 @@ test('long error texts are shortened so the screen can still be drawn', async ()
   clean(view)
   const text = view.findAll({ type: 'Text' }).map((t: any) => t.props.children ?? t.text).find((t: any) => typeof t === 'string' && t.startsWith('eee'))
   assert.ok(text && text.length <= 2001)
+  await view.unmount()
+})
+
+test('duplicate issue and comment ids are drawn once each without a refused render', async () => {
+  const rows = [issue(1), issue(1), issue(2)]
+  const comment = (id: string, n: number) => ({ id, author: { login: 'a', fullName: 'A' }, created: n, textMd: `Comment ${n}` })
+  const withComments = { ...detail(1), comments: [comment('c1', 1), comment('c1', 2), comment('', 3), comment('', 4)] }
+  const view = await mount(panel, {
+    host: mockHost({ requests: { ...healthy, 'yt.issues.search': ok({ issues: rows, hasMore: false, total: 3 }), 'yt.issue.get': ok(withComments) } })
+  })
+  clean(view)
+  assert.deepEqual(view.rowsOf(view.find(table)), ['DEMO-1', 'DEMO-2'])
+  await view.activateRow(view.find(table), 'DEMO-1')
+  clean(view)
+  for (const n of [1, 2, 3, 4]) assert.ok(view.find({ type: 'Markdown', content: `Comment ${n}` }) ?? view.find({ text: `Comment ${n}` }), `comment ${n}`)
+  await view.unmount()
+})
+
+test('saved searches without an id or name are not offered', async () => {
+  const saved = ok([{ id: '', name: 'blank id', query: 'a' }, { id: 's2', name: '', query: 'b' }, { id: 's3', name: 'Mine', query: 'c' }])
+  const view = await mount(panel, { host: mockHost({ requests: { ...healthy, 'yt.savedQueries': saved } }) })
+  clean(view)
+  assert.deepEqual(view.find({ type: 'Select', label: 'Saved searches' }).props.options.map((o: any) => o.value), ['s3'])
+  await view.unmount()
+})
+
+test('a saved search answered without an id reloads the list instead of adding a blank entry', async () => {
+  let n = 0
+  const requests = {
+    ...healthy,
+    'yt.savedQueries.create': ok({ id: '', name: 'Mine', query: 'for: me #Unresolved' }),
+    'yt.savedQueries': () => ok(n++ === 0 ? [] : [{ id: 's9', name: 'Mine', query: 'for: me #Unresolved' }])
+  }
+  const view = await mount(panel, { host: mockHost({ requests }) })
+  await view.press({ role: 'button', label: 'Save search' })
+  await view.press({ role: 'button', text: 'Save' })
+  clean(view)
+  assert.deepEqual(view.find({ type: 'Select', label: 'Saved searches' }).props.options.map((o: any) => o.value), ['s9'])
+  await view.unmount()
+})
+
+test('the start form loads again for the same issue on another server', async () => {
+  const two = ok({ ...env.data, servers: [...env.data.servers, { alias: 'other', url: 'https://other.example.youtrack.cloud', active: false, status: 'authenticated' }] })
+  let chosen = 'main'
+  const host = mockHost({
+    requests: {
+      ...healthy,
+      'yt.env': () => ok({ ...two.data, server: chosen }),
+      'yt.setServer': (i: any) => ((chosen = i.server), ok({}))
+    }
+  })
+  const view = await mount(panel, { host })
+  await view.activateRow(view.find(table), 'DEMO-1')
+  await view.press({ role: 'button', text: 'Start →' })
+  await view.select({ type: 'Select', label: 'Server' }, 'other')
+  assert.ok(view.find(table))
+  await view.activateRow(view.find(table), 'DEMO-1')
+  await view.press({ role: 'button', text: 'Start →' })
+  const prepares = host.callsOf('plugin.request').filter((c: any) => c.name === 'yt.start.prepare').map((c: any) => c.input.server)
+  assert.deepEqual(prepares, ['main', 'other'])
+  clean(view)
   await view.unmount()
 })
