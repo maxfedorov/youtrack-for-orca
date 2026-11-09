@@ -97,6 +97,18 @@ export function Setup() {
   const current = read(env)
   if (!current) return <Text muted>Loading…</Text>
   if (!current.cli.found) return <InstallScreen />
+  if (current.error) {
+    return (
+      <Callout tone="danger">
+        <Stack gap="xs">
+          <Text>{current.error}</Text>
+          <Button variant="ghost" onPress={() => void loadEnv()}>
+            Retry
+          </Button>
+        </Stack>
+      </Callout>
+    )
+  }
   return <AddServerScreen />
 }
 

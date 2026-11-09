@@ -150,9 +150,9 @@ export async function onServerChanged(): Promise<void> {
   set(listError, '')
   set(listStatus, 'loading')
   const answer = await call('yt.env', {})
-  if (!answer.ok) {
+  if (!answer.ok || answer.data.error) {
     set(switchFailed, true)
-    set(listError, answer.message)
+    set(listError, answer.ok ? (answer.data.error ?? '') : answer.message)
     set(listStatus, 'error')
     return
   }

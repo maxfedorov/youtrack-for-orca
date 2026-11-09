@@ -7,7 +7,7 @@ const MAX_LIMIT = 50
 const MAX_WINDOW = 500
 
 export function registerYoutrackHandlers(ctx) {
-  const { orca, youtrack, orcaCli, state, resolveServer } = ctx
+  const { orca, orcaCli, state, resolveServer } = ctx
   const handle = (name, fn) => orca.panels.handle(name, guard(fn))
 
   handle('yt.env', async () => {
@@ -15,9 +15,18 @@ export function registerYoutrackHandlers(ctx) {
     const base = { orcaCli: { found: orcaCli != null }, query: defaultQuery, defaultQuery }
     const installCommand = INSTALL[ctx.platform]
     const withInstall = (cli) => (installCommand ? { ...cli, installCommand } : cli)
-    if (!youtrack) return ok({ cli: withInstall({ found: false }), servers: [], server: null, ...base })
-    const [version, inst] = await Promise.all([youtrack.version(), youtrack.instances()])
-    if (!inst.ok) return inst
+    const notFound = () => ok({ cli: withInstall({ found: false }), servers: [], server: null, ...base })
+    await ctx.refreshYoutrack()
+    const youtrack = ctx.youtrack
+    if (!youtrack) return notFound()
+    const [version, inst] = await Promise.all([youtrack.version(), ctx.youtrack.instances()])
+    if (!inst.ok) {
+      if (inst.error.code === CODES.CLI_NOT_FOUND) {
+        await ctx.refreshYoutrack()
+        return notFound()
+      }
+      return ok({ ...base, cli: withInstall({ found: true }), servers: [], server: null, error: inst.error.message })
+    }
     const servers = inst.data.map(toServer)
     const stored = await state.getServer()
     const chosen = servers.find((s) => s.alias === stored) ?? servers.find((s) => s.active) ?? servers[0]
@@ -51,8 +60,8 @@ export function registerYoutrackHandlers(ctx) {
     if (room <= 0) return ok({ issues: [], hasMore: false })
     const size = Math.min(limit, MAX_LIMIT, room)
     const [list, count] = await Promise.all([
-      youtrack.listIssues(s.data.alias, query, offset, Math.min(size + 1, room)),
-      offset === 0 ? youtrack.countIssues(s.data.alias, query) : Promise.resolve(null)
+      ctx.youtrack.listIssues(s.data.alias, query, offset, Math.min(size + 1, room)),
+      offset === 0 ? ctx.youtrack.countIssues(s.data.alias, query) : Promise.resolve(null)
     ])
     if (!list.ok) return list
     const data = {
@@ -67,7 +76,7 @@ export function registerYoutrackHandlers(ctx) {
     if (typeof id !== 'string' || !ISSUE_ID.test(id)) return invalid('Invalid issue id')
     const s = await resolveServer(server)
     if (!s.ok) return s
-    const [view, comments] = await Promise.all([youtrack.viewIssue(s.data.alias, id), youtrack.listComments(s.data.alias, id)])
+    const [view, comments] = await Promise.all([ctx.youtrack.viewIssue(s.data.alias, id), ctx.youtrack.listComments(s.data.alias, id)])
     if (!view.ok) return view
     return ok(capDetail(toIssueDetail(view.data, comments.ok ? comments.data : null, s.data.url)))
   })
@@ -75,7 +84,7 @@ export function registerYoutrackHandlers(ctx) {
   handle('yt.savedQueries', async ({ server }) => {
     const s = await resolveServer(server)
     if (!s.ok) return s
-    const r = await youtrack.savedSearches(s.data.alias)
+    const r = await ctx.youtrack.savedSearches(s.data.alias)
     return r.ok ? ok(r.data.map(toSavedQuery)) : r
   })
 
@@ -85,13 +94,13 @@ export function registerYoutrackHandlers(ctx) {
     if (typeof query !== 'string' || !query.trim() || query.length > MAX_QUERY) return invalid('Invalid query')
     const s = await resolveServer(server)
     if (!s.ok) return s
-    const r = await youtrack.createSavedSearch(s.data.alias, n, query)
+    const r = await ctx.youtrack.createSavedSearch(s.data.alias, n, query)
     return r.ok ? ok(toSavedQuery(r.data)) : r
   })
 
   handle('yt.servers.add', async ({ url }) => {
     if (!isPlainUrl(url)) return invalid('Enter a server address like https://example.youtrack.cloud')
-    if (!youtrack) return fail(CODES.CLI_NOT_FOUND, 'The youtrack CLI was not found.')
+    if (!ctx.youtrack) return fail(CODES.CLI_NOT_FOUND, 'The youtrack CLI was not found.')
     login(url)
       .catch((e) => fail(CODES.UNKNOWN, e instanceof Error ? e.message : String(e)))
       .then((result) => orca.panels.post('yt.servers.added', result))
@@ -101,9 +110,9 @@ export function registerYoutrackHandlers(ctx) {
 
   /** Sign in through the browser, then find the alias the CLI gave the new server. */
   async function login(url) {
-    const r = await youtrack.loginWeb(url, (authUrl) => orca.panels.post('yt.servers.authUrl', { url: authUrl }))
+    const r = await ctx.youtrack.loginWeb(url, (authUrl) => orca.panels.post('yt.servers.authUrl', { url: authUrl }))
     if (!r.ok) return r
-    const inst = await youtrack.instances()
+    const inst = await ctx.youtrack.instances()
     if (!inst.ok) return inst
     const found = inst.data.find((i) => normalizeUrl(i.url) === normalizeUrl(url))
     return found ? ok({ alias: found.alias }) : fail(CODES.UNKNOWN, 'The server was added, but it is missing from the CLI list.')

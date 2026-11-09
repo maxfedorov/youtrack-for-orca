@@ -12,7 +12,7 @@ const shortBranch = (b) => String(b ?? '').replace(/^refs\/heads\//, '')
 const inside = (dir, p) => p === dir || p.startsWith(dir.replace(/[\\/]+$/, '') + '/') || p.startsWith(dir.replace(/[\\/]+$/, '') + '\\')
 
 export function registerStartHandlers(ctx) {
-  const { orca, youtrack, orcaCli, links, launches, detectAgents, now, platform, resolveServer } = ctx
+  const { orca, orcaCli, links, launches, detectAgents, now, platform, resolveServer } = ctx
   const handle = (name, fn) => orca.panels.handle(name, guard(fn))
   const host = (method, params) => orca.host.call(method, params)
 
@@ -47,7 +47,7 @@ export function registerStartHandlers(ctx) {
     const s = await resolveServer(server)
     if (!s.ok) return s
     const [view, repos, ws] = await Promise.all([
-      youtrack.viewIssue(s.data.alias, id),
+      ctx.youtrack.viewIssue(s.data.alias, id),
       orcaCli ? orcaCli.repos() : Promise.resolve(ok([])),
       listWorkspaces()
     ])

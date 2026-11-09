@@ -8,6 +8,8 @@ export type Env = {
   server: string | null
   query: string
   defaultQuery: string
+  /** The instance list failed; shown with Retry. */
+  error?: string
 }
 export type View = { kind: 'setup' | 'list' | 'detail' | 'start'; issueId?: string }
 export type Unwrapped<T> = { ok: true; data: T } | { ok: false; code: ErrorCode; message: string }
@@ -37,6 +39,7 @@ export async function call<N extends keyof import('orca').PluginRequests>(
   try {
     const answer = unwrap(await plugin.request(name, input) as never)
     if (answer.ok) set(panelError, null)
+    else if (answer.code === 'CLI_NOT_FOUND' && name !== 'yt.env') void loadEnv()
     return answer as never
   } catch (error) {
     return { ok: false, code: 'UNKNOWN', message: error instanceof Error ? error.message : String(error) }

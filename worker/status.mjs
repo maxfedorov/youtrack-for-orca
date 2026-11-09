@@ -8,7 +8,8 @@ const SIGN_IN_CODES = new Set([CODES.AUTH_FAILED, CODES.NO_SERVERS])
 /**
  * @param {{
  *   host: { call(method: string, params?: any): Promise<any> },
- *   youtrack: ReturnType<typeof import('./youtrack-cli.mjs').createYoutrack> | null,
+ *   youtrack?: ReturnType<typeof import('./youtrack-cli.mjs').createYoutrack> | null,
+ *   getYoutrack?: () => Promise<ReturnType<typeof import('./youtrack-cli.mjs').createYoutrack> | null>,
  *   state: ReturnType<typeof import('./state.mjs').createStateStore>,
  *   settings: { get(key: string): Promise<any> },
  *   intervalMs?: number,
@@ -17,7 +18,7 @@ const SIGN_IN_CODES = new Set([CODES.AUTH_FAILED, CODES.NO_SERVERS])
  * }} o
  */
 export function createStatusBar({
-  host, youtrack, state, settings,
+  host, youtrack: youtrack0, getYoutrack, state, settings,
   intervalMs = DEFAULT_INTERVAL_MS,
   setInterval: setTimer = globalThis.setInterval,
   clearInterval: clearTimer = globalThis.clearInterval
@@ -26,7 +27,7 @@ export function createStatusBar({
   let timer = null
   const update = (patch) => host.call('statusBar.update', { id: ITEM, ...patch })
 
-  async function compute() {
+  async function compute(youtrack) {
     const inst = await youtrack.instances()
     if (!inst.ok) return inst
     const servers = inst.data
@@ -41,8 +42,9 @@ export function createStatusBar({
 
   async function refresh() {
     try {
+      const youtrack = getYoutrack ? await getYoutrack() : youtrack0
       if (!youtrack) return await update({ visible: false })
-      const r = await compute()
+      const r = await compute(youtrack)
       if (r.ok) {
         lastText = `YT: ${r.data.count}`
         return await update({ text: lastText, tooltip: r.data.tooltip, tone: 'neutral', visible: true })

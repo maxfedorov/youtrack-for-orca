@@ -122,3 +122,34 @@ test('non-http auth url is plain text', async () => {
   assert.ok(view.find({ text: 'javascript:alert(1)' }))
   await view.unmount()
 })
+
+test('a request that finds the CLI gone returns to the install screen', async () => {
+  let gone = false
+  const host = mockHost({
+    requests: {
+      'yt.env': () =>
+        gone
+          ? env({ cli: { found: false, installCommand: 'brew install jetbrains/utils/youtrack' }, servers: [], server: null })
+          : env(),
+      'yt.issues.search': () => (gone ? { ok: false, error: { code: 'CLI_NOT_FOUND', message: 'The youtrack CLI was not found.' } } : ok({ issues: [], hasMore: false, total: 0 })),
+      'yt.savedQueries': ok([]),
+      'yt.links': ok({}),
+      'yt.setQuery': ok({})
+    }
+  })
+  const view = await mount(panel, { host })
+  gone = true
+  await view.press({ role: 'button', label: 'Refresh' })
+  assert.ok(view.find({ type: 'EmptyState', label: 'Install youtrack CLI' }))
+  assert.equal(view.find({ type: 'Callout' }), null)
+  await view.unmount()
+})
+
+test('a failed instance list shows the error with Retry instead of the add form', async () => {
+  const host = mockHost({ requests: { 'yt.env': env({ servers: [], server: null, error: 'broken config' }) } })
+  const view = await mount(panel, { host })
+  assert.ok(view.find({ text: 'broken config' }))
+  assert.ok(view.find({ role: 'button', text: 'Retry' }))
+  assert.equal(view.find({ text: 'Add a YouTrack server' }), null)
+  await view.unmount()
+})

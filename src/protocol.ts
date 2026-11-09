@@ -59,8 +59,12 @@ declare module 'orca' {
         server: string | null
         /** The last working query of that server, or the default. */
         query: string
+        /** Set when the instance list failed (CLI present, no usable server list). */
+        error?: string
         /** The `defaultQuery` setting. */
         defaultQuery: string
+        /** Set when the instance list failed (CLI present, no usable server list). */
+        error?: string
       }>
     }
     /** Remember the chosen server. */

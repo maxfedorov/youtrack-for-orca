@@ -465,3 +465,56 @@ test('cuts do not split surrogate pairs', async () => {
   assert.ok(!/[\ud800-\udbff]$/.test(d))
   assert.ok(!/[\ud800-\udbff](?![\udc00-\udfff])/.test(d))
 })
+
+test('env keeps cli and orcaCli when the youtrack CLI vanished', async () => {
+  const yt = fakeYt({ instances: async () => fail('CLI_NOT_FOUND', 'The youtrack CLI was not found.') })
+  const { call } = setup({ yt })
+  const r = await call('yt.env')
+  assert.equal(r.ok, true)
+  assert.equal(r.data.cli.found, false)
+  assert.equal(r.data.orcaCli.found, true)
+  assert.deepEqual(r.data.servers, [])
+  strict(r)
+})
+
+test('env keeps cli and orcaCli with the error when the instance list fails', async () => {
+  const yt = fakeYt({ instances: async () => fail('UNKNOWN', 'broken config') })
+  const { call } = setup({ yt })
+  const r = await call('yt.env')
+  assert.equal(r.ok, true)
+  assert.equal(r.data.cli.found, true)
+  assert.equal(r.data.orcaCli.found, true)
+  assert.equal(r.data.error, 'broken config')
+  assert.deepEqual(r.data.servers, [])
+  strict(r)
+})
+
+test('env re-resolves the youtrack CLI on every call', async () => {
+  const yt = fakeYt()
+  let current = null
+  const orca = fakeOrca({ host: {}, settings: {} })
+  registerHandlers(orca, {
+    getYoutrack: () => current, refreshYoutrack: async () => { current = yt },
+    orcaCli: null, links: createLinkStore(orca.storage), launches: createLaunchTracker(orca.storage),
+    state: createStateStore(orca.storage), detectAgents: () => ({ installed: [], other: [] }), now: () => 1, platform: 'darwin',
+  })
+  const r = await orca.handlers.get('yt.env')({})
+  assert.equal(r.data.cli.found, true)
+  assert.equal(r.data.servers.length, 2)
+})
+
+test('a request that finds the CLI gone refreshes the resolved CLI', async () => {
+  let refreshed = 0
+  let current = fakeYt({ instances: async () => fail('CLI_NOT_FOUND', 'The youtrack CLI was not found.') })
+  const orca = fakeOrca({ host: {}, settings: {} })
+  registerHandlers(orca, {
+    getYoutrack: () => current, refreshYoutrack: async () => { refreshed++; current = null },
+    orcaCli: null, links: createLinkStore(orca.storage), launches: createLaunchTracker(orca.storage),
+    state: createStateStore(orca.storage), detectAgents: () => ({ installed: [], other: [] }), now: () => 1, platform: 'darwin',
+  })
+  const r = await orca.handlers.get('yt.issues.search')({ server: 'one', query: '', offset: 0, limit: 5 })
+  assert.equal(r.error.code, 'CLI_NOT_FOUND')
+  assert.equal(refreshed, 1)
+  const again = await orca.handlers.get('yt.issues.search')({ server: 'one', query: '', offset: 0, limit: 5 })
+  assert.equal(again.error.code, 'CLI_NOT_FOUND')
+})
