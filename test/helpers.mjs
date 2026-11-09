@@ -36,3 +36,33 @@ export function fakeStorage(initial = {}) {
     },
   }
 }
+
+/**
+ * Test double for the `orca` object a worker receives.
+ * `host` maps a host method to a value or a function of its params; calling an unlisted method throws.
+ * `handlers` holds what the worker registered with `panels.handle`; `posts` records `panels.post`.
+ */
+export function fakeOrca({ host = {}, settings = {}, storage = {} } = {}) {
+  const handlers = new Map()
+  const posts = []
+  const hostCalls = []
+  return {
+    panels: {
+      handle: (name, fn) => void handlers.set(name, fn),
+      post: (name, payload) => void posts.push({ name, payload }),
+    },
+    host: {
+      async call(method, params) {
+        hostCalls.push({ method, params })
+        if (!(method in host)) throw new Error(`no host result for ${method}`)
+        const r = host[method]
+        return typeof r === 'function' ? r(params) : r
+      },
+    },
+    settings: { get: async (key) => settings[key] },
+    storage: fakeStorage(storage),
+    handlers,
+    posts,
+    hostCalls,
+  }
+}
