@@ -45,22 +45,26 @@ export function createOrcaCli({ bin, run = (args, opts) => runProcess(bin, args,
   }
 
   const mapOk = (res, fn) => (res.ok ? ok(fn(res.data)) : res)
+  /** The CLI's JSON may be missing a list or hold another shape there. */
+  const arrayOf = (v) => (Array.isArray(v) ? v : [])
 
   return {
     repos: async () =>
       mapOk(await exec(['repo', 'list', '--json'], READ_MS), (d) =>
-        (d.repos ?? []).map((r) => {
-          const item = { id: r.id, name: r.displayName ?? r.id }
-          if (typeof r.path === 'string') item.path = r.path
-          if (r.worktreeBaseRef) item.worktreeBaseRef = r.worktreeBaseRef
-          return item
-        })
+        arrayOf(d?.repos)
+          .filter((r) => r !== null && typeof r === 'object' && typeof r.id === 'string' && r.id !== '')
+          .map((r) => {
+            const item = { id: r.id, name: typeof r.displayName === 'string' && r.displayName ? r.displayName : r.id }
+            if (typeof r.path === 'string') item.path = r.path
+            if (typeof r.worktreeBaseRef === 'string' && r.worktreeBaseRef) item.worktreeBaseRef = r.worktreeBaseRef
+            return item
+          })
       ),
 
     searchRefs: async (repoId, query) =>
       mapOk(
         await exec(['repo', 'search-refs', '--repo', `id:${repoId}`, '--query', query || ' ', '--limit', REFS_LIMIT, '--json'], READ_MS),
-        (d) => d.refs ?? []
+        (d) => arrayOf(d?.refs).filter((ref) => typeof ref === 'string' && ref !== '')
       ),
 
     createWorktree: async ({ repoId, name, baseBranch, agent, prompt, issueId, issueUrl }) => {
@@ -91,8 +95,8 @@ export function createOrcaCli({ bin, run = (args, opts) => runProcess(bin, args,
     openPanel: async (pluginId, panelId) => {
       const list = await exec(['plugin', 'list', '--json'], READ_MS)
       if (!list.ok) return list
-      const key = (list.data.plugins ?? [])
-        .map((p) => p.pluginKey)
+      const key = arrayOf(list.data?.plugins)
+        .map((p) => p?.pluginKey)
         .find((k) => typeof k === 'string' && (k === pluginId || k.endsWith(`.${pluginId}`)))
       if (!key) return fail(CODES.ORCA_CLI_FAILED, 'The plugin is not installed in Orca.')
       return mapOk(await exec(['plugin', 'open', key, '--panel', panelId, '--json'], READ_MS), () => ({}))
