@@ -67,7 +67,7 @@ export const AGENTS = [
 export function detectAgents(o = {}) {
   const platform = o.platform ?? process.platform
   const opts = { ...o, platform }
-  const found = (cmd) => findOnPath(cmd, opts) !== null
+  const found = (cmd) => findOnPath(cmd, { ...opts, shims: true }) !== null
   const installed = []
   const other = []
   for (const a of AGENTS) {

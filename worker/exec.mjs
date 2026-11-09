@@ -91,16 +91,19 @@ export async function runProcess(file, args, opts, execFileImpl = execFile) {
 }
 
 /**
- * Find an executable on PATH. win32: env.Path ?? env.PATH, `;` separator, PATHEXT extensions.
+ * Find an executable on PATH. win32: env.Path ?? env.PATH, `;` separator, `.EXE` before `.COM`. Shell-only
+ * shims (`.CMD`, `.BAT`, ...) cannot be started without a shell, so they only count with `shims: true`
+ * (to detect that a tool is installed, not to run it).
  * @param {string} name
- * @param {{ env?: Record<string, string | undefined>, platform?: string, exists?: (p: string) => boolean }} [o]
+ * @param {{ env?: Record<string, string | undefined>, platform?: string, exists?: (p: string) => boolean, shims?: boolean }} [o]
  * @returns {string | null}
  */
-export function findOnPath(name, { env = process.env, platform = process.platform, exists = existsSync } = {}) {
+export function findOnPath(name, { env = process.env, platform = process.platform, exists = existsSync, shims = false } = {}) {
   const win = platform === 'win32'
   const pathVar = (win ? (env.Path ?? env.PATH) : env.PATH) ?? ''
   const dirs = pathVar.split(win ? ';' : ':').filter(Boolean)
-  const exts = win ? (env.PATHEXT || '.EXE;.CMD').split(';').filter(Boolean) : ['']
+  const listed = win ? (env.PATHEXT || '.EXE;.CMD').split(';').filter(Boolean).map((e) => e.toUpperCase()) : ['']
+  const exts = win ? (shims ? ['.EXE', ...listed.filter((e) => e !== '.EXE')] : ['.EXE', '.COM'].filter((e) => listed.includes(e))) : listed
   const join = win ? path.win32.join : path.posix.join
   for (const dir of dirs) {
     for (const ext of exts) {

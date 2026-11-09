@@ -31,8 +31,15 @@ test('finds youtrack.exe via PATHEXT on win32', () => {
 })
 
 test('findOnPath reads Path on win32 and defaults PATHEXT', () => {
-  const p = findOnPath('orca', { env: { Path: 'C:\\a;C:\\b' }, platform: 'win32', exists: (f) => f === 'C:\\b\\orca.CMD' })
-  assert.equal(p, 'C:\\b\\orca.CMD')
+  const p = findOnPath('orca', { env: { Path: 'C:\\a;C:\\b' }, platform: 'win32', exists: (f) => f === 'C:\\b\\orca.EXE' })
+  assert.equal(p, 'C:\\b\\orca.EXE')
+})
+
+test('findOnPath prefers .EXE and never returns shell-only shims on win32', () => {
+  const env = { Path: 'C:\\a', PATHEXT: '.CMD;.BAT;.EXE;.COM' }
+  assert.equal(findOnPath('youtrack', { env, platform: 'win32', exists: (f) => f === 'C:\\a\\youtrack.CMD' || f === 'C:\\a\\youtrack.EXE' }), 'C:\\a\\youtrack.EXE')
+  assert.equal(findOnPath('youtrack', { env, platform: 'win32', exists: (f) => f === 'C:\\a\\youtrack.CMD' || f === 'C:\\a\\youtrack.BAT' }), null)
+  assert.equal(findOnPath('claude', { env, platform: 'win32', exists: (f) => f === 'C:\\a\\claude.CMD', shims: true }), 'C:\\a\\claude.CMD')
 })
 
 test('resolveYoutrack returns null when nothing exists', () => {
