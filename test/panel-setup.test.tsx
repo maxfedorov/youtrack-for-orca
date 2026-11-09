@@ -153,3 +153,79 @@ test('a failed instance list shows the error with Retry instead of the add form'
   assert.equal(view.find({ text: 'Add a YouTrack server' }), null)
   await view.unmount()
 })
+
+const withList = (extra: Record<string, unknown> = {}) => ({
+  'yt.issues.search': ok({ issues: [], hasMore: false, total: 0 }),
+  'yt.savedQueries': ok([]),
+  'yt.links': ok({}),
+  'yt.setQuery': ok({}),
+  ...extra
+})
+const names = (host: any) => host.callsOf('plugin.request').map((c: any) => c.name)
+
+test('header add button opens the add-server form and back returns to the list', async () => {
+  const host = mockHost({ requests: withList({ 'yt.env': env() }) })
+  const view = await mount(panel, { host })
+  await view.press({ role: 'button', label: 'Add server' })
+  assert.ok(view.find({ text: 'Add a YouTrack server' }))
+  assert.ok(view.find({ type: 'Input', label: 'Server URL' }))
+  await view.press({ role: 'button', text: '← Back' })
+  assert.equal(view.find({ text: 'Add a YouTrack server' }), null)
+  assert.ok(view.find({ type: 'Table' }) || view.find({ type: 'EmptyState' }))
+  await view.unmount()
+})
+
+test('adding a second server shows the sign-in link and failure, then selects the new alias', async () => {
+  let chosen = 'main'
+  let added = false
+  const host = mockHost({
+    requests: withList({
+      'yt.env': () =>
+        env({ servers: added ? [server('main'), server('fresh')] : [server('main')], server: chosen }),
+      'yt.servers.add': ok({ started: true }),
+      'yt.setServer': (i: any) => ((chosen = i.server), ok({})),
+      'yt.terminal.run': ok({})
+    })
+  })
+  const view = await mount(panel, { host })
+  await view.press({ role: 'button', label: 'Add server' })
+  await view.type({ label: 'Server URL' }, 'https://fresh.example.com')
+  await view.press({ role: 'button', text: 'Add server' })
+  assert.ok(view.find({ text: 'Waiting for sign-in in the browser…' }))
+  await view.post('yt.servers.authUrl', { url: 'https://fresh.example.com/auth' })
+  assert.ok(view.find({ type: 'Link' }))
+  await view.post('yt.servers.added', { ok: false, error: { code: 'UNKNOWN', message: 'Sign-in failed' } })
+  assert.ok(view.find({ text: 'Sign-in failed' }))
+  assert.ok(view.find({ role: 'button', text: 'Sign in in terminal' }))
+  added = true
+  await view.post('yt.servers.added', { ok: true, data: { alias: 'fresh' } })
+  assert.ok(host.callsOf('plugin.request').some((c: any) => c.name === 'yt.setServer' && c.input.server === 'fresh'))
+  assert.equal(view.valueOf({ label: 'Server' }), 'fresh')
+  assert.equal(view.find({ text: 'Add a YouTrack server' }), null)
+  assert.deepEqual(view.refusals, [])
+  await view.unmount()
+})
+
+test('refresh re-requests the environment before searching again', async () => {
+  const host = mockHost({ requests: withList({ 'yt.env': env() }) })
+  const view = await mount(panel, { host })
+  const before = names(host).length
+  await view.press({ role: 'button', label: 'Refresh' })
+  const after = names(host).slice(before)
+  assert.equal(after[0], 'yt.env')
+  assert.ok(after.includes('yt.issues.search'))
+  await view.unmount()
+})
+
+test('refresh shows a server that was added elsewhere', async () => {
+  let two = false
+  const host = mockHost({ requests: withList({ 'yt.env': () => env({ servers: two ? [server('main'), server('extra')] : [server('main')] }) }) })
+  const view = await mount(panel, { host })
+  two = true
+  await view.press({ role: 'button', label: 'Refresh' })
+  assert.deepEqual(
+    view.find({ type: 'Select', label: 'Server' }).props.options.map((o: any) => o.value),
+    ['main', 'extra']
+  )
+  await view.unmount()
+})

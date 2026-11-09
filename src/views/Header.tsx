@@ -1,6 +1,6 @@
-import { Badge, Button, IconButton, Row, Select, Stack, read, set, update } from 'orca'
-import { onServerChanged } from '../listState'
-import { call, env, panelError, refreshTick, server } from '../state'
+import { Badge, Button, IconButton, Row, Select, Stack, read, set } from 'orca'
+import { onServerChanged, refreshAll } from '../listState'
+import { call, env, panelError, server, view } from '../state'
 
 export function signIn(url: string): void {
   void call('yt.terminal.run', { command: 'login', url }).then((answer) => {
@@ -32,7 +32,10 @@ export function Header() {
           options={servers.map((item) => ({ value: item.alias, label: item.alias }))}
           onChange={(value) => void choose(value)}
         />
-        <IconButton icon="refresh" label="Refresh" onPress={() => update(refreshTick, (n) => n + 1)} />
+        <Row gap="xs">
+          <IconButton icon="refresh" label="Refresh" onPress={() => void refreshAll()} />
+          <IconButton icon="add" label="Add server" onPress={() => set(view, { kind: 'add' })} />
+        </Row>
       </Row>
       {current && current.status !== 'authenticated' ? (
         <Row gap="xs">

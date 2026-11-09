@@ -1,5 +1,5 @@
 import { atom, read, set, update } from 'orca'
-import { call, env, query, refreshTick, server, view } from './state'
+import { call, env, loadEnv, query, refreshTick, server, view, type Env } from './state'
 import type { IssueRow, SavedQuery } from './protocol'
 
 export const PAGE_SIZE = 50
@@ -166,3 +166,19 @@ export async function onServerChanged(): Promise<void> {
 }
 
 export const bumpRefresh = () => update(refreshTick, (n) => n + 1)
+
+/** The header's refresh: re-reads the server list and status, then reloads the views for the selected server. */
+export async function refreshAll(): Promise<void> {
+  const answer = await call('yt.env', {})
+  if (answer.ok && !answer.data.error) {
+    const data = answer.data as Env
+    if (!data.cli.found || data.servers.length === 0) return loadEnv()
+    set(env, data)
+    const current = read(server)
+    if (current && !data.servers.some((s) => s.alias === current)) {
+      set(server, data.server)
+      return onServerChanged()
+    }
+  }
+  bumpRefresh()
+}

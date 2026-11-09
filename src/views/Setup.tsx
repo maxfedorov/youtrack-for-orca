@@ -1,5 +1,6 @@
 import { atom, Button, Callout, Code, EmptyState, Input, Link, Row, Stack, Text, read, set } from 'orca'
-import { call, env, loadEnv, panelError } from '../state'
+import { call, env, loadEnv, panelError, server, view } from '../state'
+import { onServerChanged } from '../listState'
 import { signIn } from './Header'
 
 const urlDraft = atom('')
@@ -16,10 +17,24 @@ export function onAdded(result: Parameters<typeof import('../state').unwrap>[0])
   if (result && result.ok) {
     set(addError, null)
     set(urlDraft, '')
-    void loadEnv()
+    const alias = result.data && typeof (result.data as { alias?: unknown }).alias === 'string' ? (result.data as { alias: string }).alias : null
+    if (read(view).kind === 'add' && alias) void selectAdded(alias)
+    else void loadEnv()
   } else {
     set(addError, result && !result.ok ? result.error.message : 'Could not add the server')
   }
+}
+
+/** After a server was added from the header: select it and load its list. */
+async function selectAdded(alias: string): Promise<void> {
+  const answer = await call('yt.setServer', { server: alias })
+  if (!answer.ok) {
+    set(panelError, answer.message)
+    set(view, { kind: 'list' })
+    return
+  }
+  set(server, alias)
+  await onServerChanged()
 }
 
 async function add(): Promise<void> {
@@ -89,6 +104,18 @@ function AddServerScreen() {
           </Stack>
         </Callout>
       ) : null}
+    </Stack>
+  )
+}
+
+/** The add-server form as a view of its own, opened from the header. */
+export function AddServer() {
+  return (
+    <Stack gap="sm">
+      <Button variant="ghost" size="sm" onPress={() => set(view, { kind: 'list' })}>
+        ← Back
+      </Button>
+      <AddServerScreen />
     </Stack>
   )
 }

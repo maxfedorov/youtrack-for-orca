@@ -11,7 +11,7 @@ export type Env = {
   /** The instance list failed; shown with Retry. */
   error?: string
 }
-export type View = { kind: 'setup' | 'list' | 'detail' | 'start'; issueId?: string }
+export type View = { kind: 'setup' | 'list' | 'detail' | 'start' | 'add'; issueId?: string }
 export type Unwrapped<T> = { ok: true; data: T } | { ok: false; code: ErrorCode; message: string }
 
 export const env = atom<Env | null>(null)

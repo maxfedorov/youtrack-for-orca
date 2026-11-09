@@ -5,7 +5,7 @@ import { Header } from './views/Header'
 import { IssueDetail } from './views/IssueDetail'
 import { IssueList } from './views/IssueList'
 import { StartView } from './views/StartView'
-import { onAdded, authUrl, Setup } from './views/Setup'
+import { onAdded, authUrl, AddServer, Setup } from './views/Setup'
 
 /** Runs once before the first render. */
 export function setup(ctx: PanelContext): void {
@@ -23,6 +23,8 @@ function Screen() {
   switch (current.kind) {
     case 'setup':
       return <Setup />
+    case 'add':
+      return <AddServer />
     case 'list':
       return <IssueList />
     case 'detail':
