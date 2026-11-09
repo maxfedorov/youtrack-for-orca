@@ -7,6 +7,7 @@ export type Env = {
   servers: Server[]
   server: string | null
   query: string
+  defaultQuery: string
 }
 export type View = { kind: 'setup' | 'list' | 'detail' | 'start'; issueId?: string }
 export type Unwrapped<T> = { ok: true; data: T } | { ok: false; code: ErrorCode; message: string }

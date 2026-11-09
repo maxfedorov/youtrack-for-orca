@@ -96,6 +96,16 @@ test('env lists servers, version and the stored query', async () => {
   strict(r)
 })
 
+test('env also reports the default query setting', async () => {
+  const withSetting = await setup({ settings: { defaultQuery: 'project: DEMO #Unresolved' } }).call('yt.env')
+  assert.equal(withSetting.data.defaultQuery, 'project: DEMO #Unresolved')
+  const { call, state } = setup({ settings: { defaultQuery: 'for: me' } })
+  await state.setQuery('two', 'project: X')
+  const r = await call('yt.env')
+  assert.equal(r.data.query, 'project: X')
+  assert.equal(r.data.defaultQuery, 'for: me')
+})
+
 test('falls back to active server when stored alias is gone', async () => {
   const { call, state } = setup()
   await state.setServer('removed')

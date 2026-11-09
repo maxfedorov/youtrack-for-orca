@@ -61,7 +61,7 @@ test('server select persists via yt.setServer', async () => {
   })
   const view = await mount(panel, { host })
   await view.select({ label: 'Server' }, 'other')
-  assert.deepEqual(host.callsOf('plugin.request').at(-1), { name: 'yt.setServer', input: { server: 'other' } })
+  assert.ok(host.callsOf('plugin.request').some((c) => c.name === 'yt.setServer' && c.input.server === 'other'))
   assert.deepEqual(view.refusals, [])
   await view.unmount()
 })
@@ -91,7 +91,9 @@ test('authenticated server has no badge; request error is shown', async () => {
 
 test('Retry recovers from a failed env and clears the error', async () => {
   let n = 0
-  const host = mockHost({ requests: { 'yt.env': () => (n++ === 0 ? { ok: false, error: { code: 'UNKNOWN', message: 'boom' } } : env()) } })
+  const host = mockHost({
+    requests: { 'yt.env': () => (n++ === 0 ? { ok: false, error: { code: 'UNKNOWN', message: 'boom' } } : env()), 'yt.issues.search': ok({ issues: [], hasMore: false, total: 0 }) }
+  })
   const view = await mount(panel, { host })
   await view.press({ role: 'button', text: 'Retry' })
   assert.equal(view.find({ text: 'boom' }), null)

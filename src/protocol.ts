@@ -57,7 +57,10 @@ declare module 'orca' {
         orcaCli: { found: boolean }
         servers: Server[]
         server: string | null
+        /** The last working query of that server, or the default. */
         query: string
+        /** The `defaultQuery` setting. */
+        defaultQuery: string
       }>
     }
     /** Remember the chosen server. */

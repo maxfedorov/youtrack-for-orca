@@ -1,4 +1,5 @@
 import { Badge, Button, IconButton, Row, Select, Stack, read, set, update } from 'orca'
+import { onServerChanged } from '../listState'
 import { call, env, panelError, refreshTick, server } from '../state'
 
 export function signIn(url: string): void {
@@ -14,7 +15,9 @@ async function choose(alias: string): Promise<void> {
   if (!answer.ok) {
     set(server, previous)
     set(panelError, answer.message)
+    return
   }
+  await onServerChanged()
 }
 
 export function Header() {

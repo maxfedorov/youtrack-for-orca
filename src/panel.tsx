@@ -1,24 +1,28 @@
 import { Button, Callout, plugin, read, set, Stack, Text, type PanelContext } from 'orca'
 import { env, loadEnv, panelError, view } from './state'
+import { loadLinks } from './listState'
 import { Header } from './views/Header'
+import { IssueList } from './views/IssueList'
 import { onAdded, authUrl, Setup } from './views/Setup'
 
 /** Runs once before the first render. */
 export function setup(ctx: PanelContext): void {
   ctx.subscriptions.push(
     plugin.on('yt.servers.authUrl', ({ url }) => set(authUrl, url)),
-    plugin.on('yt.servers.added', (result) => onAdded(result))
+    plugin.on('yt.servers.added', (result) => onAdded(result)),
+    plugin.on('yt.agentFinished', () => void loadLinks())
   )
   void loadEnv()
 }
 
-/** The screen for the current view; Tasks for list, detail and start replace the placeholders. */
+/** The screen for the current view; Tasks for detail and start replace the placeholders. */
 function Screen() {
   const current = read(view)
   switch (current.kind) {
     case 'setup':
       return <Setup />
     case 'list':
+      return <IssueList />
     case 'detail':
     case 'start':
       return <Text muted>Loading…</Text>

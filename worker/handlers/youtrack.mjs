@@ -12,7 +12,7 @@ export function registerYoutrackHandlers(ctx) {
 
   handle('yt.env', async () => {
     const defaultQuery = settingString(await orca.settings.get('defaultQuery'), '')
-    const base = { orcaCli: { found: orcaCli != null }, query: defaultQuery }
+    const base = { orcaCli: { found: orcaCli != null }, query: defaultQuery, defaultQuery }
     const installCommand = INSTALL[ctx.platform]
     const withInstall = (cli) => (installCommand ? { ...cli, installCommand } : cli)
     if (!youtrack) return ok({ cli: withInstall({ found: false }), servers: [], server: null, ...base })
