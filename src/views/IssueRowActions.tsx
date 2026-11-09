@@ -5,9 +5,9 @@ import type { IssueRow } from '../protocol'
 /** Issue whose ⋯ row is open. The catalog has no menu component, so ⋯ toggles an inline row of actions. */
 const menuFor = atom<string | null>(null)
 
-const start = (id: string) => set(view, { kind: 'start', issueId: id })
+export const start = (id: string) => set(view, { kind: 'start', issueId: id })
 
-async function openWorkspace(workspaceId: string): Promise<void> {
+export async function openWorkspace(workspaceId: string): Promise<void> {
   const answer = await call('yt.workspace.open', { workspaceId })
   if (!answer.ok) set(panelError, answer.message)
 }

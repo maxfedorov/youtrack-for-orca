@@ -2,6 +2,7 @@ import { Button, Callout, plugin, read, set, Stack, Text, type PanelContext } fr
 import { env, loadEnv, panelError, view } from './state'
 import { loadLinks } from './listState'
 import { Header } from './views/Header'
+import { IssueDetail } from './views/IssueDetail'
 import { IssueList } from './views/IssueList'
 import { onAdded, authUrl, Setup } from './views/Setup'
 
@@ -15,7 +16,7 @@ export function setup(ctx: PanelContext): void {
   void loadEnv()
 }
 
-/** The screen for the current view; Tasks for detail and start replace the placeholders. */
+/** The screen for the current view; Task for start replaces the placeholder. */
 function Screen() {
   const current = read(view)
   switch (current.kind) {
@@ -24,6 +25,7 @@ function Screen() {
     case 'list':
       return <IssueList />
     case 'detail':
+      return <IssueDetail id={current.issueId ?? ''} />
     case 'start':
       return <Text muted>Loading…</Text>
   }
