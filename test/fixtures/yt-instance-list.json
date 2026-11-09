@@ -1,0 +1,10 @@
+[
+  {
+    "alias": "example",
+    "url": "https://example.youtrack.cloud",
+    "login": "demo",
+    "fullName": "Demo User",
+    "status": "authenticated",
+    "active": true
+  }
+]

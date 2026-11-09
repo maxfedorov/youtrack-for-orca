@@ -1,0 +1,117 @@
+{
+  "unauthorized-401": {
+    "exitCode": 1,
+    "killed": false,
+    "stdout": "",
+    "stderr": {
+      "error": {
+        "code": "unauthorized",
+        "message": "HTTP 401: Invalid token",
+        "suggestion": "Run 'youtrack auth get-token' to re-authenticate"
+      }
+    }
+  },
+  "not-found-404": {
+    "exitCode": 1,
+    "killed": false,
+    "stdout": "",
+    "stderr": {
+      "error": {
+        "code": "not_found",
+        "message": "HTTP 404: Entity with id NOPE-1 not found",
+        "suggestion": "Resource not found — verify the ID"
+      }
+    }
+  },
+  "query-invalid-400": {
+    "exitCode": 1,
+    "killed": false,
+    "stdout": "",
+    "stderr": {
+      "error": {
+        "code": "api_error",
+        "message": "HTTP 400: Can't parse search query, please check and update query syntax"
+      }
+    }
+  },
+  "network-refused": {
+    "exitCode": 1,
+    "killed": false,
+    "stdout": "",
+    "stderr": {
+      "error": {
+        "code": "internal_error",
+        "message": "Get \"https://down.example.com/api/issues?query=%23Unresolved&$top=100&$skip=0&fields=id,idReadable,summary,project(id,shortName,name),reporter(id,login,fullName),resolved,created,updated,updater(id,login,fullName),description\": dial tcp 203.0.113.1:443: connect: connection refused"
+      }
+    }
+  },
+  "network-dns": {
+    "exitCode": 1,
+    "killed": false,
+    "stdout": "",
+    "stderr": {
+      "error": {
+        "code": "internal_error",
+        "message": "Get \"https://nonexistent.invalid/api/issues?query=%23Unresolved&$top=100&$skip=0&fields=id,idReadable,summary,project(id,shortName,name),reporter(id,login,fullName),resolved,created,updated,updater(id,login,fullName),description\": dial tcp: lookup nonexistent.invalid: no such host"
+      }
+    }
+  },
+  "unknown-alias": {
+    "exitCode": 1,
+    "killed": false,
+    "stdout": "",
+    "stderr": {
+      "error": {
+        "code": "internal_error",
+        "message": "unknown server profile \"no-such-alias\" — run: youtrack instance list\nKnown: example"
+      }
+    }
+  },
+  "token-origin-refused": {
+    "exitCode": 1,
+    "killed": false,
+    "stdout": "",
+    "stderr": {
+      "error": {
+        "code": "internal_error",
+        "message": "refusing to send the saved token for \"example\" (https://example.youtrack.cloud) to https://down.example.com — pass --token or set YOUTRACK_TOKEN for that instance, or select its profile with --server <alias>"
+      }
+    }
+  },
+  "auth-login-web-invalid-url": {
+    "exitCode": 1,
+    "killed": false,
+    "stdout": "",
+    "stderr": {
+      "error": {
+        "code": "internal_error",
+        "message": "browser sign-in is not available: could not discover the YouTrack service ID from https://nonexistent.invalid (this instance may be too old for browser sign-in)"
+      }
+    }
+  },
+  "timeout-killed-by-caller": {
+    "exitCode": 1,
+    "killed": true,
+    "stdout": "",
+    "stderr": [
+      "warning: http://10.255.255.1 uses plain http — the token is sent unencrypted; switch the instance URL to https"
+    ]
+  },
+  "saved-search-duplicate": {
+    "exitCode": 1,
+    "killed": false,
+    "stdout": "",
+    "stderr": {
+      "error": {
+        "code": "api_error",
+        "message": "HTTP 400: A saved search with this name already exists (Demo search)"
+      }
+    }
+  },
+  "full-text-no-match": {
+    "exitCode": 0,
+    "killed": false,
+    "stdout": [],
+    "stderr": ""
+  }
+}
