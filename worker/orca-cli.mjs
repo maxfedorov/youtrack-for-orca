@@ -50,7 +50,8 @@ export function createOrcaCli({ bin, run = (args, opts) => runProcess(bin, args,
     repos: async () =>
       mapOk(await exec(['repo', 'list', '--json'], READ_MS), (d) =>
         (d.repos ?? []).map((r) => {
-          const item = { id: r.id, name: r.displayName, path: r.path }
+          const item = { id: r.id, name: r.displayName ?? r.id }
+          if (typeof r.path === 'string') item.path = r.path
           if (r.worktreeBaseRef) item.worktreeBaseRef = r.worktreeBaseRef
           return item
         })
@@ -66,18 +67,22 @@ export function createOrcaCli({ bin, run = (args, opts) => runProcess(bin, args,
       const args = ['worktree', 'create', '--repo', `id:${repoId}`, '--name', name]
       if (baseBranch) args.push('--base-branch', baseBranch)
       args.push('--no-parent', '--activate', '--comment', `${issueId} ${issueUrl}`)
-      if (agent) args.push('--agent', agent, '--prompt', prompt ?? '')
+      if (agent) {
+        args.push('--agent', agent)
+        if (typeof prompt === 'string' && prompt.trim()) args.push('--prompt', prompt)
+      }
       args.push('--json')
       const res = await exec(args, CREATE_MS)
       if (!res.ok) return res
       const wt = res.data.worktree
       if (!wt?.identity?.key) return fail(CODES.ORCA_CLI_FAILED, 'The Orca CLI returned an unexpected answer.')
-      return ok({
+      const out = {
         workspaceId: `identity:${wt.identity.key}`,
         name: wt.displayName ?? name,
-        branch: String(wt.branch ?? '').replace(/^refs\/heads\//, ''),
-        path: wt.path
-      })
+        branch: String(wt.branch ?? '').replace(/^refs\/heads\//, '')
+      }
+      if (typeof wt.path === 'string') out.path = wt.path
+      return ok(out)
     },
 
     openPanel: async (pluginId, panelId) => {

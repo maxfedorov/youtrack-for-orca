@@ -151,3 +151,21 @@ test('openPanel fails when the plugin is not listed', async () => {
   assert.equal(r.ok, false)
   assert.equal(r.error.code, 'ORCA_CLI_FAILED')
 })
+
+test('createWorktree treats a blank prompt as no prompt', async () => {
+  const run = fakeRun(created)
+  await createOrcaCli({ run }).createWorktree({ ...input, prompt: '  \n' })
+  const a = run.calls[0].args
+  assert.ok(a.includes('--agent'))
+  assert.ok(!a.includes('--prompt'))
+})
+
+test('results never carry undefined values', async () => {
+  const wt = JSON.stringify({ ok: true, result: { worktree: { identity: { key: 'wt2:local:x' }, branch: 'refs/heads/b' } } })
+  const r = await createOrcaCli({ run: fakeRun({ 'worktree create': { stdout: wt } }) }).createWorktree(input)
+  assert.deepEqual(JSON.parse(JSON.stringify(r)), r)
+  assert.ok(!('path' in r.data))
+  const repos = JSON.stringify({ ok: true, result: { repos: [{ id: 'r1' }] } })
+  const l = await createOrcaCli({ run: fakeRun({ 'repo list': { stdout: repos } }) }).repos()
+  assert.deepEqual(l.data, [{ id: 'r1', name: 'r1' }])
+})
