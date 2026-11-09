@@ -1,4 +1,4 @@
-import { Button, Callout, EmptyState, Row, Skeleton, Stack, Table, Text, atom, read, set } from 'orca'
+import { Button, Callout, EmptyState, Skeleton, Stack, Table, Text, read, set } from 'orca'
 import {
   MAX_ISSUES, appliedQuery, defaultQuery, hasMore, issues, lastPageFull, links, listError, listStatus, loadMore, moreError, refreshList,
   runSearch, selectedIssue, syncList, total, totalKnown
@@ -32,35 +32,20 @@ const toRow = (row: IssueRow) => ({
   }
 })
 
-/** The catalog has no focus call: Edit query points at the search field instead. */
-const editHint = atom(false)
-
 const countText = (count: number, more = false) => `${count}${more ? '+' : ''} ${count === 1 && !more ? 'issue' : 'issues'}`
 
 function QueryButtons({ showReset }: { showReset: boolean }) {
-  return (
-    <Row gap="xs">
-      <Button variant="outline" onPress={() => set(editHint, true)}>
-        Edit query
-      </Button>
-      {showReset ? (
-        <Button variant="outline" onPress={() => void runSearch(defaultQuery())}>
-          Reset to default
-        </Button>
-      ) : null}
-    </Row>
-  )
+  return showReset ? (
+    <Button variant="outline" onPress={() => void runSearch(defaultQuery())}>
+      Reset to default
+    </Button>
+  ) : null
 }
 
 function Results() {
   const rows = read(issues)
   const status = read(listStatus)
   const current = read(appliedQuery)
-  const hint = read(editHint) ? (
-    <Text muted size="sm">
-      Edit the query above and press Enter.
-    </Text>
-  ) : null
   if (status === 'error') {
     return (
       <Callout tone="danger">
@@ -77,7 +62,6 @@ function Results() {
     return (
       <EmptyState title="Query error" description="YouTrack could not parse this query.">
         <QueryButtons showReset />
-        {hint}
       </EmptyState>
     )
   }
@@ -86,7 +70,6 @@ function Results() {
     return (
       <EmptyState title="No issues match this query" description={current}>
         <QueryButtons showReset={current !== defaultQuery()} />
-        {hint}
       </EmptyState>
     )
   }
