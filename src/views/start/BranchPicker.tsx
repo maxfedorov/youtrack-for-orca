@@ -36,7 +36,7 @@ export function BranchPicker({ enabled }: { enabled: boolean }) {
       {found.length > 0 ? (
         <List label="Branches">
           {found.map((item) => (
-            <ListItem key={item} title={item} current={item === chosen} onPress={() => chooseRef(item)} />
+            <ListItem key={item} title={item} current={item === chosen} disabled={!enabled} onPress={() => chooseRef(item)} />
           ))}
         </List>
       ) : null}

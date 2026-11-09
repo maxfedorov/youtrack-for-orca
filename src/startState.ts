@@ -84,6 +84,7 @@ export function resetBranch(): void {
   set(filter, '')
   set(refs, [])
   set(refsError, '')
+  void searchRefs('')
 }
 
 export function setProject(id: string): void {
@@ -143,7 +144,7 @@ function init(p: StartPrepare): void {
   set(repoId, p.defaultRepoId)
   set(name, p.name)
   resetBranch()
-  set(workspaceId, p.defaultWorkspaceId ?? p.workspaces[0]?.id ?? null)
+  set(workspaceId, p.defaultWorkspaceId)
   set(agentChoice, p.defaultAgent && (known || /^[a-z0-9][a-z0-9-]{0,63}$/.test(p.defaultAgent)) ? p.defaultAgent : NONE)
   set(otherAgent, '')
   set(includeDescription, p.includeDescription)
@@ -183,6 +184,7 @@ export function sync(id: string): void {
 
 /** Back to the list. */
 export function back(): void {
+  if (read(running)) return
   seq++
   cancelRefs()
   set(loadedFor, null)

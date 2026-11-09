@@ -8,7 +8,7 @@ import { BranchPicker } from './start/BranchPicker'
 import type { StartPrepare } from '../protocol'
 
 const BackButton = () => (
-  <Button variant="ghost" size="sm" onPress={back}>
+  <Button variant="ghost" size="sm" disabled={read(running)} onPress={back}>
     ← Back
   </Button>
 )
