@@ -1,9 +1,9 @@
 import {
-  Button, Callout, Heading, IconButton, KeyValue, Markdown, RelativeTime, Row, Separator, Skeleton, Stack, Text, atom, read, set, shell
+  Button, Callout, Heading, IconButton, KeyValue, Markdown, RelativeTime, Row, Separator, Skeleton, Stack, Text, atom, read, set
 } from 'orca'
 import { links } from '../listState'
 import { call, refreshTick, server, view } from '../state'
-import { openWorkspace, start } from './IssueRowActions'
+import { openInBrowser, openWorkspace, start } from './IssueRowActions'
 import type { IssueDetail as Detail } from '../protocol'
 
 type Status = 'idle' | 'loading' | 'ok' | 'error'
@@ -66,7 +66,7 @@ const BackButton = () => (
 )
 
 function OpenInBrowser({ url }: { url: string }) {
-  return <IconButton icon="open-external" label="Open in browser" variant="ghost" onPress={() => void shell.openExternal(url)} />
+  return <IconButton icon="open-external" label="Open in browser" variant="ghost" onPress={() => void openInBrowser(url)} />
 }
 
 function Body({ issue }: { issue: Detail }) {
@@ -94,7 +94,7 @@ function Body({ issue }: { issue: Detail }) {
         <Callout tone="neutral">
           <Stack gap="xs">
             <Text>This issue is too long to show in full. Open it in the browser to see everything.</Text>
-            <Button variant="outline" size="sm" onPress={() => void shell.openExternal(issue.url)}>
+            <Button variant="outline" size="sm" onPress={() => void openInBrowser(issue.url)}>
               Open in browser
             </Button>
           </Stack>
