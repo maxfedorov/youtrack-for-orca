@@ -132,7 +132,7 @@ test('searchRefs sends a space for an empty query and returns refs', async () =>
   const run = fakeRun({ 'repo search-refs': { stdout: fixture('orca-repo-search-refs.json') } })
   const cli = createOrcaCli({ run })
   const r = await cli.searchRefs('r1', '')
-  assert.deepEqual(run.calls[0].args, ['repo', 'search-refs', '--repo', 'id:r1', '--query', ' ', '--limit', '30', '--json'])
+  assert.deepEqual(run.calls[0].args, ['repo', 'search-refs', '--repo', 'id:r1', '--query', ' ', '--limit', '200', '--json'])
   assert.deepEqual(r.data, ['main', 'origin/main'])
   await cli.searchRefs('r1', 'rel')
   assert.equal(run.calls[1].args[run.calls[1].args.indexOf('--query') + 1], 'rel')

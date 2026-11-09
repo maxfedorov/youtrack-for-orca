@@ -1,4 +1,4 @@
-import { Button, Callout, Checkbox, Heading, Input, RadioGroup, Row, Select, Skeleton, Stack, Text, Textarea, read, set } from 'orca'
+import { Button, Callout, Checkbox, Field, Heading, Input, RadioGroup, Row, Select, Skeleton, Stack, Text, Textarea, read, set } from 'orca'
 import {
   back, canStart, editPrompt, failure, includeDescription, load, loadedFor, mode, name, prep, prompt, PROMPT_LIMIT, resetPrompt,
   repoId, runError, running, setProject, status, submit, sync, toggleDescription, workspaceId, chosenAgent
@@ -35,24 +35,32 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
       />
       {p.orcaCli ? null : <Text muted>Orca CLI not found — new worktrees are unavailable.</Text>}
       {p.reposError ? <Text tone="danger" size="sm">{p.reposError}</Text> : null}
-      <Select
-        label="Project"
-        value={read(repoId) ?? undefined}
-        placeholder="Choose a project"
-        disabled={!worktree}
-        options={p.repos.map((repo) => ({ value: repo.id, label: repo.name }))}
-        onChange={setProject}
-      />
-      <Input label="Name" value={read(name)} disabled={!worktree} onChange={(value) => set(name, value)} />
+      <Field label="Project">
+        <Select
+          label="Project"
+          labelHidden
+          value={read(repoId) ?? undefined}
+          placeholder="Choose a project"
+          disabled={!worktree}
+          options={p.repos.map((repo) => ({ value: repo.id, label: repo.name }))}
+          onChange={setProject}
+        />
+      </Field>
+      <Field label="Name">
+        <Input label="Name" labelHidden value={read(name)} disabled={!worktree} onChange={(value) => set(name, value)} />
+      </Field>
       <BranchPicker enabled={worktree} />
-      <Select
-        label="Workspace"
-        value={read(workspaceId) ?? undefined}
-        placeholder="Choose a workspace"
-        disabled={worktree}
-        options={p.workspaces.map((item) => ({ value: item.id, label: item.project ? `${item.name} — ${item.project}` : item.name }))}
-        onChange={(value) => set(workspaceId, value)}
-      />
+      <Field label="Workspace">
+        <Select
+          label="Workspace"
+          labelHidden
+          value={read(workspaceId) ?? undefined}
+          placeholder="Choose a workspace"
+          disabled={worktree}
+          options={p.workspaces.map((item) => ({ value: item.id, label: item.project ? `${item.name} — ${item.project}` : item.name }))}
+          onChange={(value) => set(workspaceId, value)}
+        />
+      </Field>
       {worktree ? null : (
         <Callout tone="warning">
           <Text>The agent works in this folder on its current branch. No new branch is created.</Text>
@@ -66,7 +74,9 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
         disabled={!agent}
         onChange={toggleDescription}
       />
-      <Textarea label="Prompt" rows={8} value={read(prompt)} disabled={!agent} onChange={editPrompt} />
+      <Field label="Prompt">
+        <Textarea label="Prompt" labelHidden rows={8} value={read(prompt)} disabled={!agent} onChange={editPrompt} />
+      </Field>
       <Row gap="xs" align="center" justify="between">
         <Button variant="ghost" size="sm" disabled={!agent} onPress={resetPrompt}>
           Reset to template

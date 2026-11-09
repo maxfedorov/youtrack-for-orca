@@ -6,6 +6,8 @@ import type { Repo, StartPrepare } from './protocol'
 
 export const OTHER = '__other__'
 export const NONE = '__none__'
+/** Select option value of the project default branch (a Select option cannot have an empty value). */
+export const PROJECT_DEFAULT = '__default__'
 export const DEBOUNCE_MS = 300
 export { PROMPT_LIMIT }
 
@@ -112,11 +114,9 @@ export function setFilter(text: string): void {
   }, DEBOUNCE_MS)
 }
 
+/** The filter and its results stay, so the choice can be changed without typing again. '' is the project default. */
 export function chooseRef(ref: string): void {
-  cancelRefs()
   set(baseBranch, ref)
-  set(filter, '')
-  set(refs, [])
 }
 
 export function toggleDescription(include: boolean): void {

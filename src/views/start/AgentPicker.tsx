@@ -1,4 +1,4 @@
-import { Input, Select, Stack, read, set } from 'orca'
+import { Field, Input, Select, Stack, read, set } from 'orca'
 import { agentChoice, NONE, OTHER, otherAgent, prep } from '../../startState'
 
 const title = (id: string) => id.charAt(0).toUpperCase() + id.slice(1)
@@ -18,9 +18,13 @@ export function AgentPicker() {
   ]
   return (
     <Stack gap="xs">
-      <Select label="Agent" value={choice} options={options} onChange={(value) => set(agentChoice, value)} />
+      <Field label="Agent">
+        <Select label="Agent" labelHidden value={choice} options={options} onChange={(value) => set(agentChoice, value)} />
+      </Field>
       {choice === OTHER ? (
-        <Input label="Agent id" value={read(otherAgent)} placeholder="e.g. claude" onChange={(value) => set(otherAgent, value)} />
+        <Field label="Agent id">
+          <Input label="Agent id" labelHidden value={read(otherAgent)} placeholder="e.g. claude" onChange={(value) => set(otherAgent, value)} />
+        </Field>
       ) : null}
     </Stack>
   )

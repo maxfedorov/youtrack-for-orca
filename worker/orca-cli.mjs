@@ -5,7 +5,7 @@ import { findOnPath, runProcess } from './exec.mjs'
 
 const READ_MS = 15_000
 const CREATE_MS = 60_000
-const REFS_LIMIT = '30'
+const REFS_LIMIT = '200'
 
 /**
  * Locate the Orca CLI: bundled in the app resources, else on PATH
