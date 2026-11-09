@@ -58,14 +58,14 @@ export function SearchBar() {
           }}
         />
         {match ? (
-          <IconButton icon="check" label={`Saved as ${match.name}`} disabled />
+          <IconButton icon="star" label={`Saved as ${match.name}`} disabled />
         ) : (
-          <IconButton icon="add" label="Save search" disabled={invalid || !text.trim()} onPress={startNaming} />
+          <IconButton icon="star" label="Save search" disabled={invalid || !text.trim()} onPress={startNaming} />
         )}
       </Row>
       {saved.length === 0 ? (
         <Text muted size="sm">
-          Save the current query with the save button
+          Save the current query with ☆
         </Text>
       ) : null}
       {read(naming) ? (

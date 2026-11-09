@@ -1,7 +1,7 @@
 import { Button, Callout, EmptyState, Row, Skeleton, Stack, Table, Text, atom, read, set } from 'orca'
 import {
-  MAX_ISSUES, appliedQuery, defaultQuery, hasMore, issues, links, listError, listStatus, loadMore, moreError, refreshList,
-  runSearch, selectedIssue, syncList, total
+  MAX_ISSUES, appliedQuery, defaultQuery, hasMore, issues, lastPageFull, links, listError, listStatus, loadMore, moreError, refreshList,
+  runSearch, selectedIssue, syncList, total, totalKnown
 } from '../listState'
 import { query, view } from '../state'
 import { applySort, parseSort } from '../../worker/query.mjs'
@@ -33,7 +33,7 @@ const toRow = (row: IssueRow) => ({
 /** The catalog has no focus call: Edit query points at the search field instead. */
 const editHint = atom(false)
 
-const countText = (count: number) => `${count} ${count === 1 ? 'issue' : 'issues'}`
+const countText = (count: number, more = false) => `${count}${more ? '+' : ''} ${count === 1 && !more ? 'issue' : 'issues'}`
 
 function QueryButtons({ showReset }: { showReset: boolean }) {
   return (
@@ -90,7 +90,8 @@ function Results() {
   }
   const sort = parseSort(read(query))
   const selected = rows.find((row) => row.id === read(selectedIssue))
-  const capped = rows.length >= MAX_ISSUES && (read(hasMore) || read(total) > MAX_ISSUES)
+  const known = read(totalKnown)
+  const capped = rows.length >= MAX_ISSUES && (known ? read(total) > MAX_ISSUES : read(lastPageFull))
   return (
     <Stack gap="xs">
       <Table
@@ -108,7 +109,7 @@ function Results() {
         onLoadMore={() => void loadMore()}
       />
       <Text muted size="sm">
-        {countText(read(total))}
+        {known ? countText(read(total)) : countText(rows.length, read(hasMore))}
       </Text>
       {capped ? (
         <Text muted size="sm">

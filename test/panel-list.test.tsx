@@ -186,7 +186,7 @@ test('star filled for existing saved query', async () => {
 test('empty saved searches show the hint', async () => {
   const host = mockHost({ requests: requests() })
   const view = await mount(panel, { host })
-  assert.ok(view.find({ text: 'Save the current query with the save button' }))
+  assert.ok(view.find({ text: 'Save the current query with ☆' }))
   await view.unmount()
 })
 
@@ -294,4 +294,77 @@ test('switching server reloads the query, saved searches and links', async () =>
   assert.equal(calls(host, 'yt.savedQueries').at(-1).input.server, 'other')
   assert.equal(calls(host, 'yt.links').at(-1).input.server, 'other')
   await view.unmount()
+})
+
+test('save button uses the star icon in both states', async () => {
+  const host = mockHost({ requests: requests() })
+  const view = await mount(panel, { host })
+  assert.equal(view.find({ role: 'button', label: 'Save search' }).props.icon, 'star')
+  await view.unmount()
+  const saved = mockHost({ requests: requests({ 'yt.savedQueries': ok([{ id: 's1', name: 'Mine', query: 'for: me #Unresolved' }]) }) })
+  const second = await mount(panel, { host: saved })
+  assert.equal(second.find({ role: 'button', label: 'Saved as Mine' }).props.icon, 'star')
+  await second.unmount()
+})
+
+test('failed env after a server switch clears the old server and retries the switch', async () => {
+  const two = [
+    { alias: 'main', url: 'https://main.example.youtrack.cloud', active: true, status: 'authenticated' },
+    { alias: 'other', url: 'https://other.example.youtrack.cloud', active: false, status: 'authenticated' }
+  ]
+  let phase = 0
+  const host = mockHost({
+    requests: requests({
+      'yt.env': () => {
+        if (phase === 0) return env({ servers: two })
+        if (phase === 1) return fail('NETWORK', 'env down')
+        return env({ servers: two, server: 'other', query: 'project: OTHER' })
+      },
+      'yt.savedQueries': ok([{ id: 's1', name: 'Mine', query: 'x' }]),
+      'yt.links': ok({ 'DEMO-1': 'ws-1' })
+    })
+  })
+  const view = await mount(panel, { host })
+  assert.equal(view.rowsOf(view.find(table)).length, 2)
+  phase = 1
+  const searches = calls(host, 'yt.issues.search').length
+  await view.select({ label: 'Server' }, 'other')
+  assert.ok(view.find({ type: 'Callout', tone: 'danger' }))
+  assert.ok(view.find({ text: 'env down' }))
+  assert.equal(view.find(table), null)
+  assert.equal(view.find({ role: 'option', text: 'Mine' }), null)
+  assert.equal(calls(host, 'yt.issues.search').length, searches)
+  assert.ok(view.find({ text: 'Save the current query with ☆' }))
+  phase = 2
+  await view.press({ role: 'button', text: 'Retry' })
+  assert.equal(view.valueOf({ label: 'Query' }), 'project: OTHER')
+  assert.deepEqual(calls(host, 'yt.issues.search').at(-1).input.server, 'other')
+  assert.deepEqual(view.rowsOf(view.find(table)), ['DEMO-1', 'DEMO-2'])
+  await view.unmount()
+})
+
+test('count without a total shows a plus while more pages exist', async () => {
+  const host = mockHost({ requests: requests({ 'yt.issues.search': (i: any) => page(i.offset + 1, 50, i.offset < 100) }) })
+  const view = await mount(panel, { host })
+  assert.ok(view.find({ text: '50+ issues' }))
+  await view.loadMore(view.find(table))
+  assert.ok(view.find({ text: '100+ issues' }))
+  await view.loadMore(view.find(table))
+  assert.ok(view.find({ text: '150 issues' }))
+  await view.unmount()
+})
+
+test('500 cap note appears from a full last page when the total is unknown, not for exactly 500', async () => {
+  const unknown = mockHost({ requests: requests({ 'yt.issues.search': (i: any) => page(i.offset + 1, 50, true) }) })
+  const view = await mount(panel, { host: unknown })
+  for (let n = 0; n < 12; n++) if (view.find(table).props.hasMore) await view.loadMore(view.find(table))
+  assert.ok(view.find({ text: '500+ issues' }) || view.find({ text: '500 issues' }))
+  assert.ok(view.find({ text: 'Showing the first 500 issues. Refine the query.' }))
+  await view.unmount()
+  const exact = mockHost({ requests: requests({ 'yt.issues.search': (i: any) => page(i.offset + 1, 50, i.offset < 450, i.offset === 0 ? 500 : undefined) }) })
+  const second = await mount(panel, { host: exact })
+  for (let n = 0; n < 12; n++) if (second.find(table).props.hasMore) await second.loadMore(second.find(table))
+  assert.equal(second.rowsOf(second.find(table)).length, 500)
+  assert.equal(second.find({ text: 'Showing the first 500 issues. Refine the query.' }), null)
+  await second.unmount()
 })

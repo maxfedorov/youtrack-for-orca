@@ -11,7 +11,13 @@ export type ListStatus = 'idle' | 'loading' | 'ok' | 'invalid' | 'error'
 export const issues = atom<IssueRow[]>([])
 /** Number of issues the query matches (rows.length when the worker could not count). */
 export const total = atom(0)
+/** False when the worker could not count: `total` then only holds the first page's length. */
+export const totalKnown = atom(false)
 export const hasMore = atom(false)
+/** The newest loaded page had PAGE_SIZE rows (more may exist even when `total` is unknown). */
+export const lastPageFull = atom(false)
+/** The last server switch failed to load its environment; Retry repeats it. */
+export const switchFailed = atom(false)
 export const listStatus = atom<ListStatus>('idle')
 /** Message of the failed search (`invalid` and `error` states). */
 export const listError = atom('')
@@ -43,6 +49,8 @@ export async function runSearch(text: string): Promise<void> {
   if (answer.ok) {
     set(issues, answer.data.issues)
     set(total, answer.data.total ?? answer.data.issues.length)
+    set(totalKnown, answer.data.total !== undefined)
+    set(lastPageFull, answer.data.issues.length >= PAGE_SIZE)
     set(hasMore, answer.data.hasMore)
     set(listError, '')
     set(listStatus, 'ok')
@@ -53,6 +61,7 @@ export async function runSearch(text: string): Promise<void> {
   if (answer.code === 'QUERY_INVALID') {
     set(issues, [])
     set(total, 0)
+    set(totalKnown, false)
     set(hasMore, false)
     set(listStatus, 'invalid')
   } else {
@@ -83,6 +92,7 @@ export async function loadMore(): Promise<void> {
   const known = new Set(rows.map((row) => row.id))
   const next = [...rows, ...answer.data.issues.filter((row) => !known.has(row.id))]
   set(issues, next)
+  set(lastPageFull, answer.data.issues.length >= PAGE_SIZE)
   set(hasMore, answer.data.hasMore && next.length < MAX_ISSUES && answer.data.issues.length > 0)
 }
 
@@ -110,6 +120,7 @@ export async function startList(): Promise<void> {
 
 /** Re-runs the current search and reloads links and saved searches. */
 export async function refreshList(): Promise<void> {
+  if (read(switchFailed)) return onServerChanged()
   if (!read(server)) return
   await Promise.all([runSearch(read(appliedQuery) || read(query)), loadSavedQueries(), loadLinks()])
 }
@@ -125,18 +136,30 @@ export function syncList(): void {
   }
 }
 
-/** After `yt.setServer` succeeded: take the new server's stored query and load everything for it. */
+/** After `yt.setServer`: drop the old server's data, take the new server's stored query and load everything for it. */
 export async function onServerChanged(): Promise<void> {
-  const answer = await call('yt.env', {})
-  if (!answer.ok) return
   seq++
-  set(env, answer.data as never)
-  set(server, answer.data.server)
-  set(query, answer.data.query)
   set(issues, [])
+  set(total, 0)
+  set(totalKnown, false)
+  set(hasMore, false)
+  set(lastPageFull, false)
   set(savedQueries, [])
   set(links, {})
   set(selectedIssue, null)
+  set(listError, '')
+  set(listStatus, 'loading')
+  const answer = await call('yt.env', {})
+  if (!answer.ok) {
+    set(switchFailed, true)
+    set(listError, answer.message)
+    set(listStatus, 'error')
+    return
+  }
+  set(switchFailed, false)
+  set(env, answer.data as never)
+  set(server, answer.data.server)
+  set(query, answer.data.query)
   set(listStatus, 'idle')
   await startList()
 }
