@@ -27,14 +27,14 @@ export function resolveOrcaCli({ resourcesPath, platform, env, exists }) {
 }
 
 /**
- * @param {{ bin?: string, run?: (args: string[], opts: { timeoutMs: number }) => Promise<import('./exec.mjs').ProcResult> }} o
- */
-/**
  * A flag and its free-text value as one `--flag=value` argument: the Orca CLI reads a separate value
  * that starts with `--` as the next flag, which would fail on a prompt opening with `---`.
  */
 const value = (flag, text) => `--${flag}=${text}`
 
+/**
+ * @param {{ bin?: string, run?: (args: string[], opts: { timeoutMs: number }) => Promise<import('./exec.mjs').ProcResult> }} o
+ */
 export function createOrcaCli({ bin, run = (args, opts) => runProcess(bin, args, opts) }) {
   /** Run a command and unwrap the `{ ok, result }` envelope printed on stdout. */
   async function exec(args, timeoutMs) {

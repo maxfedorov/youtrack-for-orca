@@ -14,7 +14,9 @@ import { createTemplateStore } from './templates.mjs'
 /**
  * @param {any} orca the worker's `orca` object
  * @param {{
- *   youtrack: ReturnType<typeof import('./youtrack-cli.mjs').createYoutrack> | null,
+ *   getYoutrack?: () => ReturnType<typeof import('./youtrack-cli.mjs').createYoutrack> | null,
+ *   refreshYoutrack?: () => Promise<unknown>,
+ *   youtrack?: ReturnType<typeof import('./youtrack-cli.mjs').createYoutrack> | null,
  *   orcaCli: ReturnType<typeof import('./orca-cli.mjs').createOrcaCli> | null,
  *   links: ReturnType<typeof import('./links.mjs').createLinkStore>,
  *   launches: ReturnType<typeof import('./links.mjs').createLaunchTracker>,
@@ -24,8 +26,9 @@ import { createTemplateStore } from './templates.mjs'
  *   now: () => number,
  *   platform?: string,
  *   homedir?: string
- * }} deps `platform` defaults to `process.platform`, `homedir` to the user's home folder; `templates`
- *   to a store in the plugin's storage
+ * }} deps `getYoutrack` answers the YouTrack CLI as last resolved and `refreshYoutrack` looks it up
+ *   again; a fixed `youtrack` serves instead in tests. `platform` defaults to `process.platform`,
+ *   `homedir` to the user's home folder, `templates` to a store in the plugin's storage
  */
 export function registerHandlers(orca, deps) {
   /** The YouTrack CLI as last resolved; null when it is not installed. */
