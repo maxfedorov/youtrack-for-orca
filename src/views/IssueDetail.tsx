@@ -138,11 +138,11 @@ function Body({ issue }: { issue: Detail }) {
         <Row gap="xs">
           <OpenInBrowser url={issue.url} />
           {workspaceId ? (
-            <Button size="sm" onPress={() => void openWorkspace(workspaceId)}>
+            <Button variant="solid" size="sm" onPress={() => void openWorkspace(workspaceId)}>
               Open →
             </Button>
           ) : (
-            <Button size="sm" onPress={() => start(issue.id)}>
+            <Button variant="outline" size="sm" onPress={() => start(issue.id)}>
               Start →
             </Button>
           )}

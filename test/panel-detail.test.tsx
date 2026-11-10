@@ -153,10 +153,11 @@ test('open in browser uses the issue url', async () => {
 test('start and open actions follow the workspace link', async () => {
   const host = mockHost({ requests: requests({ 'yt.links': ok({ 'DEMO-2': 'ws-2' }) }) })
   const view = await open(host, 'DEMO-1')
-  assert.ok(view.find({ role: 'button', text: 'Start →' }))
+  assert.equal(view.find({ role: 'button', text: 'Start →' }).props.variant, 'outline')
   await view.press({ role: 'button', text: '← Back' })
   await view.activateRow(view.find(table), 'DEMO-2')
   assert.equal(view.find({ role: 'button', text: 'Start →' }), null)
+  assert.equal(view.find({ role: 'button', text: 'Open →' }).props.variant, 'solid')
   await view.press({ role: 'button', text: 'Open →' })
   assert.deepEqual(calls(host, 'yt.workspace.open')[0].input, { workspaceId: 'ws-2' })
   await view.unmount()

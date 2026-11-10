@@ -27,11 +27,11 @@ export function IssueRowActions({ issue, workspaceId }: { issue: IssueRow; works
       <Text weight="medium">{issue.id}</Text>
       <Row gap="xs" align="center" wrap>
         {workspaceId ? (
-          <Button size="sm" onPress={() => void openWorkspace(workspaceId)}>
+          <Button variant="solid" size="sm" onPress={() => void openWorkspace(workspaceId)}>
             Open →
           </Button>
         ) : (
-          <Button size="sm" onPress={() => start(issue.id)}>
+          <Button variant="outline" size="sm" onPress={() => start(issue.id)}>
             Start →
           </Button>
         )}
