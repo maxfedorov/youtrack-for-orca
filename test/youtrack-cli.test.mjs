@@ -238,7 +238,7 @@ test('applyCommand passes the id and the command after -- as two arguments', asy
   const run = fakeRun({ '--server work issue command': { stdout: '' } })
   const yt = createYoutrack({ bin: 'youtrack', run })
   assert.deepEqual(await yt.applyCommand('work', 'DEMO-1', '-tag "x" State Done'), { ok: true, data: {} })
-  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'command', '--json', '--quiet', '--', 'DEMO-1', '-tag "x" State Done'])
+  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'command', '--no-new-tags', '--json', '--quiet', '--', 'DEMO-1', '-tag "x" State Done'])
   assert.equal(run.calls[0].opts.timeoutMs, 30_000)
 })
 

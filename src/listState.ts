@@ -40,11 +40,11 @@ let seenTick = 0
 export const defaultQuery = () => read(env)?.defaultQuery ?? ''
 
 /** Runs a search from the first page; only a successful one is remembered as the last query. */
-export async function runSearch(text: string): Promise<void> {
+export async function runSearch(text: string, { keepDraft = false }: { keepDraft?: boolean } = {}): Promise<void> {
   const current = read(server)
   if (!current) return
   const mine = ++seq
-  set(query, text)
+  if (!keepDraft) set(query, text)
   set(appliedQuery, text)
   set(listStatus, 'loading')
   set(moreError, '')
@@ -73,6 +73,9 @@ export async function runSearch(text: string): Promise<void> {
     set(listStatus, 'error')
   }
 }
+
+/** Runs the applied search again from the first page; the query being typed stays as it is. */
+export const rerunSearch = () => runSearch(read(appliedQuery) || read(query), { keepDraft: true })
 
 /** Appends the next page; pages of 50 up to 500 rows. */
 export async function loadMore(): Promise<void> {

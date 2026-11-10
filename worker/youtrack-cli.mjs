@@ -116,9 +116,12 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
     savedSearches: (server) => read(server, ['search', 'list']),
     createSavedSearch: (server, name, query) =>
       exec(['--server', server, 'search', 'create', '--name', name, '--query', query, ...tail], WRITE_MS, json),
-    /** Applies a YouTrack command; after `--`, so a command starting with a dash is not read as a flag. */
+    /**
+     * Applies a YouTrack command; after `--`, so a command starting with a dash is not read as a flag.
+     * `--no-new-tags`: a mistyped tag name fails instead of creating a new tag.
+     */
     applyCommand: (server, id, command) =>
-      exec(['--server', server, 'issue', 'command', ...tail, '--', id, command], WRITE_MS, () => ({})),
+      exec(['--server', server, 'issue', 'command', '--no-new-tags', ...tail, '--', id, command], WRITE_MS, () => ({})),
     /** @param {string} url @param {(authUrl: string) => void} onAuthUrl */
     loginWeb: (url, onAuthUrl) =>
       exec(['auth', 'login', url, '--web', '--json'], LOGIN_MS, (s) => (s.trim() ? json(s) : {}), {

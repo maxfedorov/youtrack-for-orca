@@ -4,7 +4,7 @@ import {
 import { links, loadLinks } from '../listState'
 import { call, refreshTick, server, view } from '../state'
 import { openInBrowser, openWorkspace, start } from './IssueRowActions'
-import { CommandBar } from './CommandBar'
+import { CommandBar, onCommandApplied } from './CommandBar'
 import type { IssueComments, IssueDetail as Detail } from '../protocol'
 
 type Status = 'idle' | 'loading' | 'ok' | 'error'
@@ -87,6 +87,9 @@ async function load(id: string): Promise<void> {
 
 let queued: string | null = null
 
+// After a command on the open issue, show it as it is now.
+onCommandApplied((id) => load(id))
+
 /** Called while rendering (state cannot change there, so loading is queued): loads when the issue changed, and reloads when the header's refresh was pressed. */
 function sync(id: string): void {
   const tick = read(refreshTick)
@@ -152,7 +155,7 @@ function Body({ issue }: { issue: Detail }) {
         </Row>
       </Row>
       <Heading level={2}>{issue.summary}</Heading>
-      <CommandBar id={issue.id} onApplied={() => load(issue.id)} />
+      <CommandBar id={issue.id} />
       {issue.truncated || issue.commentsOmitted ? (
         <Callout tone="neutral">
           <Stack gap="xs">
