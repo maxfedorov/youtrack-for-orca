@@ -3,7 +3,7 @@ import { buildPrompt, issueVars, PROMPT_LIMIT } from '../worker/prompt.mjs'
 import { loadLinks } from './listState'
 import { call, notice, server, view } from './state'
 import { closeComboboxes } from './views/Combobox'
-import type { Repo, StartPrepare } from './protocol'
+import type { Repo, StartPrepare, WorkspaceItem } from './protocol'
 
 export const OTHER = '__other__'
 export const NONE = '__none__'
@@ -46,6 +46,22 @@ let seq = 0
 let refsSeq = 0
 let timer: ReturnType<typeof setTimeout> | null = null
 let queued: string | null = null
+
+/**
+ * Workspace choices named "<project> / <name>" with the branch below, sorted by project and name;
+ * the current workspace's project comes first and the current workspace says so.
+ */
+export function workspaceOptions(list: readonly WorkspaceItem[], currentId: string | null): { value: string; label: string; description?: string }[] {
+  const home = list.find((item) => item.id === currentId)?.project
+  const rank = (item: WorkspaceItem) => (item.project === undefined || item.project === '' ? 2 : item.project === home ? 0 : 1)
+  const sorted = [...list].sort(
+    (a, b) => rank(a) - rank(b) || (a.project ?? '').localeCompare(b.project ?? '') || a.name.localeCompare(b.name)
+  )
+  return sorted.map((item) => {
+    const label = `${item.project ? `${item.project} / ` : ''}${item.name}${item.id === currentId ? ' (current)' : ''}`
+    return item.branch ? { value: item.id, label, description: item.branch } : { value: item.id, label }
+  })
+}
 
 export const repoOf = (list: Repo[], id: string | null) => list.find((repo) => repo.id === id)
 

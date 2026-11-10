@@ -104,7 +104,7 @@ test('mode switch disables project, name, branch and enables workspace', async (
   assert.equal(disabled(view, { type: 'Input', label: 'Name' }), true)
   assert.equal(comboDisabled(view, 'Create from'), true)
   assert.equal(comboDisabled(view, 'Workspace'), false)
-  assert.equal(shown(view, 'Workspace'), 'feature')
+  assert.equal(shown(view, 'Workspace'), 'feature (current)')
   assert.ok(view.find({ text: 'The agent works in this folder on its current branch. No new branch is created.' }))
   clean(view)
   await view.unmount()
@@ -381,6 +381,30 @@ test('agents are grouped as installed and other, and filtering finds one', async
   assert.equal(shown(view, 'Agent'), 'Codex')
   await view.press(startButton)
   assert.equal(calls(host, 'yt.start.run')[0].input.agent, 'codex')
+  clean(view)
+  await view.unmount()
+})
+
+test('workspaces are named by project and branch, the current project first', async () => {
+  const workspaces = [
+    { id: 'w1', name: 'main', project: 'beta', branch: 'main' },
+    { id: 'w2', name: 'main', project: 'alpha', branch: 'main' },
+    { id: 'w3', name: 'feature', project: 'alpha', branch: 'feat/x' },
+    { id: 'w4', name: 'loose' },
+    { id: 'w5', name: 'api', project: 'beta' }
+  ]
+  const host = mockHost({ requests: requests({ 'yt.start.prepare': ok(prepare({ launchMode: 'current', workspaces, defaultWorkspaceId: 'w1' })) }) })
+  const view = await open(host)
+  assert.equal(shown(view, 'Workspace'), 'beta / main (current)')
+  assert.deepEqual(await optionsOf(view, 'Workspace'), [
+    { value: 'w5', label: 'beta / api' },
+    { value: 'w1', label: 'beta / main (current)', description: 'main' },
+    { value: 'w3', label: 'alpha / feature', description: 'feat/x' },
+    { value: 'w2', label: 'alpha / main', description: 'main' },
+    { value: 'w4', label: 'loose' }
+  ])
+  await filterCombo(view, 'Workspace', 'feat/')
+  assert.deepEqual((await optionsOf(view, 'Workspace')).map((o) => o.value), ['w3'])
   clean(view)
   await view.unmount()
 })

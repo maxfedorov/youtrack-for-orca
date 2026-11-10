@@ -2,7 +2,7 @@ import { Button, Callout, Checkbox, Field, Heading, Input, RadioGroup, Row, Skel
 import {
   back, canStart, editPrompt, failure, includeDescription, load, loadedFor, mode, name, prep, prompt, PROMPT_LIMIT, resetPrompt,
   repoId, runError, running, setProject, status, submit, sync, toggleDescription, workspaceId, chosenAgent, currentAvailable, usableMode,
-  worktreeAvailable
+  worktreeAvailable, workspaceOptions
 } from '../startState'
 import { AgentPicker } from './start/AgentPicker'
 import { BranchPicker } from './start/BranchPicker'
@@ -60,7 +60,7 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
         value={read(workspaceId)}
         placeholder="Choose a workspace"
         disabled={worktree}
-        options={p.workspaces.map((item) => ({ value: item.id, label: item.project ? `${item.name} — ${item.project}` : item.name }))}
+        options={workspaceOptions(p.workspaces, p.defaultWorkspaceId)}
         onChange={(value) => set(workspaceId, value)}
       />
       {worktree ? null : (
