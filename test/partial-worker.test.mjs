@@ -192,3 +192,36 @@ test('start.prepare fails only when the issue itself cannot be read', async () =
   assert.equal(r.ok, false)
   assert.equal(r.error.message, 'gone')
 })
+
+test('the status bar keeps starting when its timer cannot be set', async () => {
+  const { createStatusBar } = await import('../worker/status.mjs')
+  const updates = []
+  const bar = createStatusBar({
+    host: { call: async (m, p) => void updates.push(p) },
+    youtrack: { instances: async () => ok(SERVERS), countIssues: async () => ok(3) },
+    state: { getServer: async () => null },
+    settings: { get: async () => '' },
+    setInterval: () => boom()
+  })
+  await bar.start()
+  assert.equal(updates.at(-1).text, 'YT: 3')
+  bar.stop()
+})
+
+test('requests keep working when notifications, the command or the status bar cannot be set up', async () => {
+  const { mkdtempSync, writeFileSync, chmodSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const dir = mkdtempSync(join(tmpdir(), 'yt-cli-'))
+  const bin = join(dir, 'youtrack')
+  writeFileSync(bin, '#!/bin/sh\necho "[]"\n')
+  chmodSync(bin, 0o755)
+  const main = await import('../worker/main.mjs')
+  const orca = fakeOrca({ settings: { youtrackPath: bin } })
+  orca.events = { on: () => boom() }
+  orca.commands = { register: () => boom() }
+  await main.default(orca)
+  const r = await orca.handlers.get('yt.terminal.run')({ command: 'other' })
+  assert.deepEqual(r, fail('UNKNOWN', 'Unknown terminal command'))
+  await main.deactivate()
+})

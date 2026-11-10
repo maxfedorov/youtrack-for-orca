@@ -67,8 +67,12 @@ export function createStatusBar({
     refresh,
     async start() {
       await refresh()
-      if (!timer) timer = setTimer(refresh, intervalMs)
-      timer?.unref?.()
+      try {
+        if (!timer) timer = setTimer(refresh, intervalMs)
+        timer?.unref?.()
+      } catch {
+        // without a timer the count is still refreshed after changes
+      }
     },
     stop() {
       if (timer) clearTimer(timer)

@@ -38,12 +38,24 @@ export default async function activate(orca) {
     now: () => Date.now()
   })
 
+  // The panel requests are registered above; each of these extras is set up on its own, so one that
+  // fails does not stop the others or the activation.
   const notifier = createFinishNotifier({ host: orca.host, launches, post: (name, payload) => safePost(orca, name, payload) })
-  orca.events.on('agent.status.changed', notifier.onAgentStatus)
+  await optional(orca, 'agent notifications', () => orca.events.on('agent.status.changed', notifier.onAgentStatus))
+  await optional(orca, 'open panel command', () => orca.commands.register('youtrack.openPanel', createOpenPanelCommand({ orcaCli, host: orca.host })))
+  await optional(orca, 'status bar', () => statusBar.start())
+}
 
-  orca.commands.register('youtrack.openPanel', createOpenPanelCommand({ orcaCli, host: orca.host }))
-
-  await statusBar.start()
+async function optional(orca, what, fn) {
+  try {
+    await fn()
+  } catch (e) {
+    try {
+      orca.log?.(`${what} unavailable: ${e instanceof Error ? e.name : typeof e}`)
+    } catch {
+      // logging is best effort
+    }
+  }
 }
 
 export async function deactivate() {
