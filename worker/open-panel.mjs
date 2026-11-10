@@ -3,7 +3,7 @@ export function createOpenPanelCommand({ orcaCli, host }) {
   return async function openPanel() {
     let r = null
     try {
-      r = orcaCli ? await orcaCli.openPanel('youtrack', 'issues') : null
+      r = orcaCli ? await orcaCli.openPanel('youtrack-for-orca', 'issues') : null
     } catch {
       r = null
     }

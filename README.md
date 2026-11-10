@@ -13,7 +13,7 @@ This is an unofficial plugin.
 
 ## Install
 
-[Open in Orca](https://onorca.dev/plugins/maxfedorov.youtrack?catalog=community) from the
+[Open in Orca](https://onorca.dev/plugins/maxfedorov.youtrack-for-orca?catalog=community) from the
 [Orca plugin directory](https://onorca.dev/plugins), or run:
 
     orca plugin install maxfedorov/youtrack-for-orca

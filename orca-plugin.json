@@ -1,6 +1,6 @@
 {
   "manifestVersion": 2,
-  "id": "youtrack",
+  "id": "youtrack-for-orca",
   "name": "YouTrack for Orca",
   "version": "0.1.0",
   "description": "Browse YouTrack issues in the right sidebar and start coding agents on them.",

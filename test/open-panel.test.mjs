@@ -12,7 +12,7 @@ test('open panel through the Orca CLI needs no fallback', async () => {
   const opened = []
   const { calls, run } = setup({ openPanel: async (...a) => (opened.push(a), ok({})) })
   await run()
-  assert.deepEqual(opened, [['youtrack', 'issues']])
+  assert.deepEqual(opened, [['youtrack-for-orca', 'issues']])
   assert.deepEqual(calls, [])
 })
 

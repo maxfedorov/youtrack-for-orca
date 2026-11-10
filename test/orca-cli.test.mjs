@@ -140,17 +140,17 @@ test('searchRefs sends a space for an empty query and returns refs', async () =>
 })
 
 test('openPanel finds the plugin key and opens the panel', async () => {
-  const list = JSON.stringify({ ok: true, result: { plugins: [{ pluginKey: 'other.thing' }, { pluginKey: 'local.youtrack' }] } })
+  const list = JSON.stringify({ ok: true, result: { plugins: [{ pluginKey: 'other.thing' }, { pluginKey: 'local.youtrack-for-orca' }] } })
   const run = fakeRun({ 'plugin list': { stdout: list }, 'plugin open': { stdout: JSON.stringify({ ok: true, result: {} }) } })
-  const r = await createOrcaCli({ run }).openPanel('youtrack', 'issues')
+  const r = await createOrcaCli({ run }).openPanel('youtrack-for-orca', 'issues')
   assert.equal(r.ok, true)
   assert.deepEqual(run.calls[0].args, ['plugin', 'list', '--json'])
-  assert.deepEqual(run.calls[1].args, ['plugin', 'open', 'local.youtrack', '--panel', 'issues', '--json'])
+  assert.deepEqual(run.calls[1].args, ['plugin', 'open', 'local.youtrack-for-orca', '--panel', 'issues', '--json'])
 })
 
 test('openPanel fails when the plugin is not listed', async () => {
   const list = JSON.stringify({ ok: true, result: { plugins: [{ pluginKey: 'notyoutrack' }] } })
-  const r = await createOrcaCli({ run: fakeRun({ 'plugin list': { stdout: list } }) }).openPanel('youtrack', 'issues')
+  const r = await createOrcaCli({ run: fakeRun({ 'plugin list': { stdout: list } }) }).openPanel('youtrack-for-orca', 'issues')
   assert.equal(r.ok, false)
   assert.equal(r.error.code, 'ORCA_CLI_FAILED')
 })
