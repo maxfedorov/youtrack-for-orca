@@ -1,15 +1,21 @@
 // Workspace choices for the Start view: each named by its project and shown with a short path.
 
-const shortBranch = (b) => String(b ?? '').replace(/^refs\/heads\//, '')
+export const shortBranch = (b) => String(b ?? '').replace(/^refs\/heads\//, '')
 const text = (v) => (typeof v === 'string' && v !== '' ? v : null)
 const sepOf = (p) => (p.includes('\\') && !p.includes('/') ? '\\' : '/')
 const trimEnd = (p) => p.replace(/[\\/]+$/, '')
 const segments = (p) => trimEnd(p).split(/[\\/]/)
 
+/** A Windows path (a drive letter or backslashes): compared without regard to case or separator. */
+const isWindows = (p) => /^[A-Za-z]:[\\/]|\\/.test(p)
+
 /** `p` is `dir` or lies inside it. */
-const inside = (dir, p) => {
-  const d = trimEnd(dir)
-  return p === d || p.startsWith(`${d}/`) || p.startsWith(`${d}\\`)
+export function inside(dir, p) {
+  const windows = isWindows(dir) || isWindows(p)
+  const norm = (x) => (windows ? trimEnd(String(x)).replace(/\\/g, '/').toLowerCase() : trimEnd(String(x)))
+  const d = norm(dir)
+  const q = norm(p)
+  return q === d || q.startsWith(`${d}/`) || q.startsWith(`${d}\\`)
 }
 
 /** Home becomes `~`; a path of more than four folders keeps its first and its last two. */

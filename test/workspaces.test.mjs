@@ -55,3 +55,13 @@ test('paths are shortened: home becomes ~ and deep paths keep their last two fol
   assert.equal(shortPath('/a/b/c/d/e', HOME), '/…/d/e')
   assert.equal(shortPath('C:\\Users\\demo\\code\\a\\b\\c', 'C:\\Users\\demo'), '~\\…\\b\\c')
 })
+
+test('inside compares Windows paths without regard to case or separator, others exactly', async () => {
+  const { inside } = await import('../worker/workspaces.mjs')
+  assert.equal(inside('C:\\Repos\\Demo', 'c:\\repos\\demo\\wt\\a'), true)
+  assert.equal(inside('C:\\Repos\\Demo\\', 'C:/Repos/Demo'), true)
+  assert.equal(inside('C:\\Repos\\Demo', 'C:\\Repos\\Demo-two'), false)
+  assert.equal(inside('/home/demo/repo', '/home/demo/repo/wt'), true)
+  assert.equal(inside('/home/demo/Repo', '/home/demo/repo/wt'), false)
+  assert.equal(inside('/home/demo/repo', '/home/demo/repository'), false)
+})

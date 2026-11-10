@@ -3,21 +3,18 @@ import { ok, fail, CODES } from '../result.mjs'
 import { toIssueDetail } from '../mapping.mjs'
 import { issueVars, workspaceName, PROMPT_LIMIT } from '../prompt.mjs'
 import { AGENTS } from '../agents.mjs'
-import { workspaceItems } from '../workspaces.mjs'
+import { inside, shortBranch, workspaceItems } from '../workspaces.mjs'
 import { BUILT_IN } from '../templates.mjs'
 import { safeHandle, shortMessage, unexpected, hasId, invalid, token, issueUrl, ISSUE_ID, settingString, capDetail, AGENT_ID, attempt, fallback, readSetting } from './common.mjs'
 
 const DEFAULT_BRANCH_TEMPLATE = '{{id_lower}}-{{summary_slug}}'
 const noOrcaCli = () => fail(CODES.ORCA_CLI_NOT_FOUND, 'The Orca CLI was not found.')
 const tooLong = () => fail(CODES.PROMPT_TOO_LONG, `Prompt is longer than ${PROMPT_LIMIT} characters`)
-const shortBranch = (b) => String(b ?? '').replace(/^refs\/heads\//, '')
 
 const NOT_SAVED = 'Started, but the plugin could not save it: this issue may not show its workspace or a finished notice.'
 
 /** The YouTrack project of an issue: the short name its readable id starts with. */
 const projectOf = (id) => id.slice(0, id.lastIndexOf('-'))
-
-const inside = (dir, p) => p === dir || p.startsWith(dir.replace(/[\\/]+$/, '') + '/') || p.startsWith(dir.replace(/[\\/]+$/, '') + '\\')
 
 export function registerStartHandlers(ctx) {
   const { orca, orcaCli, links, launches, templates, detectAgents, now, resolveServer } = ctx
