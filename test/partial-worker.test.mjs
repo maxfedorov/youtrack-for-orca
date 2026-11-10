@@ -35,7 +35,7 @@ const fakeCli = (over = {}) => ({
 function setup({ yt = fakeYt(), cli = fakeCli(), host = {}, settings = {}, orca: patch, detectAgents } = {}) {
   const orca = fakeOrca({
     host: { 'workspace.list': { workspaces: WS, truncated: false }, 'workspace.readContext': { branch: 'feat', displayName: 'feat' }, ...host },
-    settings: { defaultQuery: 'for: me', promptTemplate: 'Do {{id}} {{summary}} {{state}} {{assignee}}', defaultAgent: 'claude', ...settings }
+    settings: { defaultQuery: 'for: me', defaultAgent: 'claude', ...settings }
   })
   patch?.(orca)
   const state = createStateStore(orca.storage)

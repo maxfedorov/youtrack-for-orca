@@ -1,4 +1,4 @@
-import { Button, Callout, Checkbox, Field, Heading, Input, RadioGroup, Row, Skeleton, Stack, Text, Textarea, read, set } from 'orca'
+import { Button, Callout, Field, Heading, Input, Row, Select, Skeleton, Stack, Switch, Text, Textarea, read, set } from 'orca'
 import {
   back, canStart, editPrompt, failure, includeDescription, load, loadedFor, mode, name, prep, prompt, PROMPT_LIMIT, resetPrompt,
   repoId, runError, running, setProject, status, submit, sync, toggleDescription, workspaceId, chosenAgent, currentAvailable, usableMode,
@@ -27,16 +27,14 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
   return (
     <Stack gap="sm">
       {/*
-        The Field draws the label, as for every other field here (the RadioGroup's own label is a
-        different element with other spacing). Vertical: each choice starts under the label, and a
-        narrow panel cannot wrap "Current workspace" onto a ragged second line.
+        A Select under the Field's label, like every other field here: Orca draws a RadioGroup's
+        circles a little above the text of their labels.
       */}
       <Field label="Run in">
-        <RadioGroup
+        <Select
           label="Run in"
           labelHidden
           value={current}
-          orientation="vertical"
           options={[
             { value: 'worktree', label: 'New worktree', disabled: !worktreeAvailable(p) },
             { value: 'current', label: 'Current workspace', disabled: !currentAvailable(p) }
@@ -79,7 +77,8 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
       )}
       <AgentPicker />
       {gate.hint ? <Text muted size="sm">{gate.hint}</Text> : null}
-      <Checkbox
+      {/* A Switch: Orca centers it on its label's line, while a Checkbox's box sits above the text. */}
+      <Switch
         label="Include issue description in prompt"
         checked={read(includeDescription)}
         disabled={!agent}

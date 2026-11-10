@@ -1,18 +1,17 @@
 import { test, assert } from 'orca/testing'
 import { readFileSync } from 'node:fs'
-import { BUILT_IN, LEGACY_DEFAULT, MAX_TEMPLATES, createTemplateStore } from '../worker/templates.mjs'
+import { BUILT_IN, MAX_TEMPLATES, createTemplateStore } from '../worker/templates.mjs'
 import { buildPrompt, issueVars } from '../worker/prompt.mjs'
 import { fakeStorage } from './helpers.mjs'
 
 const manifest = JSON.parse(readFileSync(new URL('../orca-plugin.json', import.meta.url), 'utf8'))
 const setting = (key) => manifest.contributes.settings.find((s) => s.key === key)
 let n = 0
-const store = (storage = fakeStorage(), legacy = LEGACY_DEFAULT) =>
-  createTemplateStore(storage, { legacy: async () => legacy, newId: () => `user-${++n}` })
+const store = (storage = fakeStorage()) => createTemplateStore(storage, { newId: () => `user-${++n}` })
 const ids = (r) => r.data.templates.map((t) => t.id)
 
-test('the old default prompt setting is known, so an unchanged one is not imported', () => {
-  assert.equal(setting('promptTemplate').default, LEGACY_DEFAULT)
+test('there is no prompt setting: prompts are the templates in the panel', () => {
+  assert.equal(setting('promptTemplate'), undefined)
 })
 
 test('five built-in templates, each gathering context through the CLI and marking issue text untrusted', () => {
@@ -42,30 +41,6 @@ test('the first read stores the built-ins with Implement feature as the default'
   assert.equal(r.data.defaultId, 'implement')
   assert.deepEqual(storage.data().templates.items.map((t) => t.id), ids(r))
   assert.ok(r.data.templates.every((t) => t.builtIn === true))
-})
-
-test('a customized prompt setting is imported once as My template, the default', async () => {
-  const storage = fakeStorage()
-  const r = await store(storage, 'Just do {{id}}').list()
-  const mine = r.data.templates.at(-1)
-  assert.deepEqual({ name: mine.name, body: mine.body }, { name: 'My template', body: 'Just do {{id}}' })
-  assert.equal(r.data.defaultId, mine.id)
-  assert.equal(mine.builtIn, undefined)
-  await store(storage, 'Changed again').remove(mine.id)
-  const again = await store(storage, 'Changed again').list()
-  assert.equal(again.data.templates.some((t) => t.name === 'My template'), false)
-})
-
-test('an empty, missing or unchanged prompt setting is not imported', async () => {
-  for (const legacy of ['', '   ', undefined, null, 5, LEGACY_DEFAULT]) {
-    const r = await store(fakeStorage(), legacy).list()
-    assert.deepEqual(ids(r), BUILT_IN.map((t) => t.id), String(legacy))
-  }
-})
-
-test('an imported setting longer than a template may be is cut to the limit', async () => {
-  const r = await store(fakeStorage(), 'x'.repeat(9000)).list()
-  assert.equal(r.data.templates.at(-1).body.length, 8000)
 })
 
 test('the built-ins stay usable when they cannot be stored', async () => {
@@ -160,26 +135,11 @@ test('restore refuses to go over 30 templates', async () => {
 
 test('damaged stored templates are dropped; nothing usable reads as the built-ins', async () => {
   const storage = fakeStorage({ templates: { items: [{ id: 'a', name: 'A', body: 'x' }, { id: 5 }, null, { id: 'b', name: '', body: 'x' }], defaultId: 'zz' } })
-  const r = await store(storage, 'ignored').list()
+  const r = await store(storage).list()
   assert.deepEqual(ids(r), ['a'])
   assert.equal(r.data.defaultId, 'a')
-  const empty = await store(fakeStorage({ templates: { items: [] } }), 'ignored').list()
+  const empty = await store(fakeStorage({ templates: { items: [] } })).list()
   assert.deepEqual(ids(empty), BUILT_IN.map((t) => t.id))
   assert.equal(empty.data.templates.some((t) => t.name === 'My template'), false)
 })
 
-test('when the old setting cannot be read, the built-ins are used but not stored, so the import is tried again', async () => {
-  const storage = fakeStorage()
-  let fails = true
-  const s = createTemplateStore(storage, {
-    legacy: async () => {
-      if (fails) throw new Error('no settings')
-      return 'Mine {{id}}'
-    },
-    newId: () => 'user-x'
-  })
-  assert.deepEqual(ids(await s.list()), BUILT_IN.map((t) => t.id))
-  assert.equal(storage.data().templates, undefined)
-  fails = false
-  assert.equal((await s.list()).data.defaultId, 'user-x')
-})

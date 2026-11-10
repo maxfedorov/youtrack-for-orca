@@ -216,7 +216,7 @@ const openStart = async (host: any) => {
   return view
 }
 const startButton = { role: 'button', text: 'Start' }
-const option = (view: any, value: string) => view.find({ type: 'RadioGroup', label: 'Run in' }).props.options.find((o: any) => o.value === value)
+const option = (view: any, value: string) => view.find({ type: 'Select', label: 'Run in' }).props.options.find((o: any) => o.value === value)
 
 test('start without repositories: new worktree is off with a reason and the current workspace still starts', async () => {
   const host = mockHost({ requests: requests({ 'yt.start.prepare': ok(prepare({ repos: [], defaultRepoId: null, reposError: 'repo list failed' })) }) })
@@ -224,7 +224,7 @@ test('start without repositories: new worktree is off with a reason and the curr
   clean(view)
   assert.equal(danger(view).length, 0)
   assert.equal(option(view, 'worktree').disabled, true)
-  assert.equal(view.find({ type: 'RadioGroup', label: 'Run in' }).props.value, 'current')
+  assert.equal(view.find({ type: 'Select', label: 'Run in' }).props.value, 'current')
   assert.ok(view.find({ text: 'Projects could not be loaded, so new worktrees are unavailable: repo list failed' }))
   assert.equal(Boolean(view.find(startButton).props.disabled), false)
   await view.press(startButton)
@@ -239,7 +239,7 @@ test('start without workspaces: current workspace is off with a reason and a new
   const view = await openStart(host)
   clean(view)
   assert.equal(option(view, 'current').disabled, true)
-  assert.equal(view.find({ type: 'RadioGroup', label: 'Run in' }).props.value, 'worktree')
+  assert.equal(view.find({ type: 'Select', label: 'Run in' }).props.value, 'worktree')
   assert.ok(view.find({ text: 'Workspaces could not be loaded, so the current workspace is unavailable: host down' }))
   await view.press(startButton)
   assert.equal(calls(host, 'yt.start.run')[0].input.repoId, 'r1')
@@ -346,7 +346,7 @@ test('a start answer with odd projects, workspaces or variables keeps the rest',
   clean(view)
   assert.equal(danger(view).length, 0)
   assert.deepEqual(await optionsOf(view, 'Project'), [{ value: 'r1', label: 'alpha' }])
-  await view.select({ type: 'RadioGroup', label: 'Run in' }, 'current')
+  await view.select({ type: 'Select', label: 'Run in' }, 'current')
   assert.deepEqual((await optionsOf(view, 'Workspace')).map((o) => o.value), ['w1'])
   assert.equal(view.find({ type: 'Textarea', label: 'Prompt' }).props.value, 'Do DEMO-1 ')
   assert.ok(view.find({ text: 'Installed agents could not be detected. Every agent is listed under Other agents.' }))

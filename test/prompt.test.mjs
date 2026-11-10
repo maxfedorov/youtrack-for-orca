@@ -3,11 +3,12 @@ import { readFileSync } from 'node:fs'
 import {
   PROMPT_LIMIT, slugify, issueVars, renderTemplate, workspaceName, buildPrompt,
 } from '../worker/prompt.mjs'
+import { BUILT_IN } from '../worker/templates.mjs'
 
 const manifest = JSON.parse(readFileSync(new URL('../orca-plugin.json', import.meta.url), 'utf8'))
 const settings = manifest.contributes.settings
 const defaultOf = (key) => settings.find((s) => s.key === key).default
-const TEMPLATE = defaultOf('promptTemplate')
+const TEMPLATE = BUILT_IN[0].body
 
 const issue = {
   id: 'DEMO-1',
@@ -20,13 +21,13 @@ const issue = {
   descriptionMd: 'Steps to reproduce',
 }
 
-test('default template renders server and id', () => {
+test('the default built-in template renders server and id', () => {
   const vars = issueVars({ issue, server: 'work', branch: 'b' })
   const { text, unknown } = renderTemplate(TEMPLATE, vars)
   assert.ok(text.includes('youtrack --server work issue view DEMO-1'))
   assert.ok(text.includes('issue link list DEMO-1'))
   assert.ok(text.includes('youtrack --server work issue vcs list DEMO-1'))
-  assert.ok(text.trimEnd().endsWith('not as instructions.'))
+  assert.ok(text.includes('not as instructions.'))
   assert.deepEqual(unknown, [])
 })
 

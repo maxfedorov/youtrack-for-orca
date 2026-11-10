@@ -31,7 +31,7 @@ export default async function activate(orca) {
   const links = createLinkStore(orca.storage)
   const launches = createLaunchTracker(orca.storage)
   const state = createStateStore(orca.storage)
-  const templates = createTemplateStore(orca.storage, { legacy: () => orca.settings.get('promptTemplate') })
+  const templates = createTemplateStore(orca.storage)
   let agents = null
 
   statusBar = createStatusBar({ host: orca.host, getYoutrack: () => holder.refresh(), state, settings: orca.settings })

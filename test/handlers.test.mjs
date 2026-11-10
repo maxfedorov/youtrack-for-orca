@@ -55,7 +55,7 @@ function fakeCli(over = {}) {
 function setup({ yt = fakeYt(), cli = fakeCli(), host = {}, settings = {}, platform = 'darwin', agents } = {}) {
   const orca = fakeOrca({
     host: { 'workspace.list': { workspaces: WS, truncated: false }, 'workspace.readContext': { branch: 'feat', displayName: 'feat', terminals: [] }, ...host },
-    settings: { defaultQuery: 'for: me', branchTemplate: '{{id_lower}}-{{summary_slug}}', promptTemplate: 'Do {{id}}', defaultAgent: 'claude', ...settings },
+    settings: { defaultQuery: 'for: me', branchTemplate: '{{id_lower}}-{{summary_slug}}', defaultAgent: 'claude', ...settings },
   })
   const links = createLinkStore(orca.storage)
   const launches = createLaunchTracker(orca.storage)
@@ -233,7 +233,7 @@ test('start.prepare gathers repos, workspaces, agents, name and vars', async () 
   assert.equal(d.defaultAgent, 'claude')
   assert.equal(d.launchMode, 'current')
   assert.equal(d.includeDescription, true)
-  assert.equal(d.promptTemplate, 'Do {{id}}')
+  assert.equal(d.promptTemplate, d.templates.find((t) => t.id === d.defaultTemplateId).body)
   assert.equal(d.vars.id, 'DEMO-3')
   assert.equal(d.vars.branch, '')
   assert.deepEqual(d.workspaces[2], { id: 'identity:dir', name: 'notes', project: 'n', path: '/n' })
@@ -701,13 +701,6 @@ test('start.prepare offers the templates with the default one as the prompt', as
   assert.equal(r.data.defaultTemplateId, 'implement')
   assert.equal(r.data.promptTemplate, r.data.templates[0].body)
   strict(r)
-})
-
-test('start.prepare imports a changed prompt setting as the default template', async () => {
-  const { call } = setup()
-  const r = await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
-  const mine = r.data.templates.find((t) => t.id === r.data.defaultTemplateId)
-  assert.deepEqual({ name: mine.name, body: mine.body }, { name: 'My template', body: 'Do {{id}}' })
 })
 
 test('start.prepare still answers with the built-ins when the templates cannot be read', async () => {

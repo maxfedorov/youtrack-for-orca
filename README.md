@@ -66,7 +66,6 @@ talks to YouTrack goes through the CLI.
 | Setting                 | Default                                | Meaning                                                                 |
 | ----------------------- | -------------------------------------- | ----------------------------------------------------------------------- |
 | Default query           | `for: me #Unresolved`                  | Query used on first open and for the status bar count.                  |
-| Prompt template (old)   | reads the issue through the CLI        | Replaced by the panel's prompt templates; a changed text is imported once as "My template". |
 | Branch name template    | `{{id_lower}}-{{summary_slug}}`        | Name of the new workspace and branch.                                   |
 | Default agent           | `claude`                               | Agent preselected in the Start view; empty means terminal only.         |
 | Default launch mode     | New worktree                           | `New worktree` or `Current workspace`.                                  |
