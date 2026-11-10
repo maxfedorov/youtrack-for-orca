@@ -14,6 +14,9 @@ const shortBranch = (b) => String(b ?? '').replace(/^refs\/heads\//, '')
 
 const NOT_SAVED = 'Started, but the plugin could not save it: this issue may not show its workspace or a finished notice.'
 
+/** The YouTrack project of an issue: the short name its readable id starts with. */
+const projectOf = (id) => id.slice(0, id.lastIndexOf('-'))
+
 const inside = (dir, p) => p === dir || p.startsWith(dir.replace(/[\\/]+$/, '') + '/') || p.startsWith(dir.replace(/[\\/]+$/, '') + '\\')
 
 export function registerStartHandlers(ctx) {
@@ -91,10 +94,17 @@ export function registerStartHandlers(ctx) {
     const workspaces = ws.ok ? ws.data.list : []
     const active = await activeWorkspace(workspaces)
     const repoList = repos.ok && Array.isArray(repos.data) ? repos.data : []
-    const repo =
+    const listed = (repoId) => (repoId ? repoList.find((r) => r.id === repoId) : undefined)
+    const ofWorkspace =
       active &&
       (repoList.find((r) => typeof r.path === 'string' && r.path && typeof active.path === 'string' && active.path && inside(r.path, active.path)) ??
         repoList.find((r) => active.project && r.name === active.project))
+    // The project last chosen for this YouTrack project, then the server's default, then the current
+    // workspace's; one no longer in Orca is skipped. Unreadable memory only skips its step.
+    const repo =
+      listed(await fallback(() => ctx.state.projectRepo(s.data.alias, projectOf(id)), null)) ??
+      listed(await fallback(() => ctx.state.serverRepo(s.data.alias), null)) ??
+      ofWorkspace
     const data = {
       repos: repoList,
       orcaCli: orcaCli != null,
@@ -146,6 +156,8 @@ export function registerStartHandlers(ctx) {
     if (!r.ok) return r
     const { workspaceId, terminalId, paneKey } = r.data
     const saved = await remember('yt.start.run link', () => links.add(s.data.alias, id, workspaceId, now()))
+    // Offered first next time for this YouTrack project; losing it is not worth a warning.
+    await fallback(() => ctx.state.rememberProjectRepo(s.data.alias, projectOf(id), repoId), null)
     let tracked = null
     // The finished-notification matches `agent.status.changed` by terminal, pane or workspace, so keep
     // every id the answer has; without a terminal handle the workspace id stands in for it.

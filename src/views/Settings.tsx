@@ -1,6 +1,7 @@
 import { Button, Heading, Row, Separator, Stack, read } from 'orca'
 import { closeSettings, templatesBusy } from '../settingsState'
 import { TemplatesSection } from './Templates'
+import { ServersSection } from './Servers'
 
 /** Prompt templates and servers: settings Orca's settings page cannot hold (lists). */
 export function Settings() {
@@ -14,6 +15,7 @@ export function Settings() {
       </Row>
       <TemplatesSection />
       <Separator />
+      <ServersSection />
     </Stack>
   )
 }

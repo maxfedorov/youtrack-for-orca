@@ -129,6 +129,10 @@ declare module 'orca' {
     'yt.templates.setDefault': { input: { id: string }; output: Result<Templates> }
     /** Puts back the five built-ins as shipped; the person's own templates stay. */
     'yt.templates.restore': { input: Record<string, never>; output: Result<Templates> }
+    /** The Orca projects and each server's default project (alias -> repo id). */
+    'yt.servers.defaults': { input: Record<string, never>; output: Result<{ repos: Repo[]; reposError?: string; defaults: Record<string, string> }> }
+    /** Sets the project Start offers for a server when none was chosen before; null clears it. */
+    'yt.servers.setDefaultRepo': { input: { server: string; repoId: string | null }; output: Result<Record<string, never>> }
     /**
      * Removes the server from the youtrack CLI (signing it out) and forgets its saved query, links,
      * launches and projects. `warning`: removed, but some of that could not be forgotten.

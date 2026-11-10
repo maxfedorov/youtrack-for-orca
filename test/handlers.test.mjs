@@ -746,3 +746,67 @@ test('template requests create, edit, delete, mark the default and restore', asy
   }
   strict(list)
 })
+test('the project chosen at Start is offered next time for issues of that YouTrack project', async () => {
+  const { call, state } = setup({ cli: threeRepos() })
+  assert.equal((await call('yt.start.run', { ...RUN, repoId: 'r2' })).ok, true)
+  assert.equal(await state.projectRepo('one', 'DEMO'), 'r2')
+  assert.equal((await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })).data.defaultRepoId, 'r2')
+  // Another server or another project does not use it.
+  assert.equal((await call('yt.start.prepare', { server: 'two', id: 'DEMO-3' })).data.defaultRepoId, 'r1')
+})
+
+test('Start defaults to the remembered project, then the server default, then the current workspace', async () => {
+  const { call, state } = setup({ cli: threeRepos() })
+  const repo = async () => (await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })).data.defaultRepoId
+  assert.equal(await repo(), 'r1')
+  await state.setServerRepo('one', 'r3')
+  assert.equal(await repo(), 'r3')
+  await state.rememberProjectRepo('one', 'DEMO', 'r2')
+  assert.equal(await repo(), 'r2')
+  // A remembered or default project that is no longer in Orca is skipped.
+  await state.rememberProjectRepo('one', 'DEMO', 'gone')
+  assert.equal(await repo(), 'r3')
+  await state.setServerRepo('one', 'gone')
+  assert.equal(await repo(), 'r1')
+})
+
+test('Start still prepares when the remembered projects cannot be read', async () => {
+  const { call, orca } = setup({ cli: threeRepos() })
+  const get = orca.storage.get
+  orca.storage.get = async (key) => {
+    if (key === 'projectRepos' || key === 'serverRepos') throw new Error('broken')
+    return get(key)
+  }
+  const r = await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.equal(r.data.defaultRepoId, 'r1')
+})
+
+test('a start that cannot remember its project still succeeds without a warning', async () => {
+  const { call, orca } = setup({ cli: threeRepos() })
+  const set = orca.storage.set
+  orca.storage.set = async (key, value) => {
+    if (key === 'projectRepos') throw new Error('full')
+    return set(key, value)
+  }
+  assert.deepEqual(await call('yt.start.run', RUN), ok({ workspaceId: 'identity:new' }))
+})
+
+test('server defaults list the projects and each server default; setting one checks its input', async () => {
+  const { call, state } = setup({ cli: threeRepos() })
+  await state.setServerRepo('two', 'r2')
+  assert.deepEqual((await call('yt.servers.defaults', {})).data, { repos: REPOS, defaults: { two: 'r2' } })
+  assert.deepEqual(await call('yt.servers.setDefaultRepo', { server: 'one', repoId: 'r3' }), ok({}))
+  assert.equal(await state.serverRepo('one'), 'r3')
+  assert.deepEqual(await call('yt.servers.setDefaultRepo', { server: 'one', repoId: null }), ok({}))
+  assert.equal(await state.serverRepo('one'), null)
+  for (const bad of [{ server: 'zzz', repoId: 'r1' }, { server: 'one', repoId: '-x' }, { server: 'one', repoId: 5 }]) {
+    assert.equal((await call('yt.servers.setDefaultRepo', bad)).ok, false, JSON.stringify(bad))
+  }
+})
+
+test('server defaults answer without projects when they cannot be listed', async () => {
+  const noCli = await setup({ cli: null }).call('yt.servers.defaults', {})
+  assert.deepEqual(noCli.data, { repos: [], reposError: 'The Orca CLI was not found.', defaults: {} })
+  const failing = await setup({ cli: fakeCli({ repos: async () => fail('ORCA_CLI_FAILED', 'orca is down') }) }).call('yt.servers.defaults', {})
+  assert.deepEqual(failing.data, { repos: [], reposError: 'orca is down', defaults: {} })
+})

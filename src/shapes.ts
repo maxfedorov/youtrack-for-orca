@@ -144,6 +144,14 @@ const REPAIRS: Record<string, { core: Check; fix: (v: Obj) => unknown }> = {
   'yt.templates.delete': { core: shape({ templates: Array.isArray }), fix: fixTemplates },
   'yt.templates.setDefault': { core: shape({ templates: Array.isArray }), fix: fixTemplates },
   'yt.templates.restore': { core: shape({ templates: Array.isArray }), fix: fixTemplates },
+  'yt.servers.defaults': {
+    core: isObj,
+    fix: (v) => {
+      const out: Obj = { repos: keep(v.repos, shape({ id, name: str })), defaults: strings(v.defaults) }
+      if (str(v.reposError)) out.reposError = v.reposError
+      return out
+    }
+  },
   'yt.issues.search': { core: shape({ issues: Array.isArray, hasMore: bool }), fix: fixIssues },
   'yt.issue.get': { core: shape({ id, url: str }), fix: fixDetail },
   'yt.issue.comments': {

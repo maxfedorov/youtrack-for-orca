@@ -32,6 +32,9 @@ If the CLI is missing, the panel shows the install command for your system and c
   Implement feature, Investigate and fix bug, Cover with automated tests, Review and plan (no code
   changes), Refactor safely. Create, edit, delete and choose the default (up to 30 templates, 8000
   characters each); "Restore built-in templates" puts the five back without touching your own.
+- **Project memory**: Start remembers the Orca project you chose for each YouTrack project (per server)
+  and offers it next time. Otherwise it offers the server's default project, set in the settings view
+  under Servers, and then the project of the current workspace.
 - **Remove server**: the bin button next to the server choice removes the server from the YouTrack CLI
   (which signs the CLI out of it) after you confirm, and forgets what the plugin saved for it.
 - Status bar item with the number of issues matching the default query.
