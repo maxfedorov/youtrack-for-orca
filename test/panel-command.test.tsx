@@ -109,13 +109,43 @@ test('a failed command shows the message under the input and keeps the text', as
   await view.unmount()
 })
 
-test('enter in the command input applies nothing; only Apply does', async () => {
+test('Enter in the command input applies the command; an empty one sends nothing', async () => {
   const { host } = setup()
   const view = await mount(panel, { host })
   await view.selectRows(view.find(table), ['DEMO-1'])
-  await view.type(commandInput, 'State Done', { submit: true })
+  await view.type(commandInput, '   ', { submit: true })
   await view.settled()
   assert.equal(calls(host, 'yt.issue.command').length, 0)
+  await view.type(commandInput, 'State Done', { replace: true, submit: true })
+  await view.settled()
+  assert.deepEqual(calls(host, 'yt.issue.command').map((c: any) => c.input), [{ server: 'main', id: 'DEMO-1', command: 'State Done' }])
+  assert.ok(view.find({ text: 'Command applied.' }))
+  await view.unmount()
+})
+
+/** The Rows of the drawn tree that hold the command input, outermost first. */
+function rowsAround(node: any, out: any[] = []): any[] | null {
+  if (!node || typeof node !== 'object') return null
+  if (node.type === 'Input' && node.props?.label === 'Command') return out
+  for (const child of node.children ?? []) {
+    const found = rowsAround(child, node.type === 'Row' ? [...out, node] : out)
+    if (found) return found
+  }
+  return null
+}
+
+test('the command input and Apply share one line at the same height, under one label', async () => {
+  const { host } = setup()
+  const view = await mount(panel, { host })
+  await view.selectRows(view.find(table), ['DEMO-1'])
+  assert.ok(view.find({ type: 'Field', label: 'Command' }))
+  assert.equal(view.find(commandInput).props.labelHidden, true)
+  const row = (rowsAround(view.tree()) ?? []).at(-1)
+  assert.equal(row.props.align, 'center')
+  const button = row.children.find((c: any) => c.type === 'Button')
+  // Orca draws an Input 36 px high, and a Button of size md too (sm is 32 px).
+  assert.equal(button.props.size, 'md')
+  assert.deepEqual(view.warnings, [])
   await view.unmount()
 })
 

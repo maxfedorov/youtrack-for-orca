@@ -1,4 +1,4 @@
-import { Button, Input, Row, Stack, Text, atom, read, set, update } from 'orca'
+import { Button, Field, Input, Row, Stack, Text, atom, read, set, update } from 'orca'
 import { call, server, view } from '../state'
 import { listStatus, loadLinks, rerunSearch } from '../listState'
 
@@ -54,7 +54,7 @@ async function apply(id: string): Promise<void> {
 }
 
 /**
- * Applies a YouTrack command (such as "State Done") to one issue, only when Apply is pressed. On success
+ * Applies a YouTrack command (such as "State Done") to one issue when Apply or Enter is pressed. On success
  * the text is cleared and the list and the open detail reload; a failure keeps the text and shows why.
  */
 export function CommandBar({ id }: { id: string }) {
@@ -62,20 +62,31 @@ export function CommandBar({ id }: { id: string }) {
   const state = stateOf(key)
   return (
     <Stack gap="xs">
-      <Row gap="xs" align="end">
-        <Input
-          label="Command"
-          placeholder="State Done"
-          value={state.text}
-          maxLength={MAX_COMMAND}
-          invalid={state.error ? true : undefined}
-          disabled={state.busy || undefined}
-          onChange={(text) => patch(key, { text, error: '', note: '', applied: false })}
-        />
-        <Button variant="outline" size="sm" disabled={state.busy || !state.text.trim()} onPress={() => void apply(id)}>
-          Apply
-        </Button>
-      </Row>
+      {/*
+        One label (the Field's) above one line: the Input is drawn 36 px high, and so is a Button of
+        size md, so the two match; Enter in the input applies the command like the button.
+      */}
+      <Field label="Command">
+        <Row gap="xs" align="center">
+          <Input
+            label="Command"
+            labelHidden
+            placeholder="State Done"
+            value={state.text}
+            maxLength={MAX_COMMAND}
+            invalid={state.error ? true : undefined}
+            disabled={state.busy || undefined}
+            onChange={(text) => patch(key, { text, error: '', note: '', applied: false })}
+            onSubmit={(text) => {
+              patch(key, { text })
+              void apply(id)
+            }}
+          />
+          <Button variant="outline" size="md" disabled={state.busy || !state.text.trim()} onPress={() => void apply(id)}>
+            Apply
+          </Button>
+        </Row>
+      </Field>
       {state.error ? (
         <Text tone="danger" size="sm">
           {state.error}
