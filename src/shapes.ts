@@ -22,7 +22,8 @@ const savedQuery = shape({ id: str, name: str, query: str })
 const CHECKS: Record<string, Check> = {
   'yt.savedQueries.create': savedQuery,
   'yt.start.run': shape({ workspaceId: str, warning: optional(str) }),
-  'yt.runInExisting': shape({ warning: optional(str) })
+  'yt.runInExisting': shape({ warning: optional(str) }),
+  'yt.servers.remove': shape({ warning: optional(str) })
 }
 
 /** Shown for a value of a shape the panel cannot read. */

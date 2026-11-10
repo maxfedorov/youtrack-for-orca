@@ -122,6 +122,11 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
      */
     applyCommand: (server, id, command) =>
       exec(['--server', server, 'issue', 'command', '--no-new-tags', ...tail, '--', id, command], WRITE_MS, () => ({})),
+    /**
+     * Removes a configured server from the CLI, which signs it out; after `--`, so an alias starting
+     * with a dash is not read as a flag. `--force` skips the CLI's own confirmation (the panel asks).
+     */
+    deleteInstance: (alias) => exec(['instance', 'delete', '--force', ...tail, '--', alias], WRITE_MS, () => ({})),
     /** @param {string} url @param {(authUrl: string) => void} onAuthUrl */
     loginWeb: (url, onAuthUrl) =>
       exec(['auth', 'login', url, '--web', '--json'], LOGIN_MS, (s) => (s.trim() ? json(s) : {}), {

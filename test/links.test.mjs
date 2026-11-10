@@ -161,3 +161,18 @@ test('drop removes every entry of one workspace', async () => {
   await links.drop('w1')
   assert.deepEqual(storage.data().links, { 's|A-1': [{ workspaceId: 'w2', createdAt: 2 }] })
 })
+
+test('dropServer removes the links and launches of one server only', async () => {
+  const storage = fakeStorage()
+  const links = createLinkStore(storage)
+  const launches = createLaunchTracker(storage)
+  await links.add('a', 'DEMO-1', 'w1', 1)
+  await links.add('ab', 'DEMO-1', 'w2', 1)
+  await links.add('b', 'DEMO-2', 'w3', 1)
+  await launches.track({ terminalId: 't1', server: 'a', issueId: 'DEMO-1', workspaceId: 'w1', at: 1 })
+  await launches.track({ terminalId: 't2', server: 'b', issueId: 'DEMO-2', workspaceId: 'w3', at: 1 })
+  await links.dropServer('a')
+  await launches.dropServer('a')
+  assert.deepEqual(Object.keys(storage.data().links), ['ab|DEMO-1', 'b|DEMO-2'])
+  assert.deepEqual(storage.data().launches.map((e) => e.terminalId), ['t2'])
+})

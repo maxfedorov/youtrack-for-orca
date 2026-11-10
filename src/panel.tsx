@@ -48,6 +48,8 @@ function Screen() {
       return <IssueDetail id={current.issueId ?? ''} />
     case 'start':
       return <StartView id={current.issueId ?? ''} />
+    case 'settings':
+      return null
   }
 }
 

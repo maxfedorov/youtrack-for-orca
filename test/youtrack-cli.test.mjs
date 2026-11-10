@@ -247,3 +247,17 @@ test('applyCommand reports the CLI message when the command fails', async () => 
   const yt = createYoutrack({ bin: 'youtrack', run: fakeRun({ '--server work issue command': { exitCode: 1, stderr } }) })
   assert.deepEqual(await yt.applyCommand('work', 'DEMO-1', 'Stat Done'), { ok: false, error: { code: 'UNKNOWN', message: 'HTTP 400: Unknown command: Stat' } })
 })
+
+test('deleteInstance removes the alias after -- with --force, as a write', async () => {
+  const run = fakeRun({ 'instance delete': { stdout: '{"status":"ok","message":"instance \\"-odd\\" deleted"}' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.deleteInstance('-odd'), { ok: true, data: {} })
+  assert.deepEqual(run.calls[0].args, ['instance', 'delete', '--force', '--json', '--quiet', '--', '-odd'])
+  assert.equal(run.calls[0].opts.timeoutMs, 30_000)
+})
+
+test('deleteInstance reports the CLI message when it fails', async () => {
+  const stderr = JSON.stringify({ error: { code: 'internal_error', message: 'instance "x" not found' } })
+  const yt = createYoutrack({ bin: 'youtrack', run: fakeRun({ 'instance delete': { exitCode: 1, stderr } }) })
+  assert.deepEqual(await yt.deleteInstance('x'), { ok: false, error: { code: 'UNKNOWN', message: 'instance "x" not found' } })
+})

@@ -113,6 +113,11 @@ declare module 'orca' {
     'yt.workspace.open': { input: { workspaceId: string }; output: Result<Record<string, never>> }
     /** Opens a terminal in the active workspace; `url` is required for 'login'. */
     'yt.terminal.run': { input: { command: 'install' | 'login'; url?: string }; output: Result<Record<string, never>> }
+    /**
+     * Removes the server from the youtrack CLI (signing it out) and forgets its saved query, links,
+     * launches and projects. `warning`: removed, but some of that could not be forgotten.
+     */
+    'yt.servers.remove': { input: { server: string }; output: Result<{ warning?: string }> }
     /** Answer arrives as 'yt.servers.added'; the sign-in link as 'yt.servers.authUrl'. */
     'yt.servers.add': { input: { url: string }; output: Result<{ started: true }> }
   }

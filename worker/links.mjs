@@ -78,6 +78,15 @@ export function createLinkStore(storage) {
         await storage.set('links', next)
       }),
 
+    /** Drops every link of one server. */
+    dropServer: (server) =>
+      serial(async () => {
+        const all = await read()
+        const prefix = `${server}|`
+        const next = Object.fromEntries(Object.entries(all).filter(([key]) => !key.startsWith(prefix)))
+        await storage.set('links', next)
+      }),
+
     /** Drops every entry of one workspace, on every server and issue. */
     drop: (workspaceId) =>
       serial(async () => {
@@ -136,6 +145,12 @@ export function createLaunchTracker(storage) {
         if (paneKey) entry.paneKey = paneKey
         list.push(entry)
         await storage.set('launches', list.slice(-MAX_LAUNCHES))
+      }),
+
+    /** Forgets the launches of one server; their finished notices are not shown. */
+    dropServer: (server) =>
+      serial(async () => {
+        await storage.set('launches', (await read()).filter((e) => e.server !== server))
       }),
 
     /**

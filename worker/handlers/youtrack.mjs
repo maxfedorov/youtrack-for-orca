@@ -6,11 +6,12 @@ import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_I
 const MAX_LIMIT = 50
 const MAX_WINDOW = 500
 const COMMENTS_FAILED = 'Comments could not be loaded.'
+const NOT_FORGOTTEN = 'The server was removed, but the plugin could not forget all of its saved searches, links and projects.'
 /** Table rows need unique keys; the first row of an id wins. */
 const unique = (rows) => rows.filter((r, i) => rows.findIndex((o) => o.idReadable === r.idReadable) === i)
 
 export function registerYoutrackHandlers(ctx) {
-  const { orca, orcaCli, state, resolveServer } = ctx
+  const { orca, orcaCli, state, links, launches, resolveServer } = ctx
   const handle = (name, fn) => safeHandle(orca, name, fn)
 
   handle('yt.env', async () => {
@@ -144,6 +145,22 @@ export function registerYoutrackHandlers(ctx) {
       .catch((e) => fail(CODES.UNKNOWN, e instanceof Error ? e.message : String(e)))
       .then((result) => safePost(orca, 'yt.servers.added', result))
     return ok({ started: true })
+  })
+
+  // Signs the CLI out of the server: run only after the person confirmed it in the panel.
+  handle('yt.servers.remove', async ({ server }) => {
+    const s = await resolveServer(server)
+    if (!s.ok) return s
+    const alias = s.data.alias
+    const r = await ctx.youtrack.deleteInstance(alias)
+    if (!r.ok) return r
+    // The server is gone either way; each store is cleared on its own, a failure only warns.
+    const cleared = await Promise.all(
+      [() => state.forgetServer(alias), () => links?.dropServer(alias), () => launches?.dropServer(alias)].map((fn) =>
+        fallback(async () => (await fn(), true), false)
+      )
+    )
+    return ok(cleared.every(Boolean) ? {} : { warning: NOT_FORGOTTEN })
   })
 
   /** Sign in through the browser, then find the alias the CLI gave the new server. */

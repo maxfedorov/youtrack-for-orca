@@ -33,6 +33,7 @@ function fakeYt(over = {}) {
     savedSearches: rec('savedSearches', () => ok([{ id: '0-1', name: 'Mine', query: 'for: me', extra: 1 }])),
     createSavedSearch: rec('createSavedSearch', (s, name, query) => ok({ id: '0-9', name, query })),
     applyCommand: rec('applyCommand', () => ok({})),
+    deleteInstance: rec('deleteInstance', () => ok({})),
     loginWeb: rec('loginWeb', async (url, onAuth) => (onAuth('https://auth.example/x'), ok({}))),
     ...over,
   }
@@ -638,4 +639,54 @@ test('many large custom fields still fit the answer budget', async () => {
   assert.ok(Buffer.byteLength(JSON.stringify(r), 'utf8') <= 400_000)
   assert.ok(r.data.fields.length > 0)
   assert.ok(r.data.fields.every((f) => f.value.length <= 1000))
+})
+
+test('servers.remove deletes the server in the CLI and forgets what the plugin kept for it', async () => {
+  const { call, yt, orca, state, links, launches } = setup()
+  await state.setServer('one')
+  await state.setQuery('one', 'q1')
+  await state.setQuery('two', 'q2')
+  await state.rememberProjectRepo('one', 'DEMO', 'r1')
+  await state.setServerRepo('one', 'r1')
+  await links.add('one', 'DEMO-1', 'identity:main', 1)
+  await links.add('two', 'DEMO-2', 'identity:main', 1)
+  await launches.track({ terminalId: 't1', server: 'one', issueId: 'DEMO-1', workspaceId: 'identity:main', at: 1 })
+  const r = await call('yt.servers.remove', { server: 'one' })
+  assert.deepEqual(r, { ok: true, data: {} })
+  assert.deepEqual(yt.calls.find((c) => c.name === 'deleteInstance').a, ['one'])
+  const data = orca.storage.data()
+  assert.equal(data.server, null)
+  assert.deepEqual(data.queries, { two: 'q2' })
+  assert.deepEqual(Object.keys(data.links), ['two|DEMO-2'])
+  assert.deepEqual(data.launches, [])
+  assert.equal(await state.projectRepo('one', 'DEMO'), null)
+  assert.deepEqual(await state.serverRepos(), {})
+})
+
+test('servers.remove refuses an unknown server and runs nothing', async () => {
+  const { call, yt } = setup()
+  for (const server of ['zzz', '', 5, undefined]) {
+    const r = await call('yt.servers.remove', { server })
+    assert.equal(r.ok, false, String(server))
+  }
+  assert.equal(yt.calls.some((c) => c.name === 'deleteInstance'), false)
+})
+
+test('servers.remove passes a CLI failure through and keeps the stored data', async () => {
+  const yt = fakeYt({ deleteInstance: async () => fail('UNKNOWN', 'config is locked') })
+  const { call, state } = setup({ yt })
+  await state.setQuery('one', 'q1')
+  const r = await call('yt.servers.remove', { server: 'one' })
+  assert.deepEqual(r, { ok: false, error: { code: 'UNKNOWN', message: 'config is locked' } })
+  assert.equal(await state.getQuery('one', 'd'), 'q1')
+})
+
+test('servers.remove still succeeds with a warning when the stored data cannot be cleared', async () => {
+  const { call, orca } = setup()
+  orca.storage.set = async () => {
+    throw new Error('storage full')
+  }
+  const r = await call('yt.servers.remove', { server: 'one' })
+  assert.equal(r.ok, true)
+  assert.match(r.data.warning, /removed/i)
 })

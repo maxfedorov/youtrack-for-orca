@@ -12,7 +12,7 @@ export type Env = {
   /** The instance list failed; shown with Retry. */
   error?: string
 }
-export type View = { kind: 'setup' | 'list' | 'detail' | 'start' | 'add'; issueId?: string }
+export type View = { kind: 'setup' | 'list' | 'detail' | 'start' | 'add' | 'settings'; issueId?: string }
 export type Unwrapped<T> = { ok: true; data: T } | { ok: false; code: ErrorCode; message: string }
 
 export const env = atom<Env | null>(null)
@@ -70,7 +70,8 @@ const TIMEOUTS: Partial<Record<string, number>> = {
   'yt.start.run': 120_000,
   'yt.runInExisting': 120_000,
   'yt.savedQueries.create': 120_000,
-  'yt.issue.command': 120_000
+  'yt.issue.command': 120_000,
+  'yt.servers.remove': 120_000
 }
 
 /**

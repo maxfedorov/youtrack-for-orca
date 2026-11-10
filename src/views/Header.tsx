@@ -2,6 +2,8 @@ import { Badge, Button, IconButton, Row, Select, Stack, read, set } from 'orca'
 import { onServerChanged, refreshAll } from '../listState'
 import { openAddServer } from './Setup'
 import { call, env, panelError, server } from '../state'
+import { askRemove } from '../removeServer'
+import { RemoveServerQuestion } from './RemoveServer'
 
 export function signIn(url: string): void {
   void call('yt.terminal.run', { command: 'login', url }).then((answer) => {
@@ -27,17 +29,27 @@ export function Header() {
   return (
     <Stack gap="xs">
       <Row gap="xs" justify="between">
-        <Select
-          label="Server"
-          value={read(server) ?? undefined}
-          options={servers.map((item) => ({ value: item.alias, label: item.alias }))}
-          onChange={(value) => void choose(value)}
-        />
+        <Row gap="xs">
+          <Select
+            label="Server"
+            value={read(server) ?? undefined}
+            options={servers.map((item) => ({ value: item.alias, label: item.alias }))}
+            onChange={(value) => void choose(value)}
+          />
+          <IconButton
+            icon="delete"
+            tone="danger"
+            label="Remove server"
+            disabled={!current}
+            onPress={() => (current ? askRemove(current.alias, 'header') : undefined)}
+          />
+        </Row>
         <Row gap="xs">
           <IconButton icon="refresh" label="Refresh" onPress={() => void refreshAll()} />
           <IconButton icon="add" label="Add server" onPress={openAddServer} />
         </Row>
       </Row>
+      <RemoveServerQuestion from="header" />
       {current && current.status !== 'authenticated' ? (
         <Row gap="xs">
           <Badge tone="warning">Signed out</Badge>

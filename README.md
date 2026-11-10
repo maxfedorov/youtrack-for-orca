@@ -28,13 +28,15 @@ If the CLI is missing, the panel shows the install command for your system and c
   detail. It runs only when you press Apply; it and saving a search are the plugin's only YouTrack writes.
 - **Start**: begin work on an issue in a new worktree or in the current workspace. Pick the project,
   branch name, base branch, agent and edit the prompt before it is sent.
+- **Remove server**: the bin button next to the server choice removes the server from the YouTrack CLI
+  (which signs the CLI out of it) after you confirm, and forgets what the plugin saved for it.
 - Status bar item with the number of issues matching the default query.
 - Desktop notification when an agent started from an issue finishes.
 - Command palette: "YouTrack: Open panel".
 
 ## What the plugin runs
 
-Only two programs: `youtrack` (to read issues and saved searches, save a search and apply a command) and `orca` (to create worktrees and
+Only two programs: `youtrack` (to read issues and saved searches, save a search, apply a command and remove a server) and `orca` (to create worktrees and
 launch agents). The plugin makes no network requests of its own and stores no tokens; everything that
 talks to YouTrack goes through the CLI.
 
