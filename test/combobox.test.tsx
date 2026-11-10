@@ -11,6 +11,8 @@ const fruits: ComboOption[] = [
 const chosen = atom<string | null>('a')
 const locked = atom(false)
 const remoteText = atom('')
+const remotePending = atom(false)
+const many: ComboOption[] = Array.from({ length: 5 }, (_, i) => ({ value: `m${i}`, label: `Item ${i}` }))
 const asked: string[] = []
 
 function Demo() {
@@ -23,12 +25,14 @@ function Demo() {
         placeholder="Pick one"
         options={[{ value: 'd', label: 'Default', pinned: true }, { value: 'x', label: `Found ${read(remoteText)}` }]}
         query={read(remoteText)}
+        pending={read(remotePending)}
         onQuery={(text) => {
           asked.push(text)
           set(remoteText, text)
         }}
         onChange={() => {}}
       />
+      <Combobox label="Many" value={null} options={many} limit={3} onChange={() => {}} />
     </Stack>
   )
 }
@@ -121,8 +125,11 @@ test('a disabled combobox cannot open', async () => {
   await view.settled()
   assert.equal(view.find(toggle('Fruit')).props.disabled, true)
   assert.equal(view.find({ type: 'Input', label: 'Filter Fruit' }), null)
-  await view.unmount()
   set(locked, false)
+  await view.settled()
+  assert.equal(view.find(toggle('Fruit')).disabled, false)
+  assert.equal(view.find({ type: 'Input', label: 'Filter Fruit' }), null)
+  await view.unmount()
 })
 
 test('a remote filter reports the text and shows the options as given, pinned ones uncounted', async () => {
@@ -135,5 +142,53 @@ test('a remote filter reports the text and shows the options as given, pinned on
   assert.deepEqual(items(view), ['Default', 'Found dev'])
   assert.ok(view.find({ text: '1 match' }))
   clean(view)
+  await view.unmount()
+})
+
+test('Enter with an empty filter keeps the choice', async () => {
+  const view = await mount(Demo)
+  await view.press(toggle('Fruit'))
+  await view.submit({ type: 'Input', label: 'Filter Fruit' })
+  assert.ok(view.find({ role: 'button', text: 'Apple' }))
+  assert.ok(view.find({ type: 'Input', label: 'Filter Fruit' }))
+  await view.unmount()
+})
+
+test('Enter while a remote search is still running chooses nothing', async () => {
+  let picked = ''
+  const value = atom<string | null>(null)
+  const pending = atom(true)
+  function Remote() {
+    return (
+      <Combobox
+        label="R"
+        value={read(value)}
+        options={[{ value: 'old', label: 'Old result' }]}
+        query="ne"
+        pending={read(pending)}
+        onQuery={() => {}}
+        onChange={(v) => { picked = v; set(value, v) }}
+      />
+    )
+  }
+  const view = await mount(Remote)
+  await view.press(toggle('R'))
+  await view.submit({ type: 'Input', label: 'Filter R' })
+  assert.equal(picked, '')
+  assert.ok(view.find({ type: 'Input', label: 'Filter R' }))
+  set(pending, false)
+  await view.settled()
+  await view.submit({ type: 'Input', label: 'Filter R' })
+  assert.equal(picked, 'old')
+  await view.unmount()
+})
+
+test('a capped list says so', async () => {
+  const view = await mount(Demo)
+  await view.press(toggle('Many'))
+  assert.equal(view.findAll({ type: 'ListItem' }).length, 3)
+  assert.ok(view.find({ text: 'Showing the first 3 — type to narrow' }))
+  await view.type({ type: 'Input', label: 'Filter Many' }, 'Item 4')
+  assert.equal(view.find({ text: /^Showing the first/ }), null)
   await view.unmount()
 })

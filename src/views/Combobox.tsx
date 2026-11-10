@@ -22,6 +22,8 @@ type Props = {
   onQuery?: (text: string) => void
   /** The filter text when `onQuery` filters; otherwise the combobox keeps its own. */
   query?: string
+  /** A remote search is still running: Enter waits instead of choosing from older results. */
+  pending?: boolean
   /** At most this many options are drawn. */
   limit?: number
 }
@@ -58,8 +60,13 @@ function sections(options: readonly ComboOption[]): { group?: string; options: C
  * A button showing the chosen option; pressing it opens a filter field and the matching options right
  * under it. Choosing one, or pressing the button again, closes it.
  */
-export function Combobox({ label, value, options, placeholder, disabled, onChange, onQuery, query, limit = DEFAULT_LIMIT }: Props) {
-  const isOpen = read(openOne) === label && !disabled
+export function Combobox({ label, value, options, placeholder, disabled, onChange, onQuery, query, pending, limit = DEFAULT_LIMIT }: Props) {
+  const opened = read(openOne) === label
+  // Disabled while open: it closes for good (state cannot change while rendering, so right after).
+  if (opened && disabled) queueMicrotask(() => {
+    if (read(openOne) === label) set(openOne, null)
+  })
+  const isOpen = opened && !disabled
   const remote = Boolean(onQuery)
   const text = remote ? (query ?? '') : (read(queries)[label] ?? '')
   const needle = text.trim().toLowerCase()
@@ -101,11 +108,13 @@ export function Combobox({ label, value, options, placeholder, disabled, onChang
               value={text}
               onChange={setText}
               onSubmit={() => {
-                const first = visible.find((option) => !option.pinned) ?? visible[0]
+                if (!needle || (remote && pending)) return
+                const first = visible.find((option) => !option.pinned)
                 if (first) choose(first.value)
               }}
             />
             {needle ? <Text muted size="xs">{count === 0 ? 'No matches' : count === 1 ? '1 match' : `${count} matches`}</Text> : null}
+            {shown.length > visible.length ? <Text muted size="xs">{`Showing the first ${limit} — type to narrow`}</Text> : null}
             {visible.length > 0 ? (
               <Box maxHeight={LIST_HEIGHT} scroll="y" gap="xs">
                 {sections(visible).map((section, index) => (

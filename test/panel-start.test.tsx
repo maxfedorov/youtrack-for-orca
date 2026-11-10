@@ -408,3 +408,17 @@ test('workspaces are named by project and branch, the current project first', as
   clean(view)
   await view.unmount()
 })
+
+test('Enter in the branch filter waits for the search, then picks its first branch', async () => {
+  const host = mockHost({ requests: requests() })
+  const view = await open(host)
+  await filterCombo(view, 'Create from', 'dev')
+  await view.submit({ type: 'Input', label: 'Filter Create from' })
+  assert.equal(shown(view, 'Create from'), 'Project default (origin/main)')
+  await sleep(450)
+  await view.settled()
+  await view.submit({ type: 'Input', label: 'Filter Create from' })
+  assert.equal(shown(view, 'Create from'), 'origin/dev')
+  clean(view)
+  await view.unmount()
+})

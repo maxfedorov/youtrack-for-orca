@@ -1,5 +1,5 @@
 import { Stack, Text, read } from 'orca'
-import { baseBranch, chooseRef, PROJECT_DEFAULT, filter, refs, refsError, repoOf, prep, repoId, setFilter } from '../../startState'
+import { baseBranch, chooseRef, PROJECT_DEFAULT, filter, refs, refsError, refsFor, repoOf, prep, repoId, setFilter } from '../../startState'
 import { Combobox } from '../Combobox'
 
 const MAX_OPTIONS = 200
@@ -21,6 +21,7 @@ export function BranchPicker({ enabled }: { enabled: boolean }) {
         limit={MAX_OPTIONS}
         disabled={!enabled}
         query={read(filter)}
+        pending={read(refsFor) !== read(filter)}
         onQuery={setFilter}
         onChange={(value) => chooseRef(value === PROJECT_DEFAULT ? '' : value)}
       />

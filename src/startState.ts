@@ -29,6 +29,8 @@ export const baseBranch = atom('')
 export const filter = atom('')
 export const refs = atom<string[]>([])
 export const refsError = atom('')
+/** The filter text the branch list answers; null while the first search runs. */
+export const refsFor = atom<string | null>(null)
 export const workspaceId = atom<string | null>(null)
 /** An agent id, OTHER or NONE. */
 export const agentChoice = atom(NONE)
@@ -112,6 +114,7 @@ export function resetBranch(): void {
   set(filter, '')
   set(refs, [])
   set(refsError, '')
+  set(refsFor, null)
   void searchRefs('')
 }
 
@@ -128,6 +131,7 @@ async function searchRefs(text: string): Promise<void> {
   if (mine !== refsSeq) return
   set(refsError, answer.ok ? '' : answer.message)
   set(refs, answer.ok ? answer.data.refs : [])
+  set(refsFor, text)
 }
 
 /** Typing in the filter; the search runs once typing paused. */
