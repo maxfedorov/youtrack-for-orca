@@ -92,3 +92,10 @@ test('issue.comments loads only the comments', async () => {
   assert.equal(down.ok, false)
   assert.equal(down.error.message, 'down')
 })
+
+test('a search whose count throws still answers the rows, without a total', async () => {
+  const r = await setup({ yt: fakeYt({ countIssues: async () => boom() }) }).call('yt.issues.search', { server: 'one', query: 'x', offset: 0, limit: 2 })
+  assert.equal(r.ok, true)
+  assert.equal(r.data.issues.length, 2)
+  assert.equal('total' in r.data, false)
+})

@@ -62,9 +62,10 @@ export function registerYoutrackHandlers(ctx) {
     const room = MAX_WINDOW - offset
     if (room <= 0) return ok({ issues: [], hasMore: false })
     const size = Math.min(limit, MAX_LIMIT, room)
+    // The count is optional: without it the panel shows "N+ issues".
     const [list, count] = await Promise.all([
       ctx.youtrack.listIssues(s.data.alias, query, offset, Math.min(size + 1, room)),
-      offset === 0 ? ctx.youtrack.countIssues(s.data.alias, query) : Promise.resolve(null)
+      offset === 0 ? attempt(() => ctx.youtrack.countIssues(s.data.alias, query)) : Promise.resolve(null)
     ])
     if (!list.ok) return list
     if (!Array.isArray(list.data)) return unexpected()
