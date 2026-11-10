@@ -1,5 +1,6 @@
 import { assert, mount, mockHost, test } from 'orca/testing'
 import * as panel from '../src/panel'
+import { when } from '../src/views/IssueDetail'
 
 const ok = <T,>(data: T) => ({ ok: true as const, data })
 const fail = (code: string, message: string) => ({ ok: false as const, error: { code, message } })
@@ -127,7 +128,9 @@ test('comments show author, time and text', async () => {
   const view = await open(host)
   assert.ok(view.find({ text: 'Bob Roe' }))
   assert.ok(view.find({ text: 'amy' }))
-  assert.equal(view.find({ type: 'RelativeTime', at: 1_700_000_100_000 })?.props.at, 1_700_000_100_000)
+  // A fixed time, not one that keeps changing on screen.
+  assert.ok(view.find({ text: when(1_700_000_100_000) }))
+  assert.equal(view.find({ type: 'RelativeTime' }), null)
   assert.ok(view.find({ type: 'Markdown', content: 'Second' }))
   assert.equal(view.find({ text: 'No comments' }), null)
   clean(view)
@@ -232,5 +235,24 @@ test('opening another issue loads it', async () => {
   await view.activateRow(view.find(table), 'DEMO-2')
   assert.deepEqual(calls(host, 'yt.issue.get').map((c: any) => c.input.id), ['DEMO-1', 'DEMO-2'])
   assert.equal(view.find({ type: 'Markdown' }).props.content, 'Description of **issue 2**')
+  await view.unmount()
+})
+
+test('the detail shows who created the issue, when, and its tags', async () => {
+  const host = mockHost({
+    requests: requests({ 'yt.issue.get': ok(detail(1, { reporter: { login: 'jo', fullName: 'Jo Demo' }, tags: ['regression', 'ui'] })) })
+  })
+  const view = await open(host)
+  assert.ok(view.find({ text: `Created by jo · ${when(issue(1).created)}` }))
+  assert.deepEqual(view.findAll({ type: 'Badge' }).map((b: any) => b.text), ['regression', 'ui'])
+  clean(view)
+  await view.unmount()
+})
+
+test('without a reporter or tags the detail shows only the creation time', async () => {
+  const host = mockHost({ requests: requests({ 'yt.issue.get': ok(detail(1, { tags: [5, ''] })) }) })
+  const view = await open(host)
+  assert.ok(view.find({ text: `Created · ${when(issue(1).created)}` }))
+  assert.equal(view.findAll({ type: 'Badge' }).length, 0)
   await view.unmount()
 })

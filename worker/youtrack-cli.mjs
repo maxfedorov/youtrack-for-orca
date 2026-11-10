@@ -7,7 +7,7 @@ const READ_MS = 15_000
 const WRITE_MS = 30_000
 const LOGIN_MS = 10 * 60_000
 const ISSUE_FIELDS = 'idReadable,summary,created,updated,resolved,State,Priority,Assignee'
-const VIEW_FIELDS = 'customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText))'
+const VIEW_FIELDS = 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText))'
 const CLI_ENV = Object.freeze({ YOUTRACK_NO_UPDATE: '1', NO_COLOR: '1' })
 
 /**

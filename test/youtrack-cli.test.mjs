@@ -74,7 +74,7 @@ test('other methods build argv', async () => {
   await yt.version()
   await yt.instances()
   assert.deepEqual(run.calls.map((c) => c.args), [
-    ['--server', 'work', 'issue', 'view', 'DEMO-1', '-f', 'customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText))', '--json', '--quiet'],
+    ['--server', 'work', 'issue', 'view', 'DEMO-1', '-f', 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText))', '--json', '--quiet'],
     ['--server', 'work', 'issue', 'comment', 'list', 'DEMO-1', '--json', '--quiet'],
     ['--server', 'work', 'search', 'list', '--json', '--quiet'],
     ['--server', 'work', 'search', 'create', '--name', 'My "s"', '--query', 'for: me', '--json', '--quiet'],

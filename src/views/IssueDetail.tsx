@@ -1,5 +1,5 @@
 import {
-  Button, Callout, Heading, IconButton, KeyValue, Markdown, RelativeTime, Row, Separator, Skeleton, Stack, Text, atom, read, set
+  Badge, Button, Callout, Heading, IconButton, KeyValue, Markdown, Row, Separator, Skeleton, Stack, Text, atom, read, set
 } from 'orca'
 import { links, loadLinks } from '../listState'
 import { call, refreshTick, server, view } from '../state'
@@ -124,6 +124,18 @@ function OpenInBrowser({ url }: { url: string }) {
   return <IconButton icon="open-external" label="Open in browser" variant="ghost" onPress={() => void openInBrowser(url)} />
 }
 
+/**
+ * A fixed date and time, such as "Nov 10, 2026, 14:05": shown once when the issue loads, rather than
+ * a relative time that keeps changing on screen.
+ */
+export function when(at: number): string {
+  try {
+    return new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  } catch {
+    return new Date(at).toISOString().slice(0, 16).replace('T', ' ')
+  }
+}
+
 /** Comment keys, unique even when the CLI repeats or leaves out an id. */
 function commentKeys(issue: Detail): string[] {
   const seen = new Set<string>()
@@ -156,6 +168,18 @@ function Body({ issue }: { issue: Detail }) {
         </Row>
       </Row>
       <Heading level={2}>{issue.summary}</Heading>
+      {issue.reporter || issue.created > 0 ? (
+        <Text muted size="sm">
+          {[issue.reporter ? `Created by ${issue.reporter.login}` : 'Created', issue.created > 0 ? when(issue.created) : ''].filter(Boolean).join(' · ')}
+        </Text>
+      ) : null}
+      {issue.tags.length > 0 ? (
+        <Row gap="xs" wrap>
+          {issue.tags.map((tag, index) => (
+            <Badge key={`${tag}#${index}`}>{tag}</Badge>
+          ))}
+        </Row>
+      ) : null}
       <CommandBar id={issue.id} />
       {issue.truncated || issue.commentsOmitted ? (
         <Callout tone="neutral">
@@ -187,7 +211,11 @@ function Body({ issue }: { issue: Detail }) {
           <Stack key={keys[index]} gap="xs">
             <Row gap="xs" align="center">
               <Text weight="medium">{comment.author.fullName || comment.author.login || 'Unknown author'}</Text>
-              {comment.created > 0 ? <RelativeTime at={comment.created} format="short" muted /> : null}
+              {comment.created > 0 ? (
+                <Text muted size="sm">
+                  {when(comment.created)}
+                </Text>
+              ) : null}
             </Row>
             <Markdown content={comment.textMd} />
             {comment.truncated ? (

@@ -20,6 +20,10 @@ export type IssueDetail = IssueRow & {
   /** Every custom field of the issue as display strings, in the order YouTrack lists them. */
   fields: { name: string; value: string }[]
   project: { shortName: string; name: string }; type?: Value; descriptionMd: string; comments: Comment[]
+  /** Who created the issue, when the CLI says. */
+  reporter?: User
+  /** Tag names, in the order YouTrack lists them. */
+  tags: string[]
   /** Description or comments were cut (long text, only the newest 200 comments kept). */
   truncated?: true
   /** Number of older comments left out. */

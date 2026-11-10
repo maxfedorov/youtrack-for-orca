@@ -240,3 +240,14 @@ test('a field whose value throws while it is read is n/a', () => {
   const f = fieldsOf({ idReadable: 'DEMO-3', customFields: [odd, { name: 'Points', value: 5 }] })
   assert.deepEqual(f, [{ name: 'Odd', value: 'n/a' }, { name: 'Points', value: '5' }])
 })
+
+test('toIssueDetail maps the reporter and tag names', async () => {
+  const { toIssueDetail } = await import('../worker/mapping.mjs')
+  const raw = { idReadable: 'DEMO-1', summary: 'S', project: {}, customFields: [], reporter: { login: 'jo', fullName: 'Jo Demo' }, tags: [{ name: 'ui' }, null, { name: '' }, { name: 'bug' }] }
+  const d = toIssueDetail(raw, [], 'https://example.youtrack.cloud')
+  assert.deepEqual(d.reporter, { login: 'jo', fullName: 'Jo Demo' })
+  assert.deepEqual(d.tags, ['ui', 'bug'])
+  const bare = toIssueDetail({ idReadable: 'DEMO-2', summary: 'S', project: {}, customFields: [] }, [], 'https://example.youtrack.cloud')
+  assert.equal('reporter' in bare, false)
+  assert.deepEqual(bare.tags, [])
+})

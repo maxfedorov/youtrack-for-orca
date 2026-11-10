@@ -159,6 +159,9 @@ export function toIssueDetail(rawView, rawComments, baseUrl) {
   }
   const type = toValue(fieldValue(rawView, 'Type'))
   if (type) detail.type = type
+  const login = text(rawView.reporter?.login)
+  if (login) detail.reporter = { login, fullName: text(rawView.reporter?.fullName) }
+  detail.tags = (Array.isArray(rawView.tags) ? rawView.tags : []).map((tag) => text(tag?.name)).filter(Boolean)
   return detail
 }
 
