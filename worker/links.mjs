@@ -77,6 +77,46 @@ export function createLinkStore(storage) {
         }
         await storage.set('links', next)
       }),
+
+    /** Drops every entry of one workspace, on every server and issue. */
+    drop: (workspaceId) =>
+      serial(async () => {
+        const all = await read()
+        const next = {}
+        for (const [key, list] of Object.entries(all)) {
+          const kept = entries(list).filter((e) => e.workspaceId !== workspaceId)
+          if (kept.length) next[key] = kept
+        }
+        await storage.set('links', next)
+      }),
+  }
+}
+
+/**
+ * The `workspace.removed` listener: drops the links of the removed workspace, prunes the rest against
+ * the workspace list, then tells the panels to load their links again. The event may name the workspace
+ * by another id than the list does, so a listed workspace at the removed path counts as gone too.
+ * @param {{ host: (method: string, params: object) => Promise<any>, links: ReturnType<typeof createLinkStore>, now: () => number, post: (name: string, payload: object) => void }} deps
+ */
+export function createRemovedListener({ host, links, now, post }) {
+  return async (event) => {
+    const id = typeof event?.workspaceId === 'string' ? event.workspaceId : ''
+    const path = typeof event?.path === 'string' ? event.path : ''
+    try {
+      if (id) await links.drop(id)
+      const snapshotAt = now()
+      const r = await host('workspace.list', {})
+      const list = Array.isArray(r?.workspaces) ? r.workspaces : []
+      const live = new Set(
+        list
+          .filter((w) => w && typeof w.id === 'string' && w.id !== id && !(path && w.path === path))
+          .map((w) => w.id)
+      )
+      if (r?.truncated !== true) await links.prune(live, snapshotAt)
+    } catch {
+      // the panels load the links again and prune what is gone
+    }
+    post('yt.linksChanged', {})
   }
 }
 

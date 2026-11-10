@@ -117,3 +117,47 @@ test('prune only drops links older than the workspace snapshot', async () => {
   await links.prune(new Set(), 5)
   assert.deepEqual(Object.keys(storage.data().links), ['s|A-2'])
 })
+
+test('a removed workspace loses its links and the panels are told', async () => {
+  const { createRemovedListener } = await import('../worker/links.mjs')
+  const storage = fakeStorage()
+  const links = createLinkStore(storage)
+  await links.add('s', 'A-1', 'identity:gone', 1)
+  await links.add('s', 'A-2', 'identity:kept', 2)
+  const posts = []
+  // The list may still hold the removed workspace for a moment; it is dropped by id and by path.
+  const host = async () => ({
+    workspaces: [
+      { id: 'identity:gone', path: '/w/gone' },
+      { id: 'identity:kept', path: '/w/kept' }
+    ],
+    truncated: false
+  })
+  const onRemoved = createRemovedListener({ host, links, now: () => 10, post: (name, payload) => posts.push({ name, payload }) })
+  await onRemoved({ workspaceId: 'raw-id', kind: 'worktree', path: '/w/gone' })
+  assert.deepEqual(Object.keys(storage.data().links), ['s|A-2'])
+  assert.deepEqual(posts, [{ name: 'yt.linksChanged', payload: {} }])
+})
+
+test('a removed workspace is dropped by id even when the list cannot be read', async () => {
+  const { createRemovedListener } = await import('../worker/links.mjs')
+  const storage = fakeStorage()
+  const links = createLinkStore(storage)
+  await links.add('s', 'A-1', 'w1', 1)
+  await links.add('s', 'A-2', 'w2', 2)
+  const posts = []
+  const host = async () => { throw new Error('unavailable') }
+  await createRemovedListener({ host, links, now: () => 10, post: (name) => posts.push(name) })({ workspaceId: 'w1', path: '/x' })
+  assert.deepEqual(Object.keys(storage.data().links), ['s|A-2'])
+  assert.deepEqual(posts, ['yt.linksChanged'])
+})
+
+test('drop removes every entry of one workspace', async () => {
+  const storage = fakeStorage()
+  const links = createLinkStore(storage)
+  await links.add('s', 'A-1', 'w1', 1)
+  await links.add('s', 'A-1', 'w2', 2)
+  await links.add('t', 'B-1', 'w1', 3)
+  await links.drop('w1')
+  assert.deepEqual(storage.data().links, { 's|A-1': [{ workspaceId: 'w2', createdAt: 2 }] })
+})

@@ -23,6 +23,9 @@
     "events": [
       {
         "on": "agent.status.changed"
+      },
+      {
+        "on": "workspace.removed"
       }
     ],
     "commands": [

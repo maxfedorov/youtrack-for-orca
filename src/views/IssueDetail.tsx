@@ -1,7 +1,7 @@
 import {
   Button, Callout, Heading, IconButton, KeyValue, Markdown, RelativeTime, Row, Separator, Skeleton, Stack, Text, atom, read, set
 } from 'orca'
-import { links } from '../listState'
+import { links, loadLinks } from '../listState'
 import { call, refreshTick, server, view } from '../state'
 import { openInBrowser, openWorkspace, start } from './IssueRowActions'
 import type { IssueComments, IssueDetail as Detail } from '../protocol'
@@ -93,9 +93,11 @@ function sync(id: string): void {
   if (!stale && tick === seenTick) return
   if (queued === id) return
   queued = id
+  const refreshed = !stale
   queueMicrotask(() => {
     queued = null
     void load(id)
+    if (refreshed) void loadLinks()
   })
 }
 

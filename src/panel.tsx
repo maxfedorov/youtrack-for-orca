@@ -16,9 +16,22 @@ export function setup(ctx: PanelContext): void {
       if (url) set(authUrl, url)
     }),
     plugin.on('yt.servers.added', (result) => onAdded(result)),
-    plugin.on('yt.agentFinished', () => void loadLinks())
+    plugin.on('yt.agentFinished', () => void loadLinks()),
+    plugin.on('yt.linksChanged', () => void loadLinks())
   )
+  visible = ctx.visible
   void loadEnv()
+}
+
+/** Whether the person can see the panel; a workspace may have been removed while it was hidden. */
+let visible: PanelContext['visible'] | null = null
+let wasVisible = true
+
+/** Called while rendering: loads the links again when the panel is shown again. */
+function syncVisible(): void {
+  const now = visible ? read(visible) : true
+  if (now && !wasVisible && read(view).kind !== 'setup') queueMicrotask(() => void loadLinks())
+  wasVisible = now
 }
 
 /** The screen for the current view. */
@@ -39,6 +52,7 @@ function Screen() {
 }
 
 export default function Panel() {
+  syncVisible()
   const error = read(panelError)
   return (
     <Stack gap="sm">

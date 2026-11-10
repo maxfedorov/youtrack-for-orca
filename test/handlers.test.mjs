@@ -354,6 +354,31 @@ test('workspace.open calls the host', async () => {
   assert.deepEqual(orca.hostCalls.at(-1), { method: 'workspace.open', params: { workspaceId: 'identity:feat' } })
 })
 
+test('opening a workspace that no longer exists drops its links', async () => {
+  const { call, links, orca } = setup({ host: { 'workspace.open': () => { throw new Error('no workspace has this id') } } })
+  await links.add('one', 'DEMO-2', 'identity:gone', 2)
+  await links.add('one', 'DEMO-1', 'identity:feat', 1)
+  const r = await call('yt.workspace.open', { workspaceId: 'identity:gone' })
+  assert.deepEqual(r, fail('NOT_FOUND', 'That workspace no longer exists.'))
+  assert.deepEqual(Object.keys(orca.storage.data().links), ['one|DEMO-1'])
+})
+
+test('a failed open of a listed workspace keeps its links and reports the error', async () => {
+  const { call, links, orca } = setup({ host: { 'workspace.open': () => { throw new Error('busy') } } })
+  await links.add('one', 'DEMO-1', 'identity:feat', 1)
+  assert.deepEqual(await call('yt.workspace.open', { workspaceId: 'identity:feat' }), fail('UNKNOWN', 'busy'))
+  assert.ok(orca.storage.data().links['one|DEMO-1'])
+})
+
+test('a failed open keeps links when the workspace list is truncated', async () => {
+  const { call, links, orca } = setup({
+    host: { 'workspace.open': () => { throw new Error('busy') }, 'workspace.list': { workspaces: [], truncated: true } }
+  })
+  await links.add('one', 'DEMO-2', 'identity:gone', 2)
+  assert.deepEqual(await call('yt.workspace.open', { workspaceId: 'identity:gone' }), fail('UNKNOWN', 'busy'))
+  assert.ok(orca.storage.data().links['one|DEMO-2'])
+})
+
 test('install command matches platform', async () => {
   const cases = { darwin: 'brew install jetbrains/utils/youtrack', linux: 'brew install jetbrains/utils/youtrack', win32: 'winget install JetBrains.YouTrackCLI' }
   for (const [platform, command] of Object.entries(cases)) {

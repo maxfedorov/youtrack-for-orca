@@ -201,7 +201,16 @@ export function registerStartHandlers(ctx) {
   handle('yt.workspace.open', async ({ workspaceId }) => {
     const bad = token(workspaceId, 'workspace')
     if (bad) return invalid(bad)
-    await host('workspace.open', { workspaceId })
+    try {
+      await host('workspace.open', { workspaceId })
+    } catch (e) {
+      // A workspace removed since the links were read cannot open: forget it so the issue offers Start.
+      const snapshotAt = now()
+      const listed = await fallback(() => listWorkspaces(), null)
+      if (!listed || listed.truncated || listed.list.some((w) => w.id === workspaceId)) throw e
+      await links.prune(new Set(listed.list.map((w) => w.id)), snapshotAt)
+      return fail(CODES.NOT_FOUND, 'That workspace no longer exists.')
+    }
     return ok({})
   })
 

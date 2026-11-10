@@ -1,5 +1,6 @@
 import { Button, IconButton, Row, Stack, Text, set, shell } from 'orca'
-import { call, panelError, view } from '../state'
+import { call, notice, panelError, view } from '../state'
+import { loadLinks } from '../listState'
 import type { IssueRow } from '../protocol'
 
 export const openDetail = (id: string) => set(view, { kind: 'detail', issueId: id })
@@ -15,9 +16,16 @@ export async function openInBrowser(url: string): Promise<void> {
   }
 }
 
+/** Opens a linked workspace; one that is gone is forgotten by the worker, and the issue offers Start again. */
 export async function openWorkspace(workspaceId: string): Promise<void> {
   const answer = await call('yt.workspace.open', { workspaceId })
-  if (!answer.ok) set(panelError, answer.message)
+  if (answer.ok) return
+  if (answer.code === 'NOT_FOUND') {
+    set(notice, answer.message)
+    await loadLinks()
+  } else {
+    set(panelError, answer.message)
+  }
 }
 
 /** Actions of the selected row (table cells cannot hold buttons). */

@@ -3,7 +3,7 @@ import os from 'node:os'
 import { existsSync } from 'node:fs'
 import { createYoutrackHolder } from './cli-holder.mjs'
 import { createOrcaCli, resolveOrcaCli } from './orca-cli.mjs'
-import { createLinkStore, createLaunchTracker } from './links.mjs'
+import { createLinkStore, createLaunchTracker, createRemovedListener } from './links.mjs'
 import { createStateStore } from './state.mjs'
 import { detectAgents } from './agents.mjs'
 import { registerHandlers } from './handlers.mjs'
@@ -43,6 +43,11 @@ export default async function activate(orca) {
   // fails does not stop the others or the activation.
   notifier = createFinishNotifier({ host: orca.host, launches, post: (name, payload) => safePost(orca, name, payload) })
   await optional(orca, 'agent notifications', () => orca.events.on('agent.status.changed', notifier.onAgentStatus))
+  const onRemoved = createRemovedListener({
+    host: (method, params) => orca.host.call(method, params), links, now: () => Date.now(),
+    post: (name, payload) => safePost(orca, name, payload)
+  })
+  await optional(orca, 'workspace events', () => orca.events.on('workspace.removed', onRemoved))
   await optional(orca, 'open panel command', () => orca.commands.register('youtrack.openPanel', createOpenPanelCommand({ orcaCli, host: orca.host })))
   await optional(orca, 'status bar', () => statusBar.start())
 }
