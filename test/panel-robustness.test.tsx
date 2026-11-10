@@ -1,5 +1,6 @@
 import { assert, hostError, mount, mockHost, test } from 'orca/testing'
 import * as panel from '../src/panel'
+import { optionsOf } from './combo'
 
 const ok = <T,>(data: T) => ({ ok: true as const, data })
 const issue = (n: number) => ({
@@ -230,7 +231,7 @@ test('saved searches without an id or name are not offered', async () => {
   const saved = ok([{ id: '', name: 'blank id', query: 'a' }, { id: 's2', name: '', query: 'b' }, { id: 's3', name: 'Mine', query: 'c' }])
   const view = await mount(panel, { host: mockHost({ requests: { ...healthy, 'yt.savedQueries': saved } }) })
   clean(view)
-  assert.deepEqual(view.find({ type: 'Select', label: 'Saved searches' }).props.options.map((o: any) => o.value), ['s3'])
+  assert.deepEqual((await optionsOf(view, 'Saved searches')).map((o: any) => o.value), ['s3'])
   await view.unmount()
 })
 
@@ -245,7 +246,7 @@ test('a saved search answered without an id reloads the list instead of adding a
   await view.press({ role: 'button', label: 'Save search' })
   await view.press({ role: 'button', text: 'Save' })
   clean(view)
-  assert.deepEqual(view.find({ type: 'Select', label: 'Saved searches' }).props.options.map((o: any) => o.value), ['s9'])
+  assert.deepEqual((await optionsOf(view, 'Saved searches')).map((o: any) => o.value), ['s9'])
   await view.unmount()
 })
 

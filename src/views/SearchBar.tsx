@@ -1,6 +1,7 @@
-import { Button, IconButton, Input, Row, Select, Stack, Text, atom, read, set, update } from 'orca'
+import { Button, IconButton, Input, Row, Stack, Text, atom, read, set, update } from 'orca'
 import { appliedQuery, listError, listStatus, loadSavedQueries, runSearch, savedQueries, savedQueriesFailed } from '../listState'
 import { call, query, server } from '../state'
+import { Combobox } from './Combobox'
 
 const naming = atom(false)
 const draftName = atom('')
@@ -49,24 +50,25 @@ export function SearchBar() {
           {read(listError)}
         </Text>
       ) : null}
-      <Row gap="xs" align="end">
-        <Select
-          label="Saved searches"
-          value={match?.id}
-          placeholder={unavailable ? 'Saved searches unavailable' : 'Saved searches'}
-          disabled={unavailable && saved.length === 0}
-          options={saved.map((item) => ({ value: item.id, label: item.name }))}
-          onChange={(id) => {
-            const chosen = read(savedQueries).find((item) => item.id === id)
-            if (chosen) void runSearch(chosen.query)
-          }}
-        />
-        {match ? (
-          <IconButton icon="star" label={`Saved as ${match.name}`} variant="solid" tone="accent" disabled={invalid} onPress={() => {}} />
-        ) : (
-          <IconButton icon="star" label="Save search" variant="outline" disabled={invalid || !text.trim()} onPress={startNaming} />
-        )}
-      </Row>
+      {/* A list with a filter, not a Select: an account can see far more saved searches than a Select holds. */}
+      <Combobox
+        label="Saved searches"
+        value={match?.id ?? null}
+        placeholder={unavailable ? 'Saved searches unavailable' : 'Saved searches'}
+        disabled={unavailable && saved.length === 0}
+        options={saved.map((item) => ({ value: item.id, label: item.name }))}
+        onChange={(id) => {
+          const chosen = read(savedQueries).find((item) => item.id === id)
+          if (chosen) void runSearch(chosen.query)
+        }}
+        aside={
+          match ? (
+            <IconButton icon="star" label={`Saved as ${match.name}`} variant="solid" tone="accent" disabled={invalid} onPress={() => {}} />
+          ) : (
+            <IconButton icon="star" label="Save search" variant="outline" disabled={invalid || !text.trim()} onPress={startNaming} />
+          )
+        }
+      />
       {unavailable ? (
         <Row gap="xs" align="center">
           <Text muted size="sm">

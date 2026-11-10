@@ -87,8 +87,8 @@ function Results() {
   const capped = rows.length >= MAX_ISSUES && (known ? read(total) > MAX_ISSUES : read(lastPageFull))
   return (
     <Stack gap="xs">
-      <Box scroll="x">
-        <Box minWidth={TABLE_MIN_WIDTH}>
+      <Box key="table-scroll" scroll="x">
+        <Box key="table-width" minWidth={TABLE_MIN_WIDTH}>
         <Table
           label="Issues"
           columns={COLUMNS}

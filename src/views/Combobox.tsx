@@ -26,6 +26,8 @@ type Props = {
   pending?: boolean
   /** At most this many options are drawn. */
   limit?: number
+  /** Drawn right of the closed field, on its line (such as a button acting on the choice). */
+  aside?: JSX.Element | null
 }
 
 /** The open combobox (one at a time) and the filter text of each, by label. */
@@ -60,7 +62,7 @@ function sections(options: readonly ComboOption[]): { group?: string; options: C
  * A button showing the chosen option; pressing it opens a filter field and the matching options right
  * under it. Choosing one, or pressing the button again, closes it.
  */
-export function Combobox({ label, value, options, placeholder, disabled, onChange, onQuery, query, pending, limit = DEFAULT_LIMIT }: Props) {
+export function Combobox({ label, value, options, placeholder, disabled, onChange, onQuery, query, pending, limit = DEFAULT_LIMIT, aside }: Props) {
   const opened = read(openOne) === label
   // Disabled while open: it closes for good (state cannot change while rendering, so right after).
   if (opened && disabled) queueMicrotask(() => {
@@ -92,26 +94,30 @@ export function Combobox({ label, value, options, placeholder, disabled, onChang
       <Stack gap="xs" align="stretch">
         {/*
           The closed field: a list row (Orca cuts its title short with an ellipsis, where a Button's
-          text would run past its edges in a narrow panel) in a border, with the chevron on the right.
+          text would run past its edges in a narrow panel) in a border, with the chevron on the right;
+          `aside` follows on the same line.
         */}
-        <Box key={`${label}:field`} direction="row" align="center" border radius="md">
-          <Box grow shrink minWidth={0}>
-            <List key={`${label}:chosen`} label={label}>
-              <ListItem
-                key={`${label}:toggle`}
-                title={chosen ? chosen.label : (placeholder ?? 'Choose…')}
-                disabled={disabled}
-                onPress={toggle}
-              />
-            </List>
+        <Box key={`${label}:line`} direction="row" align="center" gap="xs">
+          <Box key={`${label}:field`} direction="row" align="center" border radius="md" grow shrink minWidth={0}>
+            <Box grow shrink minWidth={0}>
+              <List key={`${label}:chosen`} label={label}>
+                <ListItem
+                  key={`${label}:toggle`}
+                  title={chosen ? chosen.label : (placeholder ?? 'Choose…')}
+                  disabled={disabled}
+                  onPress={toggle}
+                />
+              </List>
+            </Box>
+            <IconButton
+              icon={isOpen ? 'collapse' : 'expand'}
+              label={isOpen ? `Close ${label}` : `Open ${label}`}
+              variant="ghost"
+              disabled={disabled}
+              onPress={toggle}
+            />
           </Box>
-          <IconButton
-            icon={isOpen ? 'collapse' : 'expand'}
-            label={isOpen ? `Close ${label}` : `Open ${label}`}
-            variant="ghost"
-            disabled={disabled}
-            onPress={toggle}
-          />
+          {aside}
         </Box>
         {isOpen ? (
           <Box key={`${label}:popup`} gap="xs" padding="xs" border radius="md">

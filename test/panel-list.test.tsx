@@ -1,5 +1,6 @@
 import { assert, mount, mockHost, test } from 'orca/testing'
 import * as panel from '../src/panel'
+import { pick, shown } from './combo'
 
 const ok = <T,>(data: T) => ({ ok: true as const, data })
 const fail = (code: string, message: string) => ({ ok: false as const, error: { code, message } })
@@ -159,7 +160,7 @@ test('header click rewrites query', async () => {
 test('saved search selection fills query', async () => {
   const host = mockHost({ requests: requests({ 'yt.savedQueries': ok([{ id: 's1', name: 'Mine', query: 'assignee: me' }]) }) })
   const view = await mount(panel, { host })
-  await view.select({ label: 'Saved searches' }, 's1')
+  await pick(view, 'Saved searches', 's1')
   assert.equal(view.valueOf({ label: 'Query' }), 'assignee: me')
   assert.equal(calls(host, 'yt.issues.search').at(-1).input.query, 'assignee: me')
   assert.deepEqual(calls(host, 'yt.setQuery').at(-1).input, { server: 'main', query: 'assignee: me' })
@@ -176,7 +177,7 @@ test('star creates saved search', async () => {
   await view.type({ label: 'Search name' }, 'My list', { replace: true })
   await view.press({ role: 'button', text: 'Save' })
   assert.deepEqual(calls(host, 'yt.savedQueries.create')[0].input, { server: 'main', name: 'My list', query: 'for: me #Unresolved' })
-  assert.equal(view.valueOf({ label: 'Saved searches' }), 's9')
+  assert.equal(shown(view, 'Saved searches'), 'My list')
   assert.equal(view.find({ label: 'Search name' }), null)
   assert.equal(view.find({ role: 'button', label: 'Save search' }), null)
   await view.unmount()
@@ -429,11 +430,12 @@ test('table keeps every column and scrolls sideways instead of hiding columns', 
   const columns = view.find(table).props.columns
   assert.deepEqual(columns.map((c: any) => c.key), ['id', 'summary', 'state', 'priority', 'assignee', 'created', 'updated'])
   assert.ok(columns.every((c: any) => c.hideBelow === undefined))
-  assert.ok(view.find({ type: 'Box', scroll: 'x' }))
-  const inner = view.find({ type: 'Box', minWidth: 840 })
-  assert.ok(inner)
+  const outer = view.find({ type: 'Box', testId: 'table-scroll' })
+  const inner = view.find({ type: 'Box', testId: 'table-width' })
+  assert.equal(outer.props.scroll, 'x')
+  assert.equal(inner.props.minWidth, 840)
   const within = (outer: any, node: any) => JSON.stringify(node.path).startsWith(JSON.stringify(outer.path).slice(0, -1))
-  assert.ok(within(view.find({ type: 'Box', scroll: 'x' }), inner))
+  assert.ok(within(outer, inner))
   assert.ok(within(inner, view.find(table)))
   await view.unmount()
 })
