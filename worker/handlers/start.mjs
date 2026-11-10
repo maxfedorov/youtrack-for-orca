@@ -2,7 +2,8 @@
 import { ok, fail, CODES } from '../result.mjs'
 import { toIssueDetail } from '../mapping.mjs'
 import { issueVars, workspaceName, PROMPT_LIMIT } from '../prompt.mjs'
-import { safeHandle, shortMessage, unexpected, hasId, invalid, token, issueUrl, ISSUE_ID, settingString, isPlainUrl, capDetail, AGENT_ID, INSTALL } from './common.mjs'
+import { AGENTS } from '../agents.mjs'
+import { safeHandle, shortMessage, unexpected, hasId, invalid, token, issueUrl, ISSUE_ID, settingString, isPlainUrl, capDetail, AGENT_ID, INSTALL, attempt, fallback, readSetting } from './common.mjs'
 
 const DEFAULT_BRANCH_TEMPLATE = '{{id_lower}}-{{summary_slug}}'
 const noOrcaCli = () => fail(CODES.ORCA_CLI_NOT_FOUND, 'The Orca CLI was not found.')
@@ -68,20 +69,22 @@ export function registerStartHandlers(ctx) {
     if (typeof id !== 'string' || !ISSUE_ID.test(id)) return invalid('Invalid issue id')
     const s = await resolveServer(server)
     if (!s.ok) return s
+    // Only the issue is required; repositories, workspaces, agents and settings each fall back alone.
     const [view, repos, ws] = await Promise.all([
-      ctx.youtrack.viewIssue(s.data.alias, id),
-      orcaCli ? orcaCli.repos() : Promise.resolve(ok([])),
-      listWorkspaces()
+      attempt(() => ctx.youtrack.viewIssue(s.data.alias, id)),
+      orcaCli ? attempt(() => orcaCli.repos()) : Promise.resolve(ok([])),
+      attempt(async () => ok(await listWorkspaces()))
     ])
     if (!view.ok) return view
     if (!hasId(view.data)) return unexpected()
     const issue = capDetail(toIssueDetail(view.data, null, s.data.url))
     const vars = issueVars({ issue, server: s.data.alias, branch: '' })
-    const get = (k) => orca.settings.get(k)
-    const agents = detectAgents()
+    const get = (k) => readSetting(orca, k)
+    const agents = await fallback(() => detectAgents(), null)
     const defaultAgent = settingString(await get('defaultAgent'), '')
-    const active = await activeWorkspace(ws.list)
-    const repoList = repos.ok ? repos.data : []
+    const workspaces = ws.ok ? ws.data.list : []
+    const active = await activeWorkspace(workspaces)
+    const repoList = repos.ok && Array.isArray(repos.data) ? repos.data : []
     const repo =
       active &&
       (repoList.find((r) => typeof r.path === 'string' && r.path && typeof active.path === 'string' && active.path && inside(r.path, active.path)) ??
@@ -91,13 +94,13 @@ export function registerStartHandlers(ctx) {
       orcaCli: orcaCli != null,
       defaultRepoId: repo ? repo.id : null,
       name: workspaceName(settingString(await get('branchTemplate'), DEFAULT_BRANCH_TEMPLATE), vars),
-      agents,
+      agents: agents ?? { installed: [], other: AGENTS.map((a) => a.id) },
       defaultAgent: AGENT_ID.test(defaultAgent) ? defaultAgent : '',
       launchMode: (await get('defaultLaunchMode')) === 'current' ? 'current' : 'worktree',
       includeDescription: (await get('includeDescription')) === true,
       promptTemplate: settingString(await get('promptTemplate'), ''),
       vars,
-      workspaces: ws.list.map((w) => {
+      workspaces: workspaces.map((w) => {
         const item = { id: w.id, name: typeof w.name === 'string' && w.name ? w.name : w.id }
         if (typeof w.project === 'string') item.project = w.project
         if (typeof w.branch === 'string') item.branch = shortBranch(w.branch)
@@ -106,6 +109,8 @@ export function registerStartHandlers(ctx) {
       defaultWorkspaceId: active ? active.id : null
     }
     if (!repos.ok) data.reposError = shortMessage(repos.error.message)
+    if (!ws.ok) data.workspacesError = shortMessage(ws.error.message)
+    if (!agents) data.agentsError = 'Installed agents could not be detected.'
     return ok(data)
   })
 

@@ -131,3 +131,64 @@ test('env keeps the CLI and Orca CLI state when the server list throws', async (
   assert.deepEqual(r.data.servers, [])
   assert.equal(r.data.error, 'boom')
 })
+
+const prepare = (o) => setup(o).call('yt.start.prepare', { server: 'one', id: 'DEMO-1' })
+
+test('start.prepare without repositories still offers the workspaces', async () => {
+  for (const repos of [async () => fail('ORCA_CLI_FAILED', 'repo list failed'), async () => boom()]) {
+    const r = await prepare({ cli: fakeCli({ repos }) })
+    assert.equal(r.ok, true)
+    assert.deepEqual(r.data.repos, [])
+    assert.equal(typeof r.data.reposError, 'string')
+    assert.deepEqual(r.data.workspaces.map((w) => w.id), ['identity:feat'])
+    assert.equal(r.data.defaultWorkspaceId, 'identity:feat')
+  }
+})
+
+test('start.prepare without workspaces still offers new worktrees', async () => {
+  const r = await prepare({ host: { 'workspace.list': () => boom() } })
+  assert.equal(r.ok, true)
+  assert.deepEqual(r.data.workspaces, [])
+  assert.equal(r.data.defaultWorkspaceId, null)
+  assert.equal(r.data.workspacesError, 'boom')
+  assert.deepEqual(r.data.repos.map((x) => x.id), ['r1'])
+  assert.equal('reposError' in r.data, false)
+})
+
+test('start.prepare offers every agent as other when detection fails', async () => {
+  const r = await prepare({ detectAgents: () => boom() })
+  assert.equal(r.ok, true)
+  assert.deepEqual(r.data.agents.installed, [])
+  assert.ok(r.data.agents.other.includes('claude'))
+  assert.ok(r.data.agents.other.includes('codex'))
+  assert.equal(r.data.agentsError, 'Installed agents could not be detected.')
+  assert.equal(r.data.defaultAgent, 'claude')
+})
+
+test('start.prepare uses defaults when the settings cannot be read', async () => {
+  const r = await prepare({ orca: (orca) => (orca.settings.get = async () => boom()) })
+  assert.equal(r.ok, true)
+  assert.equal(r.data.name, 'demo-1-fix-demo-1')
+  assert.equal(r.data.launchMode, 'worktree')
+  assert.equal(r.data.defaultAgent, '')
+  assert.equal(r.data.promptTemplate, '')
+})
+
+test('start.prepare builds vars with empty text for missing issue parts', async () => {
+  const yt = fakeYt({ viewIssue: async (s, id) => ok({ idReadable: id, customFields: 'x', project: null }) })
+  const r = await prepare({ yt })
+  assert.equal(r.ok, true)
+  assert.equal(r.data.vars.id, 'DEMO-1')
+  for (const k of ['summary', 'state', 'assignee', 'priority', 'project', 'description']) assert.equal(r.data.vars[k], '')
+  assert.equal(r.data.name, 'demo-1')
+})
+
+test('start.prepare fails only when the issue itself cannot be read', async () => {
+  const r = await prepare({
+    yt: fakeYt({ viewIssue: async () => fail('NOT_FOUND', 'gone') }),
+    cli: fakeCli({ repos: async () => boom() }),
+    host: { 'workspace.list': () => boom() }
+  })
+  assert.equal(r.ok, false)
+  assert.equal(r.error.message, 'gone')
+})
