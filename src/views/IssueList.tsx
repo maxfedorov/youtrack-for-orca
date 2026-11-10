@@ -7,6 +7,7 @@ import { query, view } from '../state'
 import { applySort, parseSort } from '../../worker/query.mjs'
 import { IssueRowActions } from './IssueRowActions'
 import { SearchBar } from './SearchBar'
+import { NOT_AVAILABLE } from '../shapes'
 import type { IssueRow } from '../protocol'
 
 // Every column stays visible; a narrow sidebar scrolls the table sideways (see TABLE_MIN_WIDTH).
@@ -23,6 +24,9 @@ const COLUMNS = [
 // 24px covers row borders. Below this the table's own overflow-hidden would clip, so the Box scrolls instead.
 const TABLE_MIN_WIDTH = 840
 
+/** A time cell; a row without a readable time shows n/a. */
+const time = (at: number) => (at > 0 ? { type: 'relative', at, format: 'short' } : NOT_AVAILABLE)
+
 const toRow = (row: IssueRow) => ({
   key: row.id,
   cells: {
@@ -31,8 +35,8 @@ const toRow = (row: IssueRow) => ({
     state: row.state?.name ?? null,
     priority: row.priority?.name ?? null,
     assignee: row.assignee?.fullName ?? null,
-    created: { type: 'relative', at: row.created, format: 'short' },
-    updated: { type: 'relative', at: row.updated, format: 'short' }
+    created: time(row.created),
+    updated: time(row.updated)
   }
 })
 

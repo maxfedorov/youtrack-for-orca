@@ -134,3 +134,31 @@ test('an issue answer without an id is still a whole-card error', async () => {
   assert.ok(view.find({ role: 'button', text: 'Retry' }))
   await view.unmount()
 })
+
+test('a malformed issue row is skipped or shown with n/a cells, the rest of the page is shown', async () => {
+  const rows = [
+    issue(1),
+    null,
+    { summary: 'no id' },
+    { ...issue(3), summary: 7, state: 'Open', assignee: { name: 'x' }, created: 'soon' },
+    issue(4)
+  ]
+  const host = mockHost({
+    requests: requests({ 'yt.issues.search': ok({ issues: rows, hasMore: false, total: 'many' }), 'yt.issue.get': ok(detail(4)) })
+  })
+  const view = await mount(panel, { host })
+  clean(view)
+  assert.equal(danger(view).length, 0)
+  const grid = view.find(table)
+  assert.deepEqual(view.rowsOf(grid), ['DEMO-1', 'DEMO-3', 'DEMO-4'])
+  const odd = grid.props.rows.find((r: any) => r.key === 'DEMO-3').cells
+  assert.equal(odd.summary, 'n/a')
+  assert.equal(odd.state, 'n/a')
+  assert.equal(odd.assignee, 'n/a')
+  assert.equal(odd.created, 'n/a')
+  assert.equal(odd.priority, 'Major')
+  assert.ok(view.find({ text: '3 issues' }))
+  await view.activateRow(grid, 'DEMO-4')
+  assert.ok(view.find({ type: 'Heading', text: 'Issue 4' }))
+  await view.unmount()
+})
