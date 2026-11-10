@@ -99,3 +99,35 @@ test('a search whose count throws still answers the rows, without a total', asyn
   assert.equal(r.data.issues.length, 2)
   assert.equal('total' in r.data, false)
 })
+
+test('env answers servers when the version fails or throws', async () => {
+  for (const version of [async () => fail('UNKNOWN', 'no'), async () => boom()]) {
+    const r = await setup({ yt: fakeYt({ version }) }).call('yt.env')
+    assert.equal(r.ok, true)
+    assert.equal(r.data.cli.found, true)
+    assert.equal('version' in r.data.cli, false)
+    assert.equal(r.data.server, 'one')
+  }
+})
+
+test('env answers when the settings or the stored server cannot be read', async () => {
+  const unreadable = (orca) => {
+    orca.settings.get = async () => boom()
+    orca.storage.get = async () => boom()
+  }
+  const r = await setup({ orca: unreadable }).call('yt.env')
+  assert.equal(r.ok, true)
+  assert.equal(r.data.server, 'one')
+  assert.equal(r.data.defaultQuery, '')
+  assert.equal(r.data.query, '')
+  assert.equal(r.data.cli.version, '1.2.3')
+})
+
+test('env keeps the CLI and Orca CLI state when the server list throws', async () => {
+  const r = await setup({ yt: fakeYt({ instances: async () => boom() }) }).call('yt.env')
+  assert.equal(r.ok, true)
+  assert.equal(r.data.cli.found, true)
+  assert.equal(r.data.orcaCli.found, true)
+  assert.deepEqual(r.data.servers, [])
+  assert.equal(r.data.error, 'boom')
+})

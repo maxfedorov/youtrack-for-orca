@@ -73,14 +73,17 @@ export async function attempt(fn) {
   }
 }
 
-/** A setting, or undefined when it cannot be read. */
-export async function readSetting(orca, key) {
+/** The value of `fn`, or `otherwise` when it throws. */
+export async function fallback(fn, otherwise) {
   try {
-    return await orca.settings.get(key)
+    return await fn()
   } catch {
-    return undefined
+    return otherwise
   }
 }
+
+/** A setting, or undefined when it cannot be read. */
+export const readSetting = (orca, key) => fallback(() => orca.settings.get(key), undefined)
 
 /** Register a panel request handler behind `guard`. */
 export function safeHandle(orca, name, fn) {

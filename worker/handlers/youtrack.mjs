@@ -1,7 +1,7 @@
 /** Requests about servers, issues and saved queries (everything answered by the youtrack CLI). */
 import { ok, fail, CODES } from '../result.mjs'
 import { toIssueRow, toIssueDetail, toComments, toSavedQuery, toSavedQueries, toServers } from '../mapping.mjs'
-import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, isPlainUrl, normalizeUrl, settingString, capDetail, attempt, INSTALL } from './common.mjs'
+import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, isPlainUrl, normalizeUrl, settingString, capDetail, attempt, fallback, readSetting, INSTALL } from './common.mjs'
 
 const MAX_LIMIT = 50
 const MAX_WINDOW = 500
@@ -14,7 +14,7 @@ export function registerYoutrackHandlers(ctx) {
   const handle = (name, fn) => safeHandle(orca, name, fn)
 
   handle('yt.env', async () => {
-    const defaultQuery = settingString(await orca.settings.get('defaultQuery'), '')
+    const defaultQuery = settingString(await readSetting(orca, 'defaultQuery'), '')
     const base = { orcaCli: { found: orcaCli != null }, query: defaultQuery, defaultQuery }
     const installCommand = INSTALL[ctx.platform]
     const withInstall = (cli) => (installCommand ? { ...cli, installCommand } : cli)
@@ -22,7 +22,8 @@ export function registerYoutrackHandlers(ctx) {
     await ctx.refreshYoutrack()
     const youtrack = ctx.youtrack
     if (!youtrack) return notFound()
-    const [version, inst] = await Promise.all([youtrack.version(), ctx.youtrack.instances()])
+    // Version, server list and stored choices are separate parts: only the server list is required.
+    const [version, inst] = await Promise.all([attempt(() => youtrack.version()), attempt(() => youtrack.instances())])
     if (!inst.ok) {
       if (inst.error.code === CODES.CLI_NOT_FOUND) {
         await ctx.refreshYoutrack()
@@ -31,12 +32,12 @@ export function registerYoutrackHandlers(ctx) {
       return ok({ ...base, cli: withInstall({ found: true }), servers: [], server: null, error: shortMessage(inst.error.message) })
     }
     const servers = toServers(inst.data)
-    const stored = await state.getServer()
+    const stored = await fallback(() => state.getServer(), null)
     const chosen = servers.find((s) => s.alias === stored) ?? servers.find((s) => s.active) ?? servers[0]
     const cli = withInstall({ found: true })
     if (version.ok) cli.version = version.data
     const server = chosen ? chosen.alias : null
-    return ok({ ...base, cli, servers, server, query: server ? await state.getQuery(server, defaultQuery) : defaultQuery })
+    return ok({ ...base, cli, servers, server, query: server ? await fallback(() => state.getQuery(server, defaultQuery), defaultQuery) : defaultQuery })
   })
 
   handle('yt.setServer', async ({ server }) => {

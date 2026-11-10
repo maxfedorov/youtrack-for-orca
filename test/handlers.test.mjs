@@ -384,7 +384,7 @@ test('servers.add posts a failure result', async () => {
 
 test('unexpected exceptions become UNKNOWN', async () => {
   const { call } = setup({ yt: fakeYt({ instances: async () => { throw new Error('kaboom') } }) })
-  assert.deepEqual(await call('yt.env'), fail('UNKNOWN', 'kaboom'))
+  assert.deepEqual(await call('yt.issues.search', { server: 'one', query: 'x', offset: 0, limit: 1 }), fail('UNKNOWN', 'kaboom'))
 })
 
 test('any well-formed agent id is accepted, even if not detected', async () => {
