@@ -4,6 +4,7 @@ import { fail, CODES } from '../result.mjs'
 export const ISSUE_ID = /^[A-Za-z0-9_]+-\d+$/
 export const MAX_QUERY = 2000
 export const MAX_NAME = 60
+export const MAX_COMMAND = 500
 const MAX_TOKEN = 500
 
 export const invalid = (message) => fail(CODES.UNKNOWN, message)

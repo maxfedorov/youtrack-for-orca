@@ -32,6 +32,7 @@ function fakeYt(over = {}) {
     listComments: rec('listComments', () => ok([])),
     savedSearches: rec('savedSearches', () => ok([{ id: '0-1', name: 'Mine', query: 'for: me', extra: 1 }])),
     createSavedSearch: rec('createSavedSearch', (s, name, query) => ok({ id: '0-9', name, query })),
+    applyCommand: rec('applyCommand', () => ok({})),
     loginWeb: rec('loginWeb', async (url, onAuth) => (onAuth('https://auth.example/x'), ok({}))),
     ...over,
   }
@@ -189,6 +190,31 @@ test('saved queries are listed and created', async () => {
   assert.deepEqual(c.data, { id: '0-9', name: 'N', query: 'q' })
   assert.equal((await call('yt.savedQueries.create', { server: 'one', name: 'n'.repeat(61), query: 'q' })).ok, false)
   assert.equal((await call('yt.savedQueries.create', { server: 'one', name: '  ', query: 'q' })).ok, false)
+})
+
+test('issue.command applies the trimmed command to the issue on the chosen server', async () => {
+  const { call, yt } = setup()
+  assert.deepEqual(await call('yt.issue.command', { server: 'one', id: 'DEMO-1', command: '  State Done ' }), ok({}))
+  assert.deepEqual(yt.calls.at(-1), { name: 'applyCommand', a: ['one', 'DEMO-1', 'State Done'] })
+})
+
+test('issue.command checks the id, the command and the server before running anything', async () => {
+  const { call, yt } = setup()
+  assert.deepEqual(await call('yt.issue.command', { server: 'one', id: '-DEMO-1', command: 'State Done' }), fail('UNKNOWN', 'Invalid issue id'))
+  assert.deepEqual(await call('yt.issue.command', { server: 'one', id: 'DEMO-1', command: '   ' }), fail('UNKNOWN', 'Enter a command'))
+  assert.deepEqual(await call('yt.issue.command', { server: 'one', id: 'DEMO-1', command: 7 }), fail('UNKNOWN', 'Enter a command'))
+  assert.deepEqual(
+    await call('yt.issue.command', { server: 'one', id: 'DEMO-1', command: 'x'.repeat(501) }),
+    fail('UNKNOWN', 'A command is at most 500 characters')
+  )
+  assert.equal((await call('yt.issue.command', { server: 'nope', id: 'DEMO-1', command: 'State Done' })).ok, false)
+  assert.equal(yt.calls.filter((c) => c.name === 'applyCommand').length, 0)
+  assert.deepEqual(await call('yt.issue.command', { server: 'one', id: 'DEMO-1', command: 'x'.repeat(500) }), ok({}))
+})
+
+test('issue.command answers the CLI failure', async () => {
+  const { call } = setup({ yt: fakeYt({ applyCommand: async () => fail('UNKNOWN', 'HTTP 400: Unknown command') }) })
+  assert.deepEqual(await call('yt.issue.command', { server: 'one', id: 'DEMO-1', command: 'Stat' }), fail('UNKNOWN', 'HTTP 400: Unknown command'))
 })
 
 test('start.prepare gathers repos, workspaces, agents, name and vars', async () => {

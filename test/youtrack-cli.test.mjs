@@ -233,3 +233,17 @@ test('an indented JSON error on stderr is classified', () => {
   assert.equal(r.code, 'QUERY_INVALID')
   assert.match(r.message, /Can't parse search query/)
 })
+
+test('applyCommand passes the id and the command after -- as two arguments', async () => {
+  const run = fakeRun({ '--server work issue command': { stdout: '' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.applyCommand('work', 'DEMO-1', '-tag "x" State Done'), { ok: true, data: {} })
+  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'command', '--json', '--quiet', '--', 'DEMO-1', '-tag "x" State Done'])
+  assert.equal(run.calls[0].opts.timeoutMs, 30_000)
+})
+
+test('applyCommand reports the CLI message when the command fails', async () => {
+  const stderr = JSON.stringify({ error: { code: 'api_error', message: 'HTTP 400: Unknown command: Stat' } })
+  const yt = createYoutrack({ bin: 'youtrack', run: fakeRun({ '--server work issue command': { exitCode: 1, stderr } }) })
+  assert.deepEqual(await yt.applyCommand('work', 'DEMO-1', 'Stat Done'), { ok: false, error: { code: 'UNKNOWN', message: 'HTTP 400: Unknown command: Stat' } })
+})

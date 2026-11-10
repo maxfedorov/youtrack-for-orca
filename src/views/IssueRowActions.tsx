@@ -1,6 +1,7 @@
-import { Button, IconButton, Row, Stack, Text, set, shell } from 'orca'
-import { call, notice, panelError, view } from '../state'
-import { loadLinks } from '../listState'
+import { Button, IconButton, Row, Stack, Text, read, set, shell } from 'orca'
+import { call, notice, panelError, query, view } from '../state'
+import { appliedQuery, loadLinks, runSearch } from '../listState'
+import { CommandBar } from './CommandBar'
 import type { IssueRow } from '../protocol'
 
 export const openDetail = (id: string) => set(view, { kind: 'detail', issueId: id })
@@ -28,6 +29,9 @@ export async function openWorkspace(workspaceId: string): Promise<void> {
   }
 }
 
+/** After a command: the current search and the workspace links, as the command may have changed both. */
+const reloadResults = () => Promise.all([runSearch(read(appliedQuery) || read(query)), loadLinks()])
+
 /** Actions of the selected row (table cells cannot hold buttons). */
 export function IssueRowActions({ issue, workspaceId }: { issue: IssueRow; workspaceId?: string }) {
   return (
@@ -51,6 +55,7 @@ export function IssueRowActions({ issue, workspaceId }: { issue: IssueRow; works
         <IconButton icon="file-text" label="Open issue details" variant="outline" onPress={() => openDetail(issue.id)} />
         <IconButton icon="open-external" label="Open in browser" variant="outline" onPress={() => void openInBrowser(issue.url)} />
       </Row>
+      <CommandBar id={issue.id} onApplied={reloadResults} />
     </Stack>
   )
 }

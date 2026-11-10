@@ -1,7 +1,7 @@
 /** Requests about servers, issues and saved queries (everything answered by the youtrack CLI). */
 import { ok, fail, CODES } from '../result.mjs'
 import { toIssueRow, toIssueDetail, toComments, toSavedQuery, toSavedQueries, toServers } from '../mapping.mjs'
-import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, isPlainUrl, normalizeUrl, settingString, capDetail, attempt, fallback, readSetting, INSTALL } from './common.mjs'
+import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, MAX_COMMAND, isPlainUrl, normalizeUrl, settingString, capDetail, attempt, fallback, readSetting, INSTALL } from './common.mjs'
 
 const MAX_LIMIT = 50
 const MAX_WINDOW = 500
@@ -106,6 +106,18 @@ export function registerYoutrackHandlers(ctx) {
     if (capped.commentsOmitted) data.commentsOmitted = capped.commentsOmitted
     if (capped.truncated) data.truncated = true
     return ok(data)
+  })
+
+  // The one issue write: run only when the person presses Apply.
+  handle('yt.issue.command', async ({ server, id, command }) => {
+    if (typeof id !== 'string' || !ISSUE_ID.test(id)) return invalid('Invalid issue id')
+    const text = typeof command === 'string' ? command.trim() : ''
+    if (!text) return invalid('Enter a command')
+    if (text.length > MAX_COMMAND) return invalid(`A command is at most ${MAX_COMMAND} characters`)
+    const s = await resolveServer(server)
+    if (!s.ok) return s
+    const r = await ctx.youtrack.applyCommand(s.data.alias, id, text)
+    return r.ok ? ok({}) : r
   })
 
   handle('yt.savedQueries', async ({ server }) => {

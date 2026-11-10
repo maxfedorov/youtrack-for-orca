@@ -90,6 +90,8 @@ declare module 'orca' {
     'yt.issue.get': { input: { server: string; id: string }; output: Result<IssueDetail> }
     /** The comments of an issue alone, to load them again after they failed. */
     'yt.issue.comments': { input: { server: string; id: string }; output: Result<IssueComments> }
+    /** Applies a YouTrack command such as "State Done" to the issue; command <= 500 characters. */
+    'yt.issue.command': { input: { server: string; id: string; command: string }; output: Result<Record<string, never>> }
     'yt.savedQueries': { input: { server: string }; output: Result<SavedQuery[]> }
     /** name <= 60 characters. */
     'yt.savedQueries.create': { input: { server: string; name: string; query: string }; output: Result<SavedQuery> }

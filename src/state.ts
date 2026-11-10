@@ -69,7 +69,8 @@ function rejected(error: unknown): string {
 const TIMEOUTS: Partial<Record<string, number>> = {
   'yt.start.run': 120_000,
   'yt.runInExisting': 120_000,
-  'yt.savedQueries.create': 120_000
+  'yt.savedQueries.create': 120_000,
+  'yt.issue.command': 120_000
 }
 
 /**

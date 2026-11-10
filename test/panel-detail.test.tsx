@@ -97,7 +97,7 @@ test('renders fields read-only', async () => {
   assert.equal(view.find({ type: 'Select', label: 'Priority' }), null)
   assert.equal(view.find({ type: 'Select', label: 'Assignee' }), null)
   assert.equal(view.find({ type: 'Select', label: 'Type' }), null)
-  assert.equal(view.find({ type: 'Input' }), null)
+  assert.deepEqual(view.findAll({ type: 'Input' }).map((i: any) => i.props.label), ['Command'])
   const items = view.find({ type: 'KeyValue' }).props.items
   assert.deepEqual(items.map((i: any) => [i.label, i.value]), [
     ['Priority', 'Major'], ['State', 'Open'], ['Assignee', 'Jane Doe'], ['Subsystem', 'No Subsystem'], ['Estimation', '2h 30m']

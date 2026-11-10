@@ -4,6 +4,7 @@ import {
 import { links, loadLinks } from '../listState'
 import { call, refreshTick, server, view } from '../state'
 import { openInBrowser, openWorkspace, start } from './IssueRowActions'
+import { CommandBar } from './CommandBar'
 import type { IssueComments, IssueDetail as Detail } from '../protocol'
 
 type Status = 'idle' | 'loading' | 'ok' | 'error'
@@ -151,6 +152,7 @@ function Body({ issue }: { issue: Detail }) {
         </Row>
       </Row>
       <Heading level={2}>{issue.summary}</Heading>
+      <CommandBar id={issue.id} onApplied={() => load(issue.id)} />
       {issue.truncated || issue.commentsOmitted ? (
         <Callout tone="neutral">
           <Stack gap="xs">

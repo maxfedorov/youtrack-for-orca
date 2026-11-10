@@ -23,7 +23,9 @@ If the CLI is missing, the panel shows the install command for your system and c
 - Issue list for a YouTrack search query, with your saved searches in a drop-down.
 - Star button (☆) to save the current query as a saved search.
 - Sortable columns; the list reloads when you change the server or press Refresh.
-- Read-only issue details: description, fields and comments.
+- Issue details: description, fields and comments.
+- **Apply command**: run a YouTrack command such as `State Done` on the selected issue or the open
+  detail. It runs only when you press Apply; it and saving a search are the plugin's only YouTrack writes.
 - **Start**: begin work on an issue in a new worktree or in the current workspace. Pick the project,
   branch name, base branch, agent and edit the prompt before it is sent.
 - Status bar item with the number of issues matching the default query.
@@ -32,7 +34,7 @@ If the CLI is missing, the panel shows the install command for your system and c
 
 ## What the plugin runs
 
-Only two programs: `youtrack` (to read issues and saved searches) and `orca` (to create worktrees and
+Only two programs: `youtrack` (to read issues and saved searches, save a search and apply a command) and `orca` (to create worktrees and
 launch agents). The plugin makes no network requests of its own and stores no tokens; everything that
 talks to YouTrack goes through the CLI.
 
