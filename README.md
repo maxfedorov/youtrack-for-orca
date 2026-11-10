@@ -25,7 +25,10 @@ If the CLI is missing, the panel shows the install command for your system and c
 - Sortable columns; the list reloads when you change the server or press Refresh.
 - Issue details: description, fields and comments.
 - **Apply command**: run a YouTrack command such as `State Done` on the selected issue or the open
-  detail. It runs only when you press Apply or Enter; it and saving a search are the plugin's only YouTrack writes.
+  detail. It runs only when you press Apply or Enter.
+- **Add comment**: write a comment in the issue detail and press Send (or Cmd+Enter, Ctrl+Enter off macOS);
+  it gets the server's default visibility. Applying a command, adding a comment and saving a search are
+  the plugin's only YouTrack writes.
 - **Start**: begin work on an issue in a new worktree or in the current workspace. Pick the project,
   branch name, base branch, agent and prompt template, and edit the prompt before it is sent.
 - **Prompt templates** (the gear button): named templates for the prompt. Five come built in —
@@ -43,7 +46,7 @@ If the CLI is missing, the panel shows the install command for your system and c
 
 ## What the plugin runs
 
-Only two programs: `youtrack` (to read issues and saved searches, save a search, apply a command and remove a server) and `orca` (to create worktrees and
+Only two programs: `youtrack` (to read issues and saved searches, save a search, apply a command, add a comment and remove a server) and `orca` (to create worktrees and
 launch agents). The plugin makes no network requests of its own and stores no tokens; everything that
 talks to YouTrack goes through the CLI.
 

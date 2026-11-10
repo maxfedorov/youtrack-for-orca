@@ -71,6 +71,7 @@ const TIMEOUTS: Partial<Record<string, number>> = {
   'yt.runInExisting': 120_000,
   'yt.savedQueries.create': 120_000,
   'yt.issue.command': 120_000,
+  'yt.issue.comment': 120_000,
   'yt.servers.remove': 120_000
 }
 

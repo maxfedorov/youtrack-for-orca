@@ -5,6 +5,7 @@ import { links, loadLinks } from '../listState'
 import { call, refreshTick, server, view } from '../state'
 import { openInBrowser, openWorkspace, start } from './IssueRowActions'
 import { CommandBar, onCommandApplied } from './CommandBar'
+import { CommentBox } from './CommentBox'
 import type { IssueComments, IssueDetail as Detail } from '../protocol'
 
 type Status = 'idle' | 'loading' | 'ok' | 'error'
@@ -197,6 +198,7 @@ function Body({ issue }: { issue: Detail }) {
           </Stack>
         ))
       )}
+      <CommentBox id={issue.id} onPosted={reloadComments} />
     </Stack>
   )
 }

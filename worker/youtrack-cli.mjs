@@ -98,13 +98,15 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
   }
 
   const json = (s) => JSON.parse(s)
-  const read = (server, args) => exec(['--server', server, ...args, ...tail], READ_MS, json)
+  /** A list the CLI found empty can come back as `null`. */
+  const list = (s) => JSON.parse(s) ?? []
+  const read = (server, args, parse = json) => exec(['--server', server, ...args, ...tail], READ_MS, parse)
 
   return {
     version: () => exec(['--version'], READ_MS, (s) => s.trim()),
-    instances: () => exec(['instance', 'list', ...tail], READ_MS, json),
+    instances: () => exec(['instance', 'list', ...tail], READ_MS, list),
     listIssues: (server, query, offset, limit) =>
-      read(server, ['issue', 'list', '--query', query, '--limit', String(limit), '--offset', String(offset), '--fields', ISSUE_FIELDS]),
+      read(server, ['issue', 'list', '--query', query, '--limit', String(limit), '--offset', String(offset), '--fields', ISSUE_FIELDS], list),
     countIssues: (server, query) =>
       exec(['--server', server, 'issue', 'count', '--query', query, ...tail], READ_MS, (s) => {
         const n = Number(s.trim())
@@ -112,8 +114,8 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
         return n
       }),
     viewIssue: (server, id) => read(server, ['issue', 'view', id, '-f', VIEW_FIELDS]),
-    listComments: (server, id) => read(server, ['issue', 'comment', 'list', id]),
-    savedSearches: (server) => read(server, ['search', 'list']),
+    listComments: (server, id) => read(server, ['issue', 'comment', 'list', id], list),
+    savedSearches: (server) => read(server, ['search', 'list'], list),
     createSavedSearch: (server, name, query) =>
       exec(['--server', server, 'search', 'create', '--name', name, '--query', query, ...tail], WRITE_MS, json),
     /**
@@ -122,6 +124,12 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
      */
     applyCommand: (server, id, command) =>
       exec(['--server', server, 'issue', 'command', '--no-new-tags', ...tail, '--', id, command], WRITE_MS, () => ({})),
+    /**
+     * Adds a comment with the server's default visibility; the text goes through standard input, so
+     * it is never read as a flag and has no command-line length limit.
+     */
+    addComment: (server, id, text) =>
+      exec(['--server', server, 'issue', 'comment', 'create', '--text-file', '-', ...tail, '--', id], WRITE_MS, () => ({}), { input: text }),
     /**
      * Removes a configured server from the CLI, which signs it out; after `--`, so an alias starting
      * with a dash is not read as a flag. `--force` skips the CLI's own confirmation (the panel asks).

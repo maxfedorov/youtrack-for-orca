@@ -5,6 +5,8 @@ export const ISSUE_ID = /^[A-Za-z0-9_]+-\d+$/
 export const MAX_QUERY = 2000
 export const MAX_NAME = 60
 export const MAX_COMMAND = 500
+/** Longest comment the panel can add. */
+export const MAX_NEW_COMMENT = 10_000
 const MAX_TOKEN = 500
 
 export const invalid = (message) => fail(CODES.UNKNOWN, message)

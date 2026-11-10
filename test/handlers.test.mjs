@@ -33,6 +33,7 @@ function fakeYt(over = {}) {
     savedSearches: rec('savedSearches', () => ok([{ id: '0-1', name: 'Mine', query: 'for: me', extra: 1 }])),
     createSavedSearch: rec('createSavedSearch', (s, name, query) => ok({ id: '0-9', name, query })),
     applyCommand: rec('applyCommand', () => ok({})),
+    addComment: rec('addComment', () => ok({})),
     deleteInstance: rec('deleteInstance', () => ok({})),
     loginWeb: rec('loginWeb', async (url, onAuth) => (onAuth('https://auth.example/x'), ok({}))),
     ...over,
@@ -827,4 +828,28 @@ test('server defaults answer without projects when they cannot be listed', async
   assert.deepEqual(noCli.data, { repos: [], reposError: 'The Orca CLI was not found.', defaults: {} })
   const failing = await setup({ cli: fakeCli({ repos: async () => fail('ORCA_CLI_FAILED', 'orca is down') }) }).call('yt.servers.defaults', {})
   assert.deepEqual(failing.data, { repos: [], reposError: 'orca is down', defaults: {} })
+})
+
+test('issue.comment adds the trimmed text to the issue on the chosen server', async () => {
+  const { call, yt } = setup()
+  assert.deepEqual(await call('yt.issue.comment', { server: 'one', id: 'DEMO-1', text: '  Looks good\n' }), ok({}))
+  assert.deepEqual(yt.calls.at(-1), { name: 'addComment', a: ['one', 'DEMO-1', 'Looks good'] })
+})
+
+test('issue.comment checks the id, the text and the server before running anything', async () => {
+  const { call, yt } = setup()
+  assert.deepEqual(await call('yt.issue.comment', { server: 'one', id: '-DEMO-1', text: 'x' }), fail('UNKNOWN', 'Invalid issue id'))
+  assert.deepEqual(await call('yt.issue.comment', { server: 'one', id: 'DEMO-1', text: '  ' }), fail('UNKNOWN', 'Enter a comment'))
+  assert.deepEqual(await call('yt.issue.comment', { server: 'one', id: 'DEMO-1', text: 7 }), fail('UNKNOWN', 'Enter a comment'))
+  assert.deepEqual(
+    await call('yt.issue.comment', { server: 'one', id: 'DEMO-1', text: 'x'.repeat(10_001) }),
+    fail('UNKNOWN', 'A comment is at most 10000 characters')
+  )
+  assert.equal((await call('yt.issue.comment', { server: 'nope', id: 'DEMO-1', text: 'x' })).ok, false)
+  assert.equal(yt.calls.filter((c) => c.name === 'addComment').length, 0)
+})
+
+test('issue.comment answers the CLI failure', async () => {
+  const { call } = setup({ yt: fakeYt({ addComment: async () => fail('FORBIDDEN', 'HTTP 403: Forbidden') }) })
+  assert.deepEqual(await call('yt.issue.comment', { server: 'one', id: 'DEMO-1', text: 'x' }), fail('FORBIDDEN', 'HTTP 403: Forbidden'))
 })

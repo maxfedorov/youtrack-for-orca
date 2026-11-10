@@ -1,7 +1,7 @@
 /** Requests about servers, issues and saved queries (everything answered by the youtrack CLI). */
 import { ok, fail, CODES } from '../result.mjs'
 import { toIssueRow, toIssueDetail, toComments, toSavedQuery, toSavedQueries, toServers } from '../mapping.mjs'
-import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, MAX_COMMAND, isPlainUrl, normalizeUrl, settingString, capDetail, attempt, fallback, readSetting, INSTALL } from './common.mjs'
+import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, MAX_COMMAND, MAX_NEW_COMMENT, isPlainUrl, normalizeUrl, settingString, capDetail, attempt, fallback, readSetting, INSTALL } from './common.mjs'
 
 const MAX_LIMIT = 50
 const MAX_WINDOW = 500
@@ -110,7 +110,7 @@ export function registerYoutrackHandlers(ctx) {
     return ok(data)
   })
 
-  // The one issue write: run only when the person presses Apply.
+  // Issue writes: run only when the person presses Apply or Send.
   handle('yt.issue.command', async ({ server, id, command }) => {
     if (typeof id !== 'string' || !ISSUE_ID.test(id)) return invalid('Invalid issue id')
     const text = typeof command === 'string' ? command.trim() : ''
@@ -119,6 +119,17 @@ export function registerYoutrackHandlers(ctx) {
     const s = await resolveServer(server)
     if (!s.ok) return s
     const r = await ctx.youtrack.applyCommand(s.data.alias, id, text)
+    return r.ok ? ok({}) : r
+  })
+
+  handle('yt.issue.comment', async ({ server, id, text }) => {
+    if (typeof id !== 'string' || !ISSUE_ID.test(id)) return invalid('Invalid issue id')
+    const body = typeof text === 'string' ? text.trim() : ''
+    if (!body) return invalid('Enter a comment')
+    if (body.length > MAX_NEW_COMMENT) return invalid(`A comment is at most ${MAX_NEW_COMMENT} characters`)
+    const s = await resolveServer(server)
+    if (!s.ok) return s
+    const r = await ctx.youtrack.addComment(s.data.alias, id, body)
     return r.ok ? ok({}) : r
   })
 

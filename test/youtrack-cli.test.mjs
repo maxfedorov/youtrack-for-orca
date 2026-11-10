@@ -268,3 +268,21 @@ test('deleteInstance reports the CLI warning that the stored token could not be 
   const yt = createYoutrack({ bin: 'youtrack', run: fakeRun({ 'instance delete': { stdout: '{"status":"ok"}', stderr } }) })
   assert.deepEqual(await yt.deleteInstance('a'), { ok: true, data: { warning: 'remove keyring token: access denied\nsecond' } })
 })
+
+test('empty lists the CLI answers as null read as no items', async () => {
+  const run = fakeRun({ '--server work issue comment list': { stdout: 'null\n' }, '--server work search list': { stdout: 'null' }, 'instance list': { stdout: 'null' }, '--server work issue list': { stdout: 'null' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.listComments('work', 'DEMO-1'), { ok: true, data: [] })
+  assert.deepEqual(await yt.savedSearches('work'), { ok: true, data: [] })
+  assert.deepEqual(await yt.instances(), { ok: true, data: [] })
+  assert.deepEqual(await yt.listIssues('work', 'q', 0, 10), { ok: true, data: [] })
+})
+
+test('addComment sends the text on standard input and the id after --, as a write', async () => {
+  const run = fakeRun({ '--server work issue comment create': { stdout: '{"id":"4-1"}' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.addComment('work', 'DEMO-1', '--not a flag\nsecond line'), { ok: true, data: {} })
+  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'comment', 'create', '--text-file', '-', '--json', '--quiet', '--', 'DEMO-1'])
+  assert.equal(run.calls[0].opts.input, '--not a flag\nsecond line')
+  assert.equal(run.calls[0].opts.timeoutMs, 30_000)
+})
