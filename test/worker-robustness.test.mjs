@@ -31,6 +31,7 @@ const fakeCli = (over = {}) => ({
   repos: async () => ok([{ id: 'r1', name: 'demo-repo', path: '/p/demo-repo' }]),
   searchRefs: async () => ok(['main']),
   createWorktree: async () => ok({ workspaceId: 'identity:new', name: 'n', branch: 'b' }),
+  launchAgent: async () => ok({ terminalId: 't9' }),
   ...over
 })
 

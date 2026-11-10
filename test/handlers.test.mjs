@@ -44,6 +44,7 @@ function fakeCli(over = {}) {
     repos: async () => ok([{ id: 'r1', name: 'demo-repo', path: '/p/demo-repo' }]),
     searchRefs: async (repoId, q) => (calls.push({ name: 'searchRefs', repoId, q }), ok(['main'])),
     createWorktree: async (a) => (calls.push({ name: 'createWorktree', a }), ok({ workspaceId: 'identity:new', name: a.name, branch: 'b' })),
+    launchAgent: async (a) => (calls.push({ name: 'launchAgent', a }), ok({ terminalId: 't9', paneKey: 'tab:pane' })),
     ...over,
   }
 }
@@ -287,28 +288,44 @@ test('prompt over 4096 → invalid', async () => {
   assert.equal((await call('yt.start.run', { ...RUN, prompt: 'x'.repeat(4096) })).ok, true)
 })
 
-test('runInExisting tracks launch but not link', async () => {
-  const { call, orca } = setup({ host: { 'agent.launch': { terminalId: 't9' } } })
+test('runInExisting launches through the Orca CLI with the prompt and tracks the launch but not a link', async () => {
+  const { call, orca, cli } = setup()
   const r = await call('yt.runInExisting', { server: 'one', id: 'DEMO-1', workspaceId: 'identity:main', agent: 'claude', prompt: 'Go' })
   assert.deepEqual(r, ok({ terminalId: 't9' }))
-  const launch = orca.hostCalls.find((c) => c.method === 'agent.launch')
-  assert.deepEqual(launch.params, { workspaceId: 'identity:main', agent: 'claude', prompt: 'Go' })
+  assert.deepEqual(cli.calls, [{ name: 'launchAgent', a: { workspaceId: 'identity:main', agent: 'claude', prompt: 'Go' } }])
+  // The host launch hands the prompt over separately and loses it while the agent starts.
+  assert.equal(orca.hostCalls.some((c) => c.method === 'agent.launch'), false)
   const data = orca.storage.data()
-  assert.deepEqual(data.launches, [{ terminalId: 't9', server: 'one', issueId: 'DEMO-1', workspaceId: 'identity:main', at: 1000 }])
+  assert.deepEqual(data.launches, [{ terminalId: 't9', paneKey: 'tab:pane', server: 'one', issueId: 'DEMO-1', workspaceId: 'identity:main', at: 1000 }])
   assert.equal(data.links, undefined)
 })
 
 test('runInExisting needs a known agent and omits a blank prompt', async () => {
-  const { call, orca } = setup({ host: { 'agent.launch': { terminalId: 't9' } } })
+  const { call, cli } = setup()
   const base = { server: 'one', id: 'DEMO-1', workspaceId: 'identity:main' }
   assert.equal((await call('yt.runInExisting', { ...base, agent: '', prompt: 'x' })).ok, false)
   assert.equal((await call('yt.runInExisting', { ...base, agent: 'a b', prompt: 'x' })).ok, false)
   await call('yt.runInExisting', { ...base, agent: 'codex', prompt: '  ' })
-  assert.deepEqual(orca.hostCalls.find((c) => c.method === 'agent.launch').params, { workspaceId: 'identity:main', agent: 'codex' })
+  assert.deepEqual(cli.calls, [{ name: 'launchAgent', a: { workspaceId: 'identity:main', agent: 'codex' } }])
+})
+
+test('runInExisting returns a failed CLI launch and tracks nothing', async () => {
+  const { call, orca } = setup({ cli: fakeCli({ launchAgent: async () => fail('ORCA_CLI_FAILED', 'no such worktree') }) })
+  const r = await call('yt.runInExisting', { server: 'one', id: 'DEMO-1', workspaceId: 'identity:x', agent: 'claude', prompt: 'x' })
+  assert.deepEqual(r, fail('ORCA_CLI_FAILED', 'no such worktree'))
+  assert.equal(orca.storage.data().launches, undefined)
+})
+
+test('runInExisting falls back to the host launch without the Orca CLI', async () => {
+  const { call, orca } = setup({ cli: null, host: { 'agent.launch': { terminalId: 't7' } } })
+  const r = await call('yt.runInExisting', { server: 'one', id: 'DEMO-1', workspaceId: 'identity:main', agent: 'claude', prompt: 'Go' })
+  assert.deepEqual(r, ok({ terminalId: 't7' }))
+  assert.deepEqual(orca.hostCalls.find((c) => c.method === 'agent.launch').params, { workspaceId: 'identity:main', agent: 'claude', prompt: 'Go' })
+  assert.equal(orca.storage.data().launches[0].terminalId, 't7')
 })
 
 test('host errors become UNKNOWN results', async () => {
-  const { call } = setup({ host: { 'agent.launch': () => { throw new Error('workspace gone') } } })
+  const { call } = setup({ cli: null, host: { 'agent.launch': () => { throw new Error('workspace gone') } } })
   const r = await call('yt.runInExisting', { server: 'one', id: 'DEMO-1', workspaceId: 'identity:x', agent: 'claude', prompt: 'x' })
   assert.deepEqual(r, fail('UNKNOWN', 'workspace gone'))
 })
@@ -402,7 +419,7 @@ test('start.prepare keeps the default agent setting even when not detected', asy
 })
 
 test('runInExisting without a terminal id still succeeds and tracks the workspace', async () => {
-  const { call, orca } = setup({ host: { 'agent.launch': {} } })
+  const { call, orca } = setup({ cli: fakeCli({ launchAgent: async () => ok({}) }) })
   const r = await call('yt.runInExisting', { server: 'one', id: 'DEMO-1', workspaceId: 'identity:main', agent: 'claude', prompt: 'x' })
   assert.deepEqual(r, ok({}))
   assert.equal(orca.storage.data().launches[0].terminalId, 'identity:main')

@@ -1,0 +1,29 @@
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "ok": true,
+  "result": {
+    "outcome": {
+      "kind": "terminal",
+      "handle": "term_00000000-0000-4000-8000-0000000000bb",
+      "paneKey": "00000000-0000-4000-8000-0000000000cc:00000000-0000-4000-8000-0000000000dd"
+    },
+    "worktreeId": "00000000-0000-4000-8000-000000000001::/Users/demo/orca/workspaces/demo-repo/main",
+    "receipt": {
+      "mode": "terminal",
+      "preferred": "terminal",
+      "reason": "requested",
+      "detail": "Started a terminal agent, as requested."
+    },
+    "prompt": {
+      "delivery": "submit",
+      "outcome": "handed-to-terminal"
+    },
+    "placement": {
+      "groupId": "00000000-0000-4000-8000-0000000000ee"
+    },
+    "operationId": "1700000000000-00000000000000000000000000000000"
+  },
+  "_meta": {
+    "runtimeId": "00000000-0000-4000-8000-0000000000ff"
+  }
+}

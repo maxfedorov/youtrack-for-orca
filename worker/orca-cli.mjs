@@ -1,10 +1,12 @@
-/** Wrapper around the bundled Orca CLI: locating the binary, listing repos and branches, creating worktrees. */
+/** Wrapper around the bundled Orca CLI: locating the binary, listing repos and branches, creating worktrees, launching agents. */
 import path from 'node:path'
 import { ok, fail, CODES } from './result.mjs'
 import { findOnPath, runProcess } from './exec.mjs'
 
 const READ_MS = 15_000
 const CREATE_MS = 60_000
+// The launch waits until the prompt is handed to the agent; the panel waits up to two minutes.
+const LAUNCH_MS = 90_000
 const REFS_LIMIT = '200'
 
 /**
@@ -87,6 +89,23 @@ export function createOrcaCli({ bin, run = (args, opts) => runProcess(bin, args,
       }
       if (typeof wt.path === 'string') out.path = wt.path
       const outcome = res.data.launch?.outcome
+      if (typeof outcome?.handle === 'string' && outcome.handle) out.terminalId = outcome.handle
+      if (typeof outcome?.paneKey === 'string' && outcome.paneKey) out.paneKey = outcome.paneKey
+      return ok(out)
+    },
+
+    /**
+     * Start an agent in an existing workspace with its prompt in one launch, as a terminal (its id is
+     * what the finished notification matches).
+     */
+    launchAgent: async ({ workspaceId, agent, prompt }) => {
+      const args = ['agent', 'launch', '--agent', agent, '--worktree', workspaceId, '--surface', 'terminal']
+      if (typeof prompt === 'string' && prompt.trim()) args.push('--prompt', prompt)
+      args.push('--json')
+      const res = await exec(args, LAUNCH_MS)
+      if (!res.ok) return res
+      const outcome = res.data.outcome
+      const out = {}
       if (typeof outcome?.handle === 'string' && outcome.handle) out.terminalId = outcome.handle
       if (typeof outcome?.paneKey === 'string' && outcome.paneKey) out.paneKey = outcome.paneKey
       return ok(out)

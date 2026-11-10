@@ -166,12 +166,23 @@ export function registerStartHandlers(ctx) {
     if (!s.ok) return s
     const params = { workspaceId, agent }
     if (launch.data.prompt) params.prompt = launch.data.prompt
-    const r = await host('agent.launch', params)
+    let terminalId = null
+    let paneKey = null
+    if (orcaCli) {
+      // The CLI starts the agent with its prompt in one launch; the host launch hands the prompt over
+      // separately, before the agent runs, and loses it.
+      const r = await orcaCli.launchAgent(params)
+      if (!r.ok) return r
+      terminalId = typeof r.data?.terminalId === 'string' ? r.data.terminalId : null
+      paneKey = typeof r.data?.paneKey === 'string' ? r.data.paneKey : null
+    } else {
+      const r = await host('agent.launch', params)
+      terminalId = typeof r?.terminalId === 'string' ? r.terminalId : null
+    }
     // Without a terminal id the launch is tracked by workspace id (the notifier matches either).
-    const terminalId = typeof r?.terminalId === 'string' ? r.terminalId : null
-    const warning = await remember('yt.runInExisting launch', () =>
-      launches.track({ terminalId: terminalId ?? workspaceId, server: s.data.alias, issueId: id, workspaceId, at: now() })
-    )
+    const tracked = { terminalId: terminalId ?? workspaceId, server: s.data.alias, issueId: id, workspaceId, at: now() }
+    if (paneKey) tracked.paneKey = paneKey
+    const warning = await remember('yt.runInExisting launch', () => launches.track(tracked))
     const data = terminalId ? { terminalId } : {}
     if (warning) data.warning = warning
     return ok(data)

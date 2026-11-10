@@ -186,3 +186,35 @@ test('createWorktree omits the terminal keys when the answer has no launch', asy
   assert.equal('terminalId' in r.data, false)
   assert.equal('paneKey' in r.data, false)
 })
+
+const launched = { 'agent launch': { stdout: fixture('orca-agent-launch.json') } }
+
+test('launchAgent starts the agent with its prompt in one launch', async () => {
+  const run = fakeRun(launched)
+  const r = await createOrcaCli({ run }).launchAgent({ workspaceId: 'identity:wt2:local:w1', agent: 'claude', prompt: 'Line 1\nLine 2' })
+  assert.deepEqual(run.calls[0].args, [
+    'agent', 'launch', '--agent', 'claude', '--worktree', 'identity:wt2:local:w1', '--surface', 'terminal',
+    '--prompt', 'Line 1\nLine 2', '--json'
+  ])
+  assert.equal(run.calls[0].opts.timeoutMs, 90_000)
+  assert.deepEqual(r, {
+    ok: true,
+    data: {
+      terminalId: 'term_00000000-0000-4000-8000-0000000000bb',
+      paneKey: '00000000-0000-4000-8000-0000000000cc:00000000-0000-4000-8000-0000000000dd'
+    }
+  })
+})
+
+test('launchAgent without a prompt sends no --prompt and tolerates an answer without a terminal', async () => {
+  const run = fakeRun({ 'agent launch': { stdout: JSON.stringify({ ok: true, result: { outcome: { kind: 'chat' } } }) } })
+  const r = await createOrcaCli({ run }).launchAgent({ workspaceId: 'identity:w1', agent: 'codex', prompt: ' ' })
+  assert.equal(run.calls[0].args.includes('--prompt'), false)
+  assert.deepEqual(r, { ok: true, data: {} })
+})
+
+test('launchAgent maps an error envelope to ORCA_CLI_FAILED', async () => {
+  const run = fakeRun({ 'agent launch': { exitCode: 1, stdout: JSON.stringify({ ok: false, error: { message: 'no such worktree' } }) } })
+  const r = await createOrcaCli({ run }).launchAgent({ workspaceId: 'identity:w1', agent: 'claude', prompt: 'P' })
+  assert.deepEqual(r, { ok: false, error: { code: 'ORCA_CLI_FAILED', message: 'no such worktree' } })
+})
