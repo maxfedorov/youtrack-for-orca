@@ -663,13 +663,31 @@ test('servers.remove deletes the server in the CLI and forgets what the plugin k
   assert.deepEqual(await state.serverRepos(), {})
 })
 
-test('servers.remove refuses an unknown server and runs nothing', async () => {
+test('servers.remove refuses a bad server name and runs nothing', async () => {
   const { call, yt } = setup()
-  for (const server of ['zzz', '', 5, undefined]) {
+  for (const server of ['', 5, undefined]) {
     const r = await call('yt.servers.remove', { server })
     assert.equal(r.ok, false, String(server))
   }
   assert.equal(yt.calls.some((c) => c.name === 'deleteInstance'), false)
+})
+
+test('servers.remove of a server the CLI no longer lists only forgets its saved data', async () => {
+  // A retry after a removal that timed out once the CLI had already deleted it.
+  const { call, yt, state, links } = setup()
+  await state.setQuery('gone', 'q')
+  await links.add('gone', 'DEMO-1', 'identity:main', 1)
+  assert.deepEqual(await call('yt.servers.remove', { server: 'gone' }), { ok: true, data: {} })
+  assert.equal(yt.calls.some((c) => c.name === 'deleteInstance'), false)
+  assert.equal(await state.getQuery('gone', 'd'), 'd')
+  assert.deepEqual(await links.forServer('gone', new Set(['identity:main'])), {})
+})
+
+test('servers.remove passes on the CLI warning about the stored token', async () => {
+  const yt = fakeYt({ deleteInstance: async () => ok({ warning: 'remove keyring token: access denied' }) })
+  const r = await setup({ yt }).call('yt.servers.remove', { server: 'one' })
+  assert.equal(r.ok, true)
+  assert.match(r.data.warning, /sign-in token may still be stored.*access denied/s)
 })
 
 test('servers.remove passes a CLI failure through and keeps the stored data', async () => {

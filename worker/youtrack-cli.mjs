@@ -91,7 +91,7 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
       return fail(e.code, e.message)
     }
     try {
-      return ok(parse(r.stdout))
+      return ok(parse(r.stdout, r))
     } catch {
       return fail(CODES.UNKNOWN, 'The youtrack CLI returned an unexpected answer.')
     }
@@ -125,8 +125,15 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
     /**
      * Removes a configured server from the CLI, which signs it out; after `--`, so an alias starting
      * with a dash is not read as a flag. `--force` skips the CLI's own confirmation (the panel asks).
+     * `warning`: what the CLI warned about, such as a token left in the keyring.
      */
-    deleteInstance: (alias) => exec(['instance', 'delete', '--force', ...tail, '--', alias], WRITE_MS, () => ({})),
+    deleteInstance: (alias) =>
+      // Without --quiet: the CLI then prints its warnings ("! …" on stderr), such as a sign-in token
+      // it could not remove from the system keyring.
+      exec(['instance', 'delete', '--force', '--json', '--', alias], WRITE_MS, (stdout, r) => {
+        const warnings = String(r.stderr ?? '').split(/\r?\n/).filter((l) => l.startsWith('! ')).map((l) => l.slice(2).trim()).filter(Boolean)
+        return warnings.length ? { warning: warnings.join('\n') } : {}
+      }),
     /** @param {string} url @param {(authUrl: string) => void} onAuthUrl */
     loginWeb: (url, onAuthUrl) =>
       exec(['auth', 'login', url, '--web', '--json'], LOGIN_MS, (s) => (s.trim() ? json(s) : {}), {

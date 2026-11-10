@@ -6,6 +6,7 @@ import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_I
 const MAX_LIMIT = 50
 const MAX_WINDOW = 500
 const COMMENTS_FAILED = 'Comments could not be loaded.'
+const TOKEN_KEPT = 'The server was removed, but its sign-in token may still be stored in the system keyring:'
 const NOT_FORGOTTEN = 'The server was removed, but the plugin could not forget all of its saved searches, links and projects.'
 /** Table rows need unique keys; the first row of an id wins. */
 const unique = (rows) => rows.filter((r, i) => rows.findIndex((o) => o.idReadable === r.idReadable) === i)
@@ -149,18 +150,26 @@ export function registerYoutrackHandlers(ctx) {
 
   // Signs the CLI out of the server: run only after the person confirmed it in the panel.
   handle('yt.servers.remove', async ({ server }) => {
-    const s = await resolveServer(server)
-    if (!s.ok) return s
-    const alias = s.data.alias
-    const r = await ctx.youtrack.deleteInstance(alias)
-    if (!r.ok) return r
-    // The server is gone either way; each store is cleared on its own, a failure only warns.
+    if (typeof server !== 'string' || !server) return invalid('Unknown server')
+    if (!ctx.youtrack) return fail(CODES.CLI_NOT_FOUND, 'The youtrack CLI was not found.')
+    const inst = await ctx.youtrack.instances()
+    if (!inst.ok) return inst
+    const warnings = []
+    // A server the CLI no longer lists was removed already (say, a removal that timed out after the
+    // CLI finished): only what the plugin saved for it is left to forget.
+    if (toServers(inst.data).some((s) => s.alias === server)) {
+      const r = await ctx.youtrack.deleteInstance(server)
+      if (!r.ok) return r
+      if (typeof r.data?.warning === 'string' && r.data.warning) warnings.push(`${TOKEN_KEPT} ${r.data.warning}`)
+    }
+    // Each store is cleared on its own; a failure only warns.
     const cleared = await Promise.all(
-      [() => state.forgetServer(alias), () => links?.dropServer(alias), () => launches?.dropServer(alias)].map((fn) =>
+      [() => state.forgetServer(server), () => links?.dropServer(server), () => launches?.dropServer(server)].map((fn) =>
         fallback(async () => (await fn(), true), false)
       )
     )
-    return ok(cleared.every(Boolean) ? {} : { warning: NOT_FORGOTTEN })
+    if (!cleared.every(Boolean)) warnings.push(NOT_FORGOTTEN)
+    return ok(warnings.length ? { warning: shortMessage(warnings.join(' ')) } : {})
   })
 
   /** Sign in through the browser, then find the alias the CLI gave the new server. */

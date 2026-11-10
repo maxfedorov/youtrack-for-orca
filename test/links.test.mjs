@@ -176,3 +176,15 @@ test('dropServer removes the links and launches of one server only', async () =>
   assert.deepEqual(Object.keys(storage.data().links), ['ab|DEMO-1', 'b|DEMO-2'])
   assert.deepEqual(storage.data().launches.map((e) => e.terminalId), ['t2'])
 })
+
+test('a server alias containing | does not take the links of another server', async () => {
+  const storage = fakeStorage()
+  const links = createLinkStore(storage)
+  await links.add('a', 'DEMO-1', 'w1', 1)
+  await links.add('a|b', 'DEMO-2', 'w2', 1)
+  const live = new Set(['w1', 'w2'])
+  assert.deepEqual(await links.forServer('a', live), { 'DEMO-1': 'w1' })
+  assert.deepEqual(await links.forServer('a|b', live), { 'DEMO-2': 'w2' })
+  await links.dropServer('a')
+  assert.deepEqual(Object.keys(storage.data().links), ['a|b|DEMO-2'])
+})

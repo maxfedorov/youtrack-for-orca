@@ -129,3 +129,28 @@ test('the header controls sit together right after the server choice, lined up w
   for (const c of row.children) if (c.type === 'IconButton') assert.equal(c.props.size ?? 'sm', 'sm')
   await view.unmount()
 })
+
+test('a removal that timed out can be tried again and then finishes', async () => {
+  let first = true
+  let servers = [...all]
+  const { host } = setup({
+    'yt.env': () => ok({ cli: { found: true }, orcaCli: { found: true }, servers, server: servers[0].alias, query: 'q', defaultQuery: 'q' }),
+    'yt.servers.remove': () => {
+      servers = [all[1]]
+      if (first) {
+        first = false
+        return fail('TIMEOUT', 'The youtrack CLI did not answer in time.')
+      }
+      return ok({})
+    }
+  })
+  const view = await mount(panel, { host })
+  await view.press(removeButton)
+  await view.press({ role: 'button', text: 'Remove' })
+  assert.ok(view.find({ text: 'The youtrack CLI did not answer in time.' }))
+  await view.press({ role: 'button', text: 'Remove' })
+  assert.equal(view.find({ text: QUESTION }), null)
+  assert.equal(view.find({ type: 'Select', label: 'Server' }).props.value, 'other')
+  clean(view)
+  await view.unmount()
+})

@@ -28,25 +28,27 @@ const template = (id, name, title, task) => ({ id, name, body: `${title} {{id}}:
 
 export const BUILT_IN = Object.freeze([
   template('implement', 'Implement feature', 'Implement YouTrack issue',
-    `Then implement the feature the issue describes, with tests for the new
-behaviour. Keep the change focused on this issue. Open a pull request only
-when I ask for it.`),
+    `With that context, implement the feature the issue describes, with tests
+for the new behavior. Keep the change focused on this issue. Open a pull
+request only when I ask for it.`),
   template('bugfix', 'Investigate and fix bug', 'Investigate and fix YouTrack issue',
-    `Then find the root cause before changing code: reproduce the bug, ideally
-with a failing automated test. Fix the cause, not the symptom, and keep the
-test as a regression test. Explain the root cause when you are done.`),
+    `With that context, find the root cause before changing code: reproduce the
+bug, ideally with a failing automated test. Fix the cause, not the symptom,
+and keep the test as a regression test. Explain the root cause when you are
+done.`),
   template('tests', 'Cover with automated tests', 'Write automated tests for YouTrack issue',
-    `Then write automated tests that cover the behaviour the issue describes,
-including edge cases and error handling. Follow the project's existing test
-style. If a test shows a bug, report it instead of changing product code.`),
+    `With that context, write automated tests that cover the behavior the issue
+describes, including edge cases and error handling. Follow the project's
+existing test style. If a test shows a bug, report it instead of changing
+product code.`),
   template('plan', 'Review and plan (no code changes)', 'Review YouTrack issue',
-    `Then review the issue and the code it touches, and write a plan: the
-changes needed, the files involved, risks, open questions and how to test
-it. Do not change any code or files.`),
-  template('refactor', 'Refactor safely', 'Refactor the code of YouTrack issue',
-    `Then refactor the code the issue is about without changing its behaviour.
-Run the tests before you start and after each step and keep them green;
-add tests first where the code is not covered.`)
+    `With that context, review the issue and the code it touches, and write a
+plan: the changes needed, the files involved, risks, open questions and how
+to test it. Do not change any code or files.`),
+  template('refactor', 'Refactor safely', 'Refactor safely for YouTrack issue',
+    `With that context, refactor the code the issue is about without changing
+its behavior. Run the tests before you start and after each step and keep
+them green; add tests first where the code is not covered.`)
 ])
 const BUILT_IN_IDS = new Set(BUILT_IN.map((t) => t.id))
 const DEFAULT_ID = 'implement'

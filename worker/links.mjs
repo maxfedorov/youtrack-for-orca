@@ -12,6 +12,8 @@ const MAX_LAUNCHES = 50
  */
 
 const keyOf = (server, issueId) => `${server}|${issueId}`
+/** The server of a link key: issue ids hold no `|`, so it is everything before the last one. */
+const serverOf = (key) => key.slice(0, key.lastIndexOf('|'))
 /** Stored lists may hold anything a damaged or older storage left; only objects are entries. */
 const entries = (list) => (Array.isArray(list) ? list.filter((e) => e !== null && typeof e === 'object' && !Array.isArray(e)) : [])
 
@@ -53,12 +55,11 @@ export function createLinkStore(storage) {
     /** @returns {Promise<Record<string, string>>} issueId -> newest live workspaceId */
     async forServer(server, liveIds) {
       const all = await read()
-      const prefix = `${server}|`
       const out = {}
       for (const [key, list] of Object.entries(all)) {
-        if (!key.startsWith(prefix)) continue
+        if (serverOf(key) !== server) continue
         const id = newestLive(list, liveIds)
-        if (id !== undefined) out[key.slice(prefix.length)] = id
+        if (id !== undefined) out[key.slice(server.length + 1)] = id
       }
       return out
     },
@@ -82,8 +83,7 @@ export function createLinkStore(storage) {
     dropServer: (server) =>
       serial(async () => {
         const all = await read()
-        const prefix = `${server}|`
-        const next = Object.fromEntries(Object.entries(all).filter(([key]) => !key.startsWith(prefix)))
+        const next = Object.fromEntries(Object.entries(all).filter(([key]) => serverOf(key) !== server))
         await storage.set('links', next)
       }),
 
