@@ -13,7 +13,6 @@ const any: Check = () => true
 const nullable = (c: Check): Check => (v) => v === null || c(v)
 const optional = (c: Check): Check => (v) => v === undefined || c(v)
 const list = (c: Check): Check => (v) => Array.isArray(v) && v.every(c)
-const record = (c: Check): Check => (v) => isObj(v) && Object.values(v).every(c)
 const shape = (fields: Record<string, Check>): Check => (v) => isObj(v) && Object.entries(fields).every(([k, c]) => c(v[k]))
 
 const value = shape({ name: str })
@@ -22,38 +21,9 @@ const server = shape({ alias: str, url: str, status: str })
 const savedQuery = shape({ id: str, name: str, query: str })
 
 const CHECKS: Record<string, Check> = {
-  'yt.env': shape({
-    cli: shape({ found: bool, version: optional(str), installCommand: optional(str) }),
-    orcaCli: shape({ found: bool }),
-    servers: list(server),
-    server: nullable(str),
-    query: str,
-    defaultQuery: optional(str),
-    error: optional(str)
-  }),
-  'yt.savedQueries': list(savedQuery),
   'yt.savedQueries.create': savedQuery,
-  'yt.start.prepare': shape({
-    repos: list(shape({ id: str, name: str, worktreeBaseRef: optional(str) })),
-    reposError: optional(str),
-    workspacesError: optional(str),
-    agentsError: optional(str),
-    orcaCli: bool,
-    defaultRepoId: nullable(str),
-    name: str,
-    agents: shape({ installed: list(str), other: list(str) }),
-    defaultAgent: str,
-    launchMode: (v) => v === 'worktree' || v === 'current',
-    includeDescription: bool,
-    promptTemplate: str,
-    vars: record(str),
-    workspaces: list(shape({ id: str, name: str, project: optional(str) })),
-    defaultWorkspaceId: nullable(str)
-  }),
-  'yt.refs.search': shape({ refs: list(str) }),
   'yt.start.run': shape({ workspaceId: str, warning: optional(str) }),
-  'yt.runInExisting': shape({ warning: optional(str) }),
-  'yt.links': record(str)
+  'yt.runInExisting': shape({ warning: optional(str) })
 }
 
 /** Shown for a value of a shape the panel cannot read. */
@@ -109,8 +79,55 @@ const fixIssues = (v: Obj): Obj => {
   return out
 }
 
+/** Only the entries of the expected shape; the list itself must be a list. */
+const keep = (v: unknown, c: Check) => (Array.isArray(v) ? v.filter(c) : [])
+/** Only the string values of a record. */
+const strings = (v: unknown) => (isObj(v) ? Object.fromEntries(Object.entries(v).filter(([, x]) => str(x))) : {})
+
+function fixEnv(v: Obj): Obj {
+  const cli = v.cli as Obj
+  const out: Obj = {
+    ...v,
+    cli: { found: cli.found, ...(str(cli.version) ? { version: cli.version } : {}), ...(str(cli.installCommand) ? { installCommand: cli.installCommand } : {}) },
+    orcaCli: { found: isObj(v.orcaCli) && v.orcaCli.found === true },
+    servers: keep(v.servers, (x) => server(x) && id((x as Obj).alias)),
+    server: or(str, v.server, null),
+    defaultQuery: or(str, v.defaultQuery, '')
+  }
+  out.query = or(str, v.query, out.defaultQuery)
+  if (!str(v.error)) delete out.error
+  return out
+}
+
+function fixPrepare(v: Obj): Obj {
+  const agents = isObj(v.agents) ? v.agents : {}
+  const detected = list(str)(agents.installed) && list(str)(agents.other)
+  const out: Obj = {
+    ...v,
+    repos: keep(v.repos, shape({ id, name: str, worktreeBaseRef: optional(str) })),
+    workspaces: keep(v.workspaces, shape({ id, name: str, project: optional(str) })),
+    vars: strings(v.vars),
+    agents: detected ? agents : { installed: [], other: [...keep(agents.installed, str), ...keep(agents.other, str)] },
+    defaultRepoId: or(str, v.defaultRepoId, null),
+    defaultWorkspaceId: or(str, v.defaultWorkspaceId, null)
+  }
+  for (const key of ['reposError', 'workspacesError', 'agentsError']) if (!str(v[key])) delete out[key]
+  if (!detected && !str(v.agentsError)) out.agentsError = 'Installed agents could not be detected.'
+  return out
+}
+
 /** Answers whose parts can be repaired: the core the screen needs is checked, the rest is fixed. */
 const REPAIRS: Record<string, { core: Check; fix: (v: Obj) => unknown }> = {
+  'yt.env': { core: shape({ cli: shape({ found: bool }), servers: Array.isArray }), fix: fixEnv },
+  'yt.savedQueries': { core: Array.isArray, fix: (v) => keep(v, savedQuery) },
+  'yt.links': { core: isObj, fix: strings },
+  'yt.refs.search': { core: shape({ refs: Array.isArray }), fix: (v) => ({ refs: keep(v.refs, id) }) },
+  'yt.start.prepare': {
+    core: shape({
+      orcaCli: bool, name: str, defaultAgent: str, launchMode: (v) => v === 'worktree' || v === 'current', includeDescription: bool, promptTemplate: str
+    }),
+    fix: fixPrepare
+  },
   'yt.issues.search': { core: shape({ issues: Array.isArray, hasMore: bool }), fix: fixIssues },
   'yt.issue.get': { core: shape({ id, url: str }), fix: fixDetail },
   'yt.issue.comments': {

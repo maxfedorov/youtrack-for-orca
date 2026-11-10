@@ -296,3 +296,66 @@ test('start with issue variables left out builds the prompt with empty text for 
   assert.equal(view.find({ type: 'Textarea', label: 'Prompt' }).props.value, 'Do DEMO-1 [] []')
   await view.unmount()
 })
+
+test('an environment with odd parts keeps the servers it can read', async () => {
+  const odd = ok({
+    cli: { found: true, version: 7 }, orcaCli: 'yes',
+    servers: [{ alias: 'main', url: 'https://main.example.youtrack.cloud', active: true, status: 'authenticated' }, null, { alias: 5 }],
+    server: 'main', query: null, defaultQuery: 'for: me'
+  })
+  const host = mockHost({ requests: requests({ 'yt.env': odd }) })
+  const view = await mount(panel, { host })
+  clean(view)
+  assert.equal(danger(view).length, 0)
+  assert.deepEqual(view.find({ type: 'Select', label: 'Server' }).props.options, [{ value: 'main', label: 'main' }])
+  assert.deepEqual(view.rowsOf(view.find(table)), ['DEMO-1', 'DEMO-2'])
+  assert.equal(calls(host, 'yt.issues.search')[0].input.query, 'for: me')
+  await view.unmount()
+})
+
+test('odd saved searches and links are left out, the others are offered', async () => {
+  const host = mockHost({
+    requests: requests({
+      'yt.savedQueries': ok([{ id: 's1', name: 'Mine', query: 'for: me' }, null, { id: 's2' }]),
+      'yt.links': ok({ 'DEMO-1': 'ws-1', 'DEMO-2': 5 })
+    })
+  })
+  const view = await mount(panel, { host })
+  clean(view)
+  assert.deepEqual(view.find({ type: 'Select', label: 'Saved searches' }).props.options, [{ value: 's1', label: 'Mine' }])
+  assert.equal(view.find({ text: 'Saved searches could not be loaded.' }), null)
+  assert.equal(view.find({ text: 'Workspace links could not be loaded.' }), null)
+  await view.selectRows(view.find(table), ['DEMO-1'])
+  assert.ok(view.find({ role: 'button', text: 'Open →' }))
+  await view.unmount()
+})
+
+test('a start answer with odd projects, workspaces or variables keeps the rest', async () => {
+  const host = mockHost({
+    requests: requests({
+      'yt.start.prepare': ok(prepare({
+        repos: [{ id: 'r1', name: 'alpha' }, null, { name: 'no id' }],
+        workspaces: [{ id: 'w1', name: 'main' }, 3],
+        vars: { id: 'DEMO-1', summary: 9 },
+        agents: { installed: 'claude', other: ['codex'] },
+        promptTemplate: 'Do {{id}} {{summary}}'
+      }))
+    })
+  })
+  const view = await openStart(host)
+  clean(view)
+  assert.equal(danger(view).length, 0)
+  assert.deepEqual(view.find({ type: 'Select', label: 'Project' }).props.options, [{ value: 'r1', label: 'alpha' }])
+  assert.deepEqual(view.find({ type: 'Select', label: 'Workspace' }).props.options.map((o: any) => o.value), ['w1'])
+  assert.equal(view.find({ type: 'Textarea', label: 'Prompt' }).props.value, 'Do DEMO-1 ')
+  assert.ok(view.find({ text: 'Installed agents could not be detected. Every agent is listed under Other.' }))
+  await view.unmount()
+})
+
+test('odd branch names are left out and the others are offered', async () => {
+  const host = mockHost({ requests: requests({ 'yt.refs.search': ok({ refs: ['main', null, 4, 'dev'] }) }) })
+  const view = await openStart(host)
+  clean(view)
+  assert.deepEqual(view.find({ type: 'Select', label: 'Create from' }).props.options.map((o: any) => o.value), ['__default__', 'main', 'dev'])
+  await view.unmount()
+})
