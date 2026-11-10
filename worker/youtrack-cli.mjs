@@ -51,11 +51,16 @@ function parseCliError(stderr) {
 
 /**
  * Map a failed CLI run to a domain error.
- * @param {{ exitCode?: number | null, stderr?: string, timedOut?: boolean, spawnError?: string }} r
+ * @param {{ exitCode?: number | null, stderr?: string, timedOut?: boolean, spawnError?: string, tooLarge?: boolean }} r
  * @returns {{ code: string, message: string }}
  */
-export function classifyCliError({ stderr, timedOut, spawnError }) {
+export function classifyCliError({ stderr, timedOut, spawnError, tooLarge }) {
   if (spawnError === 'ENOENT') return { code: CODES.CLI_NOT_FOUND, message: 'The YouTrack CLI was not found.' }
+  if (spawnError) {
+    // Found but not runnable, such as a folder or a file without permission to run it.
+    return { code: CODES.CLI_NOT_FOUND, message: `The YouTrack CLI could not be started (${spawnError}). Check the YouTrack CLI path in the plugin settings.` }
+  }
+  if (tooLarge) return { code: CODES.UNKNOWN, message: 'The YouTrack CLI answered with more data than the plugin can read.' }
   if (timedOut) return { code: CODES.TIMEOUT, message: 'The YouTrack CLI did not answer in time.' }
   const err = parseCliError(stderr)
   if (!err) {
@@ -86,7 +91,7 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
 
   async function exec(args, timeoutMs, parse, extra = {}) {
     const r = await run(args, { timeoutMs, env: { ...CLI_ENV }, ...extra })
-    if (r.exitCode !== 0 || r.timedOut || r.spawnError) {
+    if (r.exitCode !== 0 || r.timedOut || r.spawnError || r.tooLarge) {
       const e = classifyCliError(r)
       return fail(e.code, e.message)
     }

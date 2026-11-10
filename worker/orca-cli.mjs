@@ -39,6 +39,7 @@ export function createOrcaCli({ bin, run = (args, opts) => runProcess(bin, args,
   /** Run a command and unwrap the `{ ok, result }` envelope printed on stdout. */
   async function exec(args, timeoutMs) {
     const r = await run(args, { timeoutMs })
+    if (r.tooLarge) return fail(CODES.ORCA_CLI_FAILED, 'The Orca CLI answered with more data than the plugin can read.')
     if (r.timedOut) return fail(CODES.TIMEOUT, 'The Orca CLI did not answer in time.')
     if (r.spawnError) return fail(CODES.ORCA_CLI_NOT_FOUND, 'The Orca CLI could not be started.')
     let env = null

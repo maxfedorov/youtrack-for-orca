@@ -23,8 +23,12 @@ function release() {
   else active--
 }
 
+/** Node's error code for output past `maxBuffer`. */
+const MAX_BUFFER_ERROR = 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'
+
 /**
- * @typedef {{ exitCode: number | null, stdout: string, stderr: string, timedOut: boolean, spawnError?: string }} ProcResult
+ * @typedef {{ exitCode: number | null, stdout: string, stderr: string, timedOut: boolean, spawnError?: string, tooLarge?: boolean }} ProcResult
+ * `tooLarge`: the output passed the buffer limit and the process was stopped (not a timeout).
  * Run a process (at most 4 at once). Never rejects.
  * `env` is merged over process.env; YOUTRACK_TOKEN / YOUTRACK_BASE_URL are always removed.
  * `onStderrLine` receives complete stderr lines as they arrive.
@@ -49,14 +53,17 @@ export async function runProcess(file, args, opts, execFileImpl = execFile) {
           (err, stdout, stderr) => {
             const out = { stdout: String(stdout ?? ''), stderr: String(stderr ?? '') }
             if (!err) return resolve({ exitCode: 0, ...out, timedOut: false })
-            const timedOut = Boolean(err.killed)
-            const spawnError = typeof err.code === 'string' ? err.code : undefined
+            // Node also kills a process whose output passes maxBuffer; that is not a timeout.
+            const tooLarge = err.code === MAX_BUFFER_ERROR
+            const timedOut = Boolean(err.killed) && !tooLarge
+            const spawnError = typeof err.code === 'string' && !tooLarge ? err.code : undefined
             const res = {
               exitCode: typeof err.code === 'number' ? err.code : null,
               ...out,
               timedOut
             }
             if (spawnError) res.spawnError = spawnError
+            if (tooLarge) res.tooLarge = true
             resolve(res)
           }
         )

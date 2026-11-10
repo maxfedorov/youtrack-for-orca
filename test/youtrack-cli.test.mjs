@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { resolveYoutrack, createYoutrack, classifyCliError } from '../worker/youtrack-cli.mjs'
 import { findOnPath, runProcess } from '../worker/exec.mjs'
 import { fakeRun } from './helpers.mjs'
+import { createOrcaCli } from '../worker/orca-cli.mjs'
 
 const fixture = (name) => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8'))
 const errors = fixture('yt-errors.json')
@@ -285,4 +286,21 @@ test('addComment sends the text on standard input and the id after --, as a writ
   assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'comment', 'create', '--text-file', '-', '--json', '--quiet', '--', 'DEMO-1'])
   assert.equal(run.calls[0].opts.input, '--not a flag\nsecond line')
   assert.equal(run.calls[0].opts.timeoutMs, 30_000)
+})
+
+test('output past the buffer limit is too large, not a timeout; an unrunnable CLI says to check its path', async () => {
+  const big = await runProcess('x', [], { timeoutMs: 1000 }, (f, a, o, cb) => {
+    cb(Object.assign(new Error('stdout maxBuffer length exceeded'), { killed: true, code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' }), 'partial', '')
+    return {}
+  })
+  assert.equal(big.timedOut, false)
+  assert.equal(big.tooLarge, true)
+  assert.equal('spawnError' in big, false)
+  assert.deepEqual(classifyCliError(big), { code: 'UNKNOWN', message: 'The YouTrack CLI answered with more data than the plugin can read.' })
+  assert.deepEqual(classifyCliError({ spawnError: 'EACCES' }), {
+    code: 'CLI_NOT_FOUND',
+    message: 'The YouTrack CLI could not be started (EACCES). Check the YouTrack CLI path in the plugin settings.'
+  })
+  const cli = createOrcaCli({ run: async () => ({ exitCode: null, stdout: '', stderr: '', timedOut: false, tooLarge: true }) })
+  assert.deepEqual(await cli.repos(), { ok: false, error: { code: 'ORCA_CLI_FAILED', message: 'The Orca CLI answered with more data than the plugin can read.' } })
 })
