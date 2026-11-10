@@ -2,11 +2,12 @@ import { atom, read, set } from 'orca'
 import { buildPrompt, issueVars, PROMPT_LIMIT } from '../worker/prompt.mjs'
 import { loadLinks } from './listState'
 import { call, notice, server, view } from './state'
+import { closeComboboxes } from './views/Combobox'
 import type { Repo, StartPrepare } from './protocol'
 
 export const OTHER = '__other__'
 export const NONE = '__none__'
-/** Select option value of the project default branch (a Select option cannot have an empty value). */
+/** Option value of the project default branch (an option cannot have an empty value). */
 export const PROJECT_DEFAULT = '__default__'
 export const DEBOUNCE_MS = 300
 export { PROMPT_LIMIT }
@@ -159,6 +160,7 @@ export function usableMode(p: StartPrepare, wanted: Mode): Mode {
 
 function init(p: StartPrepare): void {
   const known = p.agents.installed.includes(p.defaultAgent) || p.agents.other.includes(p.defaultAgent)
+  closeComboboxes()
   set(prep, p)
   set(mode, usableMode(p, p.orcaCli ? p.launchMode : 'current'))
   set(repoId, p.defaultRepoId)
@@ -208,6 +210,7 @@ export function back(): void {
   if (read(running)) return
   seq++
   cancelRefs()
+  closeComboboxes()
   set(loadedFor, null)
   set(prep, null)
   set(status, 'idle')

@@ -1,4 +1,4 @@
-import { Button, Callout, Checkbox, Field, Heading, Input, RadioGroup, Row, Select, Skeleton, Stack, Text, Textarea, read, set } from 'orca'
+import { Button, Callout, Checkbox, Field, Heading, Input, RadioGroup, Row, Skeleton, Stack, Text, Textarea, read, set } from 'orca'
 import {
   back, canStart, editPrompt, failure, includeDescription, load, loadedFor, mode, name, prep, prompt, PROMPT_LIMIT, resetPrompt,
   repoId, runError, running, setProject, status, submit, sync, toggleDescription, workspaceId, chosenAgent, currentAvailable, usableMode,
@@ -6,6 +6,7 @@ import {
 } from '../startState'
 import { AgentPicker } from './start/AgentPicker'
 import { BranchPicker } from './start/BranchPicker'
+import { Combobox } from './Combobox'
 import { server } from '../state'
 import type { StartPrepare } from '../protocol'
 
@@ -42,32 +43,26 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
       {p.workspacesError ? (
         <Text muted size="sm">{`Workspaces could not be loaded, so the current workspace is unavailable: ${p.workspacesError}`}</Text>
       ) : null}
-      <Field label="Project">
-        <Select
-          label="Project"
-          labelHidden
-          value={read(repoId) ?? undefined}
-          placeholder="Choose a project"
-          disabled={!worktree}
-          options={p.repos.map((repo) => ({ value: repo.id, label: repo.name }))}
-          onChange={setProject}
-        />
-      </Field>
+      <Combobox
+        label="Project"
+        value={read(repoId)}
+        placeholder="Choose a project"
+        disabled={!worktree}
+        options={p.repos.map((repo) => ({ value: repo.id, label: repo.name }))}
+        onChange={setProject}
+      />
       <Field label="Name">
         <Input label="Name" labelHidden value={read(name)} disabled={!worktree} onChange={(value) => set(name, value)} />
       </Field>
       <BranchPicker enabled={worktree} />
-      <Field label="Workspace">
-        <Select
-          label="Workspace"
-          labelHidden
-          value={read(workspaceId) ?? undefined}
-          placeholder="Choose a workspace"
-          disabled={worktree}
-          options={p.workspaces.map((item) => ({ value: item.id, label: item.project ? `${item.name} — ${item.project}` : item.name }))}
-          onChange={(value) => set(workspaceId, value)}
-        />
-      </Field>
+      <Combobox
+        label="Workspace"
+        value={read(workspaceId)}
+        placeholder="Choose a workspace"
+        disabled={worktree}
+        options={p.workspaces.map((item) => ({ value: item.id, label: item.project ? `${item.name} — ${item.project}` : item.name }))}
+        onChange={(value) => set(workspaceId, value)}
+      />
       {worktree ? null : (
         <Callout tone="warning">
           <Text>The agent works in this folder on its current branch. No new branch is created.</Text>

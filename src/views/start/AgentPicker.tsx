@@ -1,9 +1,9 @@
-import { Field, Input, Select, Stack, Text, read, set } from 'orca'
+import { Field, Input, Stack, Text, read, set } from 'orca'
 import { agentChoice, NONE, OTHER, otherAgent, prep } from '../../startState'
+import { Combobox } from '../Combobox'
 
 const title = (id: string) => id.charAt(0).toUpperCase() + id.slice(1)
 
-/** The catalog has no grouped Select, so the group is part of each label. */
 export function AgentPicker() {
   const p = read(prep)
   if (!p) return null
@@ -11,19 +11,17 @@ export function AgentPicker() {
   const known = [...p.agents.installed, ...p.agents.other]
   const extra = choice !== NONE && choice !== OTHER && !known.includes(choice) ? [choice] : []
   const options = [
-    ...p.agents.installed.map((id) => ({ value: id, label: `Installed — ${title(id)}` })),
-    ...[...p.agents.other, ...extra].map((id) => ({ value: id, label: `Other — ${title(id)}` })),
-    { value: OTHER, label: 'Other…' },
+    ...p.agents.installed.map((id) => ({ value: id, label: title(id), group: 'Installed' })),
+    ...[...p.agents.other, ...extra].map((id) => ({ value: id, label: title(id), group: 'Other agents' })),
+    { value: OTHER, label: 'Other…', description: 'Type an agent id' },
     { value: NONE, label: 'None (terminal only)' }
   ]
   return (
     <Stack gap="xs">
-      <Field label="Agent">
-        <Select label="Agent" labelHidden value={choice} options={options} onChange={(value) => set(agentChoice, value)} />
-      </Field>
+      <Combobox label="Agent" value={choice} options={options} onChange={(value) => set(agentChoice, value)} />
       {p.agentsError ? (
         <Text muted size="sm">
-          Installed agents could not be detected. Every agent is listed under Other.
+          Installed agents could not be detected. Every agent is listed under Other agents.
         </Text>
       ) : null}
       {choice === OTHER ? (

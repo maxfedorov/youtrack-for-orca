@@ -1,5 +1,6 @@
 import { assert, mount, mockHost, test } from 'orca/testing'
 import * as panel from '../src/panel'
+import { optionsOf, shown } from './combo'
 
 const ok = <T,>(data: T) => ({ ok: true as const, data })
 const fail = (code: string, message: string) => ({ ok: false as const, error: { code, message } })
@@ -254,10 +255,10 @@ test('start without agent detection lists every agent under other, with a manual
   })
   const view = await openStart(host)
   clean(view)
-  assert.ok(view.find({ text: 'Installed agents could not be detected. Every agent is listed under Other.' }))
-  const labels = view.find({ type: 'Select', label: 'Agent' }).props.options.map((o: any) => o.label)
-  assert.deepEqual(labels, ['Other — Claude', 'Other — Codex', 'Other…', 'None (terminal only)'])
-  assert.equal(view.find({ type: 'Select', label: 'Agent' }).props.value, 'claude')
+  assert.ok(view.find({ text: 'Installed agents could not be detected. Every agent is listed under Other agents.' }))
+  assert.deepEqual((await optionsOf(view, 'Agent')).map((o) => o.label), ['Claude', 'Codex', 'Other…', 'None (terminal only)'])
+  assert.equal(view.find({ text: 'Installed' }), null)
+  assert.equal(shown(view, 'Agent'), 'Claude')
   await view.unmount()
 })
 
@@ -266,7 +267,7 @@ test('start with branches that fail offers only the project default with a note'
   const view = await openStart(host)
   clean(view)
   assert.equal(danger(view).length, 0)
-  assert.deepEqual(view.find({ type: 'Select', label: 'Create from' }).props.options.map((o: any) => o.label), ['Project default'])
+  assert.deepEqual((await optionsOf(view, 'Create from')).map((o) => o.label), ['Project default'])
   assert.ok(view.find({ text: 'Branches could not be loaded, so only the project default is offered. git failed' }))
   await view.press(startButton)
   assert.equal('baseBranch' in calls(host, 'yt.start.run')[0].input, false)
@@ -345,10 +346,11 @@ test('a start answer with odd projects, workspaces or variables keeps the rest',
   const view = await openStart(host)
   clean(view)
   assert.equal(danger(view).length, 0)
-  assert.deepEqual(view.find({ type: 'Select', label: 'Project' }).props.options, [{ value: 'r1', label: 'alpha' }])
-  assert.deepEqual(view.find({ type: 'Select', label: 'Workspace' }).props.options.map((o: any) => o.value), ['w1'])
+  assert.deepEqual(await optionsOf(view, 'Project'), [{ value: 'r1', label: 'alpha' }])
+  await view.select({ type: 'RadioGroup', label: 'Run in' }, 'current')
+  assert.deepEqual((await optionsOf(view, 'Workspace')).map((o) => o.value), ['w1'])
   assert.equal(view.find({ type: 'Textarea', label: 'Prompt' }).props.value, 'Do DEMO-1 ')
-  assert.ok(view.find({ text: 'Installed agents could not be detected. Every agent is listed under Other.' }))
+  assert.ok(view.find({ text: 'Installed agents could not be detected. Every agent is listed under Other agents.' }))
   await view.unmount()
 })
 
@@ -356,6 +358,6 @@ test('odd branch names are left out and the others are offered', async () => {
   const host = mockHost({ requests: requests({ 'yt.refs.search': ok({ refs: ['main', null, 4, 'dev'] }) }) })
   const view = await openStart(host)
   clean(view)
-  assert.deepEqual(view.find({ type: 'Select', label: 'Create from' }).props.options.map((o: any) => o.value), ['__default__', 'main', 'dev'])
+  assert.deepEqual((await optionsOf(view, 'Create from')).map((o) => o.value), ['__default__', 'main', 'dev'])
   await view.unmount()
 })
