@@ -3,8 +3,12 @@ import { CODES } from './result.mjs'
 import { toServers } from './mapping.mjs'
 
 const ITEM = 'count'
-const DEFAULT_INTERVAL_MS = 300_000
 const SIGN_IN_CODES = new Set([CODES.AUTH_FAILED, CODES.NO_SERVERS])
+/** Hours and minutes in the person's time zone. */
+const clock = (ms) => {
+  const d = new Date(ms)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
 /** Tooltips stay one short line. */
 const short = (text) => {
   const line = String(text ?? '').split(/\r?\n/)[0].trim()
@@ -18,19 +22,14 @@ const short = (text) => {
  *   getYoutrack?: () => Promise<ReturnType<typeof import('./youtrack-cli.mjs').createYoutrack> | null>,
  *   state: ReturnType<typeof import('./state.mjs').createStateStore>,
  *   settings: { get(key: string): Promise<any> },
- *   intervalMs?: number,
- *   setInterval?: typeof globalThis.setInterval,
- *   clearInterval?: typeof globalThis.clearInterval
+ *   now?: () => number
  * }} o
+ * The count is taken on start and after the panel's searches and changes, never on a timer, so the
+ * plugin sends no requests while nobody uses it.
  */
-export function createStatusBar({
-  host, youtrack: youtrack0, getYoutrack, state, settings,
-  intervalMs = DEFAULT_INTERVAL_MS,
-  setInterval: setTimer = globalThis.setInterval,
-  clearInterval: clearTimer = globalThis.clearInterval
-}) {
-  let lastText = null
-  let timer = null
+export function createStatusBar({ host, youtrack: youtrack0, getYoutrack, state, settings, now = Date.now }) {
+  /** When the count last succeeded, for the tooltip of a later failure. */
+  let lastCounted = null
   const update = (patch) => host.call('statusBar.update', { id: ITEM, ...patch })
 
   /** `where` names the server and query of a failed count, when it got that far. */
@@ -58,12 +57,17 @@ export function createStatusBar({
   /** The tooltip of a failed count: what went wrong, in a line. */
   function failureTooltip(r) {
     const message = short(r.error?.message)
-    if (r.error?.code === CODES.NO_SERVERS) return 'No YouTrack server. Open the panel to add one.'
-    if (r.error?.code === CODES.AUTH_FAILED) return `Signed out of ${r.alias ?? 'the server'}. Open the panel to sign in again.`
-    if (r.error?.code === CODES.QUERY_INVALID) {
-      return `The query ${r.where ?? ''} is not valid${message ? `: ${message}` : ''}`
+    const code = r.error?.code
+    if (code === CODES.NO_SERVERS) return 'No YouTrack server. Open the panel to add one.'
+    if (code === CODES.AUTH_FAILED) return `Signed out of ${r.alias ?? 'the server'}. Open the panel to sign in again.`
+    if (code === CODES.QUERY_INVALID) return `The query ${r.where ?? ''} is not valid${message ? `: ${message}` : ''}`
+    const since = lastCounted == null ? '' : ` Last counted at ${clock(lastCounted)}.`
+    if (code === CODES.NETWORK || code === CODES.TIMEOUT) {
+      // The CLI's own text ends with the cause ("…: connect: connection refused").
+      const cause = code === CODES.TIMEOUT ? 'no answer in time' : message.split(': ').at(-1)
+      return `${r.alias ?? 'The server'} is not reachable${cause ? `: ${cause}` : ''}.${since}`
     }
-    return `The count could not be updated${r.where ? ` (${r.where})` : ''}${message ? `: ${message}` : ''}`
+    return `The count could not be updated${r.where ? ` (${r.where})` : ''}${message ? `: ${message}` : ''}.${since}`
   }
 
   async function refresh() {
@@ -72,23 +76,12 @@ export function createStatusBar({
       if (!youtrack) return await update({ visible: false })
       const r = await compute(youtrack)
       if (r.ok) {
-        lastText = `YT: ${r.data.count}`
-        return await update({ text: lastText, tooltip: r.data.tooltip, tone: 'neutral', visible: true })
+        lastCounted = now()
+        return await update({ text: `YT: ${r.data.count}`, tooltip: r.data.tooltip, tone: 'neutral', visible: true })
       }
-      const tooltip = failureTooltip(r)
-      if (SIGN_IN_CODES.has(r.error.code)) {
-        lastText = 'YT: !'
-        return await update({ text: lastText, tooltip, tone: 'warning', visible: true })
-      }
-      if (r.error.code === CODES.QUERY_INVALID) {
-        // No count can be shown for a query that does not parse, so none is kept either.
-        lastText = 'YT: ?'
-        return await update({ text: lastText, tooltip, tone: 'warning', visible: true })
-      }
-      // Network trouble or anything else: keep what is shown, only flag it.
-      const patch = { tooltip, tone: 'warning', visible: true }
-      if (lastText) patch.text = lastText
-      await update(patch)
+      // A failed count shows no number: an old one would read as the current count.
+      const text = SIGN_IN_CODES.has(r.error.code) ? 'YT: !' : r.error.code === CODES.QUERY_INVALID ? 'YT: ?' : 'YT: –'
+      await update({ text, tooltip: failureTooltip(r), tone: 'warning', visible: true })
     } catch {
       // the status bar is best effort
     }
@@ -96,19 +89,9 @@ export function createStatusBar({
 
   return {
     refresh,
-    async start() {
-      await refresh()
-      try {
-        if (!timer) timer = setTimer(refresh, intervalMs)
-        timer?.unref?.()
-      } catch {
-        // without a timer the count is still refreshed after changes
-      }
-    },
-    stop() {
-      if (timer) clearTimer(timer)
-      timer = null
-    }
+    start: refresh,
+    /** Nothing runs on its own, so there is nothing to stop. */
+    stop() {}
   }
 }
 

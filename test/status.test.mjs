@@ -18,15 +18,12 @@ function setup({ count = ok(7), instances = ok(SERVERS), youtrack, stored } = {}
     instances: async () => instances,
     countIssues: async (s, q) => (counted.push([s, q]), count),
   }
-  const timers = []
-  const cleared = []
   const bar = createStatusBar({
     host: orca.host, youtrack: yt, state, settings: orca.settings,
-    setInterval: (fn, ms) => (timers.push({ fn, ms }), timers.length),
-    clearInterval: (id) => cleared.push(id),
+    now: () => new Date(2026, 0, 1, 9, 5).getTime(),
   })
   const updates = () => orca.hostCalls.filter((c) => c.method === 'statusBar.update').map((c) => c.params)
-  return { bar, updates, counted, timers, cleared, orca, state }
+  return { bar, updates, counted, orca, state }
 }
 
 test('shows count', async () => {
@@ -72,22 +69,23 @@ test('counts the query last run on the server, and the default query before any'
   assert.deepEqual(counted.at(-1), ['two', 'state: Open'])
 })
 
-test('network error keeps the last text', async () => {
-  const s = setup()
-  await s.bar.refresh()
-  const yt = { instances: async () => ok(SERVERS), countIssues: async () => fail('NETWORK', 'down') }
-  const s2 = setup({ youtrack: yt })
-  await s2.bar.refresh()
-  assert.equal('text' in s2.updates().at(-1), false)
-  assert.equal(s2.updates().at(-1).tone, 'warning')
-  assert.equal(s2.updates().at(-1).tooltip, 'The count could not be updated (two: for: me): down')
+test('an unreachable server shows YT: – with the cause and when it last counted, without the old number', async () => {
   let n = 0
-  const flaky = setup({ youtrack: { instances: async () => ok(SERVERS), countIssues: async () => (n++ ? fail('TIMEOUT', 'slow') : ok(3)) } })
-  await flaky.bar.refresh()
-  await flaky.bar.refresh()
-  const u = flaky.updates().at(-1)
-  assert.equal(u.text, 'YT: 3')
-  assert.equal(u.tone, 'warning')
+  const refused = 'Post "http://localhost:8088/api/issuesGetter/count?fields=count": dial tcp [::1]:8088: connect: connection refused'
+  const s = setup({ youtrack: { instances: async () => ok(SERVERS), countIssues: async () => (n++ ? fail('NETWORK', refused) : ok(3)) } })
+  await s.bar.refresh()
+  await s.bar.refresh()
+  assert.deepEqual(s.updates().at(-1), {
+    id: 'count', text: 'YT: –', tone: 'warning', visible: true,
+    tooltip: 'two is not reachable: connection refused. Last counted at 09:05.'
+  })
+  const slow = setup({ count: fail('TIMEOUT', 'slow') })
+  await slow.bar.refresh()
+  assert.deepEqual(slow.updates().at(-1), { id: 'count', text: 'YT: –', tone: 'warning', visible: true, tooltip: 'two is not reachable: no answer in time.' })
+  const odd = setup({ count: fail('UNKNOWN', 'boom') })
+  await odd.bar.refresh()
+  assert.equal(odd.updates().at(-1).text, 'YT: –')
+  assert.equal(odd.updates().at(-1).tooltip, 'The count could not be updated (two: for: me): boom.')
 })
 
 test('no CLI hides the item', async () => {
@@ -96,15 +94,19 @@ test('no CLI hides the item', async () => {
   assert.deepEqual(updates(), [{ id: 'count', visible: false }])
 })
 
-test('start refreshes and polls, stop clears the timer', async () => {
-  const { bar, updates, timers, cleared } = setup()
-  await bar.start()
+test('start counts once and nothing runs on a timer', async () => {
+  const { bar, updates } = setup()
+  const real = globalThis.setInterval
+  let timers = 0
+  globalThis.setInterval = (...a) => (timers++, real(...a))
+  try {
+    await bar.start()
+  } finally {
+    globalThis.setInterval = real
+  }
   assert.equal(updates().length, 1)
-  assert.equal(timers[0].ms, 300000)
-  await timers[0].fn()
-  assert.equal(updates().length, 2)
+  assert.equal(timers, 0)
   bar.stop()
-  assert.deepEqual(cleared, [1])
 })
 
 test('refreshAfter refreshes only after a successful answer', async () => {
