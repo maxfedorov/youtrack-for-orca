@@ -1,3 +1,4 @@
+import { BUILT_IN } from '../worker/templates.mjs'
 import { test, assert } from 'orca/testing'
 import { registerHandlers } from '../worker/handlers.mjs'
 import { createLinkStore, createLaunchTracker } from '../worker/links.mjs'
@@ -171,7 +172,9 @@ test('start.prepare uses defaults when the settings cannot be read', async () =>
   assert.equal(r.data.name, 'demo-1-fix-demo-1')
   assert.equal(r.data.launchMode, 'worktree')
   assert.equal(r.data.defaultAgent, '')
-  assert.equal(r.data.promptTemplate, '')
+  // The old prompt setting cannot be read, so it is not imported: the built-in default is used.
+  assert.equal(r.data.defaultTemplateId, 'implement')
+  assert.equal(r.data.promptTemplate, BUILT_IN[0].body)
 })
 
 test('start.prepare builds vars with empty text for missing issue parts', async () => {

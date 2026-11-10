@@ -4,6 +4,7 @@ import { toIssueDetail } from '../mapping.mjs'
 import { issueVars, workspaceName, PROMPT_LIMIT } from '../prompt.mjs'
 import { AGENTS } from '../agents.mjs'
 import { workspaceItems } from '../workspaces.mjs'
+import { BUILT_IN } from '../templates.mjs'
 import { safeHandle, shortMessage, unexpected, hasId, invalid, token, issueUrl, ISSUE_ID, settingString, isPlainUrl, capDetail, AGENT_ID, INSTALL, attempt, fallback, readSetting } from './common.mjs'
 
 const DEFAULT_BRANCH_TEMPLATE = '{{id_lower}}-{{summary_slug}}'
@@ -16,7 +17,7 @@ const NOT_SAVED = 'Started, but the plugin could not save it: this issue may not
 const inside = (dir, p) => p === dir || p.startsWith(dir.replace(/[\\/]+$/, '') + '/') || p.startsWith(dir.replace(/[\\/]+$/, '') + '\\')
 
 export function registerStartHandlers(ctx) {
-  const { orca, orcaCli, links, launches, detectAgents, now, platform, resolveServer } = ctx
+  const { orca, orcaCli, links, launches, templates, detectAgents, now, platform, resolveServer } = ctx
   const handle = (name, fn) => safeHandle(orca, name, fn)
   const host = (method, params) => orca.host.call(method, params)
   /**
@@ -82,6 +83,10 @@ export function registerStartHandlers(ctx) {
     const vars = issueVars({ issue, server: s.data.alias, branch: '' })
     const get = (k) => readSetting(orca, k)
     const agents = await fallback(() => detectAgents(), null)
+    // Templates that cannot be read fall back to the built-ins.
+    const stored = await attempt(() => templates.list())
+    const prompts = stored.ok ? stored.data : { templates: BUILT_IN, defaultId: BUILT_IN[0].id }
+    const chosenTemplate = prompts.templates.find((t) => t.id === prompts.defaultId) ?? prompts.templates[0]
     const defaultAgent = settingString(await get('defaultAgent'), '')
     const workspaces = ws.ok ? ws.data.list : []
     const active = await activeWorkspace(workspaces)
@@ -99,7 +104,9 @@ export function registerStartHandlers(ctx) {
       defaultAgent: AGENT_ID.test(defaultAgent) ? defaultAgent : '',
       launchMode: (await get('defaultLaunchMode')) === 'current' ? 'current' : 'worktree',
       includeDescription: (await get('includeDescription')) === true,
-      promptTemplate: settingString(await get('promptTemplate'), ''),
+      templates: prompts.templates.map(({ id, name, body }) => ({ id, name, body })),
+      defaultTemplateId: chosenTemplate ? chosenTemplate.id : null,
+      promptTemplate: chosenTemplate ? chosenTemplate.body : '',
       vars,
       workspaces: workspaceItems(workspaces, repoList, ctx.homedir),
       defaultWorkspaceId: active ? active.id : null

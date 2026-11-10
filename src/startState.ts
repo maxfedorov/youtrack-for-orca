@@ -36,6 +36,8 @@ export const workspaceId = atom<string | null>(null)
 export const agentChoice = atom(NONE)
 export const otherAgent = atom('')
 export const includeDescription = atom(true)
+/** The chosen prompt template; null when the answer listed none (the prompt template text is used). */
+export const templateId = atom<string | null>(null)
 export const prompt = atom('')
 export const promptEdited = atom(false)
 export const running = atom(false)
@@ -74,9 +76,19 @@ export const repoOf = (list: Repo[], id: string | null) => list.find((repo) => r
 /** Every issue variable the templates know; one the answer left out is empty text. */
 const EMPTY_VARS: Record<string, string> = issueVars({ issue: null, server: '' })
 
-export function templatePrompt(p: StartPrepare, include: boolean): string {
+/** Text of the chosen template, or the prompt template when none is chosen. */
+const templateText = (p: StartPrepare, id: string | null) => (p.templates ?? []).find((t) => t.id === id)?.body ?? p.promptTemplate
+
+export function templatePrompt(p: StartPrepare, include: boolean, id: string | null = read(templateId)): string {
   const vars = { ...EMPTY_VARS, ...p.vars }
-  return buildPrompt({ template: p.promptTemplate, vars, includeDescription: include, description: vars.description })
+  return buildPrompt({ template: templateText(p, id), vars, includeDescription: include, description: vars.description })
+}
+
+/** Another template: the prompt is built from it again, unless it was edited by hand. */
+export function chooseTemplate(id: string): void {
+  set(templateId, id)
+  const p = read(prep)
+  if (p && !read(promptEdited)) set(prompt, templatePrompt(p, read(includeDescription), id))
 }
 
 /** The agent id to send, or undefined for terminal only or an empty custom id. */
@@ -194,8 +206,11 @@ function init(p: StartPrepare): void {
   set(agentChoice, p.defaultAgent && (known || /^[a-z0-9][a-z0-9-]{0,63}$/.test(p.defaultAgent)) ? p.defaultAgent : NONE)
   set(otherAgent, '')
   set(includeDescription, p.includeDescription)
+  const templates = p.templates ?? []
+  const chosen = templates.find((t) => t.id === p.defaultTemplateId) ?? templates[0]
+  set(templateId, chosen ? chosen.id : null)
   set(promptEdited, false)
-  set(prompt, templatePrompt(p, p.includeDescription))
+  set(prompt, templatePrompt(p, p.includeDescription, chosen ? chosen.id : null))
   set(running, false)
   set(runError, '')
   set(startPending, false)

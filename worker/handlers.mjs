@@ -8,6 +8,8 @@ import { fail, ok, CODES } from './result.mjs'
 import { toServers } from './mapping.mjs'
 import { registerYoutrackHandlers } from './handlers/youtrack.mjs'
 import { registerStartHandlers } from './handlers/start.mjs'
+import { registerSettingsHandlers } from './handlers/settings.mjs'
+import { createTemplateStore } from './templates.mjs'
 
 /**
  * @param {any} orca the worker's `orca` object
@@ -17,11 +19,13 @@ import { registerStartHandlers } from './handlers/start.mjs'
  *   links: ReturnType<typeof import('./links.mjs').createLinkStore>,
  *   launches: ReturnType<typeof import('./links.mjs').createLaunchTracker>,
  *   state: ReturnType<typeof import('./state.mjs').createStateStore>,
+ *   templates?: ReturnType<typeof import('./templates.mjs').createTemplateStore>,
  *   detectAgents: () => { installed: string[], other: string[] },
  *   now: () => number,
  *   platform?: string,
  *   homedir?: string
- * }} deps `platform` defaults to `process.platform`, `homedir` to the user's home folder
+ * }} deps `platform` defaults to `process.platform`, `homedir` to the user's home folder; `templates`
+ *   to a store in the plugin's storage that imports the old `promptTemplate` setting
  */
 export function registerHandlers(orca, deps) {
   /** The youtrack CLI as last resolved; null when it is not installed. */
@@ -42,8 +46,10 @@ export function registerHandlers(orca, deps) {
     const found = toServers(r.data).find((s) => s.alias === alias)
     return found ? ok(found) : fail(CODES.UNKNOWN, 'Unknown server')
   }
-  const ctx = { ...deps, platform: deps.platform ?? process.platform, homedir: deps.homedir ?? os.homedir(), orca, resolveServer, refreshYoutrack }
+  const templates = deps.templates ?? createTemplateStore(orca.storage, { legacy: () => orca.settings.get('promptTemplate') })
+  const ctx = { ...deps, templates, platform: deps.platform ?? process.platform, homedir: deps.homedir ?? os.homedir(), orca, resolveServer, refreshYoutrack }
   Object.defineProperty(ctx, 'youtrack', { get: current, enumerable: true })
   registerYoutrackHandlers(ctx)
   registerStartHandlers(ctx)
+  registerSettingsHandlers(ctx)
 }

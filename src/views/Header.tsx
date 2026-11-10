@@ -4,6 +4,7 @@ import { openAddServer } from './Setup'
 import { call, env, panelError, server } from '../state'
 import { askRemove } from '../removeServer'
 import { RemoveServerQuestion } from './RemoveServer'
+import { openSettings } from '../settingsState'
 
 export function signIn(url: string): void {
   void call('yt.terminal.run', { command: 'login', url }).then((answer) => {
@@ -29,7 +30,8 @@ export function Header() {
   return (
     <Stack gap="xs">
       {/*
-        One row of controls right after the Select: the server actions next to it, then refresh. Bottom-aligned, so the buttons line up with the Select control rather than its label;
+        One row of controls right after the Select: the server actions next to it, then refresh and
+        settings. Bottom-aligned, so the buttons line up with the Select control rather than its label;
         all are 32 px high (Select and IconButton size sm). It wraps when the panel is narrow.
       */}
       <Row gap="xs" align="end" wrap>
@@ -49,6 +51,7 @@ export function Header() {
           onPress={() => (current ? askRemove(current.alias, 'header') : undefined)}
         />
         <IconButton icon="refresh" variant="ghost" label="Refresh" onPress={() => void refreshAll()} />
+        <IconButton icon="settings" variant="ghost" label="Prompt templates and servers" onPress={openSettings} />
       </Row>
       <RemoveServerQuestion from="header" />
       {current && current.status !== 'authenticated' ? (

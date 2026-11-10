@@ -125,7 +125,7 @@ test('the header controls sit together right after the server choice, lined up w
   assert.equal(row.props.align, 'end')
   assert.equal(row.props.justify, undefined)
   const controls = row.children.map((c: any) => (c.type === 'Select' ? 'Select' : c.props.label))
-  assert.deepEqual(controls, ['Select', 'Add server', 'Remove server', 'Refresh'])
+  assert.deepEqual(controls, ['Select', 'Add server', 'Remove server', 'Refresh', 'Prompt templates and servers'])
   for (const c of row.children) if (c.type === 'IconButton') assert.equal(c.props.size ?? 'sm', 'sm')
   await view.unmount()
 })

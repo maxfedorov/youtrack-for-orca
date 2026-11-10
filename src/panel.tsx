@@ -6,6 +6,7 @@ import { Header } from './views/Header'
 import { IssueDetail } from './views/IssueDetail'
 import { IssueList } from './views/IssueList'
 import { StartView } from './views/StartView'
+import { Settings } from './views/Settings'
 import { onAdded, authUrl, AddServer, Setup } from './views/Setup'
 
 /** Runs once before the first render. */
@@ -49,7 +50,7 @@ function Screen() {
     case 'start':
       return <StartView id={current.issueId ?? ''} />
     case 'settings':
-      return null
+      return <Settings />
   }
 }
 

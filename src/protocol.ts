@@ -32,6 +32,9 @@ export type SavedQuery = { id: string; name: string; query: string }
 export type Repo = { id: string; name: string; path?: string; worktreeBaseRef?: string }
 /** `project`: the listed project, the repository holding the folder, or the folder name; `path` is shortened for display. */
 export type WorkspaceItem = { id: string; name: string; project?: string; branch?: string; path?: string }
+/** A named prompt template; `builtIn`: one of the five the plugin ships (Restore puts them back). */
+export type Template = { id: string; name: string; body: string; builtIn?: true }
+export type Templates = { templates: Template[]; defaultId: string }
 export type StartPrepare = {
   repos: Repo[]
   /** Set when the repository list could not be read; new worktrees are then unavailable. */
@@ -49,6 +52,10 @@ export type StartPrepare = {
   defaultAgent: string
   launchMode: 'worktree' | 'current'
   includeDescription: boolean
+  /** The prompt templates to choose from; the default one is chosen first. */
+  templates: { id: string; name: string; body: string }[]
+  defaultTemplateId: string | null
+  /** Text of the default template. */
   promptTemplate: string
   /** Template variables; render with ../worker/prompt.mjs. `branch` is ''. */
   vars: Record<string, string>
@@ -113,6 +120,15 @@ declare module 'orca' {
     'yt.workspace.open': { input: { workspaceId: string }; output: Result<Record<string, never>> }
     /** Opens a terminal in the active workspace; `url` is required for 'login'. */
     'yt.terminal.run': { input: { command: 'install' | 'login'; url?: string }; output: Result<Record<string, never>> }
+    /** The prompt templates; the built-ins (and a changed old prompt setting) are set up on first use. */
+    'yt.templates': { input: Record<string, never>; output: Result<Templates> }
+    /** Creates (no `id`) or changes a template; name 1..60, body 1..8000 characters, at most 30 templates. */
+    'yt.templates.save': { input: { id?: string; name: string; body: string }; output: Result<Templates & { id: string }> }
+    /** The last template cannot be deleted; the default moves to the first one left. */
+    'yt.templates.delete': { input: { id: string }; output: Result<Templates> }
+    'yt.templates.setDefault': { input: { id: string }; output: Result<Templates> }
+    /** Puts back the five built-ins as shipped; the person's own templates stay. */
+    'yt.templates.restore': { input: Record<string, never>; output: Result<Templates> }
     /**
      * Removes the server from the youtrack CLI (signing it out) and forgets its saved query, links,
      * launches and projects. `warning`: removed, but some of that could not be forgotten.

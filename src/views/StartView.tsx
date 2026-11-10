@@ -2,7 +2,7 @@ import { Button, Callout, Checkbox, Field, Heading, Input, RadioGroup, Row, Skel
 import {
   back, canStart, editPrompt, failure, includeDescription, load, loadedFor, mode, name, prep, prompt, PROMPT_LIMIT, resetPrompt,
   repoId, runError, running, setProject, status, submit, sync, toggleDescription, workspaceId, chosenAgent, currentAvailable, usableMode,
-  worktreeAvailable, workspaceOptions
+  worktreeAvailable, workspaceOptions, templateId, chooseTemplate
 } from '../startState'
 import { AgentPicker } from './start/AgentPicker'
 import { BranchPicker } from './start/BranchPicker'
@@ -76,6 +76,16 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
         disabled={!agent}
         onChange={toggleDescription}
       />
+      {p.templates.length > 0 ? (
+        <Combobox
+          label="Template"
+          value={read(templateId)}
+          placeholder="Choose a template"
+          disabled={!agent}
+          options={p.templates.map((t) => ({ value: t.id, label: t.name }))}
+          onChange={chooseTemplate}
+        />
+      ) : null}
       <Field label="Prompt">
         <Textarea label="Prompt" labelHidden rows={8} value={read(prompt)} disabled={!agent} onChange={editPrompt} />
       </Field>

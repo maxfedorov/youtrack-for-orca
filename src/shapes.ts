@@ -79,6 +79,14 @@ const fixIssues = (v: Obj): Obj => {
   return out
 }
 
+const template = shape({ id, name: str, body: str })
+/** Templates of an unexpected shape are left out; the default falls to the first one left. */
+function fixTemplates(v: Obj): Obj {
+  const templates = keep(v.templates, template)
+  const defaultId = templates.some((t) => (t as Obj).id === v.defaultId) ? v.defaultId : ((templates[0] as Obj | undefined)?.id ?? '')
+  return { ...v, templates, defaultId }
+}
+
 /** Only the entries of the expected shape; the list itself must be a list. */
 const keep = (v: unknown, c: Check) => (Array.isArray(v) ? v.filter(c) : [])
 /** Only the string values of a record. */
@@ -109,8 +117,11 @@ function fixPrepare(v: Obj): Obj {
     vars: strings(v.vars),
     agents: detected ? agents : { installed: [], other: [...keep(agents.installed, str), ...keep(agents.other, str)] },
     defaultRepoId: or(str, v.defaultRepoId, null),
-    defaultWorkspaceId: or(str, v.defaultWorkspaceId, null)
+    defaultWorkspaceId: or(str, v.defaultWorkspaceId, null),
+    templates: keep(v.templates, template).map((t) => ({ id: (t as Obj).id, name: (t as Obj).name, body: (t as Obj).body }))
   }
+  const templates = out.templates as Obj[]
+  out.defaultTemplateId = templates.some((t) => t.id === v.defaultTemplateId) ? v.defaultTemplateId : (templates[0]?.id ?? null)
   for (const key of ['reposError', 'workspacesError', 'agentsError']) if (!str(v[key])) delete out[key]
   if (!detected && !str(v.agentsError)) out.agentsError = 'Installed agents could not be detected.'
   return out
@@ -128,6 +139,11 @@ const REPAIRS: Record<string, { core: Check; fix: (v: Obj) => unknown }> = {
     }),
     fix: fixPrepare
   },
+  'yt.templates': { core: shape({ templates: Array.isArray }), fix: fixTemplates },
+  'yt.templates.save': { core: shape({ templates: Array.isArray, id: str }), fix: fixTemplates },
+  'yt.templates.delete': { core: shape({ templates: Array.isArray }), fix: fixTemplates },
+  'yt.templates.setDefault': { core: shape({ templates: Array.isArray }), fix: fixTemplates },
+  'yt.templates.restore': { core: shape({ templates: Array.isArray }), fix: fixTemplates },
   'yt.issues.search': { core: shape({ issues: Array.isArray, hasMore: bool }), fix: fixIssues },
   'yt.issue.get': { core: shape({ id, url: str }), fix: fixDetail },
   'yt.issue.comments': {

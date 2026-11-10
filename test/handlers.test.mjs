@@ -690,3 +690,59 @@ test('servers.remove still succeeds with a warning when the stored data cannot b
   assert.equal(r.ok, true)
   assert.match(r.data.warning, /removed/i)
 })
+
+const REPOS = [
+  { id: 'r1', name: 'demo-repo', path: '/p/demo-repo' },
+  { id: 'r2', name: 'other-repo', path: '/p/other-repo' },
+  { id: 'r3', name: 'third-repo', path: '/p/third-repo' },
+]
+const threeRepos = () => fakeCli({ repos: async () => ok(REPOS) })
+
+test('start.prepare offers the templates with the default one as the prompt', async () => {
+  const { call } = setup({ settings: { promptTemplate: undefined } })
+  const r = await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.deepEqual(r.data.templates.map((t) => t.id), ['implement', 'bugfix', 'tests', 'plan', 'refactor'])
+  assert.equal(r.data.defaultTemplateId, 'implement')
+  assert.equal(r.data.promptTemplate, r.data.templates[0].body)
+  strict(r)
+})
+
+test('start.prepare imports a changed prompt setting as the default template', async () => {
+  const { call } = setup()
+  const r = await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  const mine = r.data.templates.find((t) => t.id === r.data.defaultTemplateId)
+  assert.deepEqual({ name: mine.name, body: mine.body }, { name: 'My template', body: 'Do {{id}}' })
+})
+
+test('start.prepare still answers with the built-ins when the templates cannot be read', async () => {
+  const { call, orca } = setup()
+  const get = orca.storage.get
+  orca.storage.get = async (key) => {
+    if (key === 'templates') throw new Error('broken')
+    return get(key)
+  }
+  const r = await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.equal(r.ok, true)
+  assert.equal(r.data.defaultTemplateId, 'implement')
+  assert.equal(r.data.templates.length, 5)
+})
+
+test('template requests create, edit, delete, mark the default and restore', async () => {
+  const { call } = setup({ settings: { promptTemplate: undefined } })
+  const created = await call('yt.templates.save', { name: 'Docs', body: 'Write docs for {{id}}' })
+  assert.equal(created.ok, true)
+  const id = created.data.id
+  assert.equal((await call('yt.templates.setDefault', { id })).data.defaultId, id)
+  assert.equal((await call('yt.templates.save', { id, name: 'Docs!', body: 'B' })).data.templates.at(-1).name, 'Docs!')
+  assert.equal((await call('yt.templates.delete', { id: 'plan' })).ok, true)
+  const restored = await call('yt.templates.restore', {})
+  assert.ok(restored.data.templates.some((t) => t.id === 'plan'))
+  const list = await call('yt.templates', {})
+  assert.equal(list.data.defaultId, id)
+  assert.equal(list.data.templates.length, 6)
+  for (const bad of [{ id: 5 }, {}, { id: '--x' }]) {
+    assert.equal((await call('yt.templates.delete', bad)).ok, false)
+    assert.equal((await call('yt.templates.setDefault', bad)).ok, false)
+  }
+  strict(list)
+})

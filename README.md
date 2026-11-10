@@ -27,7 +27,11 @@ If the CLI is missing, the panel shows the install command for your system and c
 - **Apply command**: run a YouTrack command such as `State Done` on the selected issue or the open
   detail. It runs only when you press Apply; it and saving a search are the plugin's only YouTrack writes.
 - **Start**: begin work on an issue in a new worktree or in the current workspace. Pick the project,
-  branch name, base branch, agent and edit the prompt before it is sent.
+  branch name, base branch, agent and prompt template, and edit the prompt before it is sent.
+- **Prompt templates** (the gear button): named templates for the prompt. Five come built in —
+  Implement feature, Investigate and fix bug, Cover with automated tests, Review and plan (no code
+  changes), Refactor safely. Create, edit, delete and choose the default (up to 30 templates, 8000
+  characters each); "Restore built-in templates" puts the five back without touching your own.
 - **Remove server**: the bin button next to the server choice removes the server from the YouTrack CLI
   (which signs the CLI out of it) after you confirm, and forgets what the plugin saved for it.
 - Status bar item with the number of issues matching the default query.
@@ -54,14 +58,14 @@ talks to YouTrack goes through the CLI.
 | Setting                 | Default                                | Meaning                                                                 |
 | ----------------------- | -------------------------------------- | ----------------------------------------------------------------------- |
 | Default query           | `for: me #Unresolved`                  | Query used on first open and for the status bar count.                  |
-| Prompt template         | reads the issue through the CLI        | Prompt sent to the agent.                                               |
+| Prompt template (old)   | reads the issue through the CLI        | Replaced by the panel's prompt templates; a changed text is imported once as "My template". |
 | Branch name template    | `{{id_lower}}-{{summary_slug}}`        | Name of the new workspace and branch.                                   |
 | Default agent           | `claude`                               | Agent preselected in the Start view; empty means terminal only.         |
 | Default launch mode     | New worktree                           | `New worktree` or `Current workspace`.                                  |
 | Include issue description | off                                  | Initial state of the checkbox in the Start view.                        |
 | youtrack CLI path       | empty (auto-detect)                    | Full path to the `youtrack` executable if it is not found.              |
 
-Placeholders for the prompt and branch templates: `{{id}}`, `{{id_lower}}`, `{{summary}}`,
+Placeholders for the prompt templates and the branch name template: `{{id}}`, `{{id_lower}}`, `{{summary}}`,
 `{{summary_slug}}`, `{{url}}`, `{{project}}`, `{{server}}`, `{{state}}`, `{{priority}}`, `{{assignee}}`,
 `{{description}}`, `{{branch}}`.
 

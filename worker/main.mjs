@@ -5,6 +5,7 @@ import { createYoutrackHolder } from './cli-holder.mjs'
 import { createOrcaCli, resolveOrcaCli } from './orca-cli.mjs'
 import { createLinkStore, createLaunchTracker, createRemovedListener } from './links.mjs'
 import { createStateStore } from './state.mjs'
+import { createTemplateStore } from './templates.mjs'
 import { detectAgents } from './agents.mjs'
 import { registerHandlers } from './handlers.mjs'
 import { createOpenPanelCommand } from './open-panel.mjs'
@@ -30,11 +31,12 @@ export default async function activate(orca) {
   const links = createLinkStore(orca.storage)
   const launches = createLaunchTracker(orca.storage)
   const state = createStateStore(orca.storage)
+  const templates = createTemplateStore(orca.storage, { legacy: () => orca.settings.get('promptTemplate') })
   let agents = null
 
   statusBar = createStatusBar({ host: orca.host, getYoutrack: () => holder.refresh(), state, settings: orca.settings })
   registerHandlers(refreshAfter(orca, REFRESHING, statusBar.refresh), {
-    getYoutrack: holder.get, refreshYoutrack: holder.refresh, orcaCli, links, launches, state,
+    getYoutrack: holder.get, refreshYoutrack: holder.refresh, orcaCli, links, launches, state, templates,
     detectAgents: () => (agents ??= detectAgents({ env, platform })),
     now: () => Date.now()
   })
