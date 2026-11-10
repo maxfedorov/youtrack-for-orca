@@ -4,6 +4,13 @@
   "name": "YouTrack for Orca",
   "version": "0.1.0",
   "description": "Browse YouTrack issues in the right sidebar and start coding agents on them.",
+  "author": {
+    "name": "maxfedorov",
+    "url": "https://github.com/maxfedorov"
+  },
+  "repository": "https://github.com/maxfedorov/youtrack-for-orca",
+  "homepage": "https://github.com/maxfedorov/youtrack-for-orca#readme",
+  "license": "MIT",
   "engines": {
     "orca": ">=1.4.248"
   },
@@ -114,6 +121,23 @@
     },
     {
       "kind": "notifications:show"
+    }
+  ],
+  "screenshots": [
+    {
+      "path": "images/issues.png",
+      "alt": "The issue list for a YouTrack query, with saved searches, sortable columns and the actions of the selected issue",
+      "caption": "Issues of a YouTrack query"
+    },
+    {
+      "path": "images/issue-detail.png",
+      "alt": "The detail of an issue: its fields, description and comments, with Apply command and Add comment",
+      "caption": "Issue details, commands and comments"
+    },
+    {
+      "path": "images/start.png",
+      "alt": "The Start view: run in a new worktree, project, branch name, base branch, agent, prompt template and the prompt",
+      "caption": "Start an agent on an issue"
     }
   ]
 }

@@ -1,7 +1,26 @@
 # YouTrack for Orca
 
-An Orca plugin that shows your YouTrack issues in the right sidebar and
-starts a coding agent on any of them.
+An Orca plugin that shows your YouTrack issues in the right sidebar and starts a coding agent on any
+of them: in a new worktree or in the workspace you are in, with a prompt built from the issue.
+
+This is an unofficial plugin.
+
+![The issue list for a YouTrack query, with saved searches, sortable columns and the actions of the selected issue](images/issues.png)
+
+| Issue details | Start work on an issue |
+| --- | --- |
+| ![The detail of an issue: its fields, description and comments, with Apply command and Add comment](images/issue-detail.png) | ![The Start view: run in a new worktree, project, branch name, base branch, agent, prompt template and the prompt](images/start.png) |
+
+## Install
+
+[Open in Orca](https://onorca.dev/plugins/maxfedorov.youtrack?catalog=community) from the
+[Orca plugin directory](https://onorca.dev/plugins), or run:
+
+    orca plugin install maxfedorov/youtrack-for-orca
+
+Orca shows what the plugin asks access to before you approve it (see [Permissions](#permissions)).
+Then open the panel from the right sidebar, the `YT` item in the status bar, or the command palette
+("YouTrack: Open panel").
 
 ## Requirements
 
@@ -49,11 +68,31 @@ If the CLI is missing, the panel shows the install command for your system to ru
 - Desktop notification when an agent started from an issue finishes.
 - Command palette: "YouTrack: Open panel".
 
+## Permissions
+
+| Permission           | Used for                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| `settings:own`       | Reading the plugin's settings below.                                                     |
+| `storage:own`        | The chosen server, the last query of each server, prompt templates, which workspace was started for which issue, and the project remembered for each YouTrack project. |
+| `workspace:read`     | Listing workspaces for Start and Open, finding the focused one, and forgetting links to removed workspaces. |
+| `workspace:write`    | The Open button (switches to the issue's workspace) and opening the right sidebar.        |
+| `agent:read`         | Noticing when an agent started from an issue has finished.                               |
+| `agent:launch`       | Starting an agent in the current workspace when the Orca CLI cannot.                     |
+| `notifications:show` | The "Agent finished" notification.                                                       |
+
+The plugin runs code in Orca (`trusted-worker`), because it starts the `youtrack` and `orca` command
+line tools.
+
 ## What the plugin runs
 
-Only two programs: `youtrack` (to read issues and saved searches, save a search, apply a command, add a comment and remove a server) and `orca` (to create worktrees and
-launch agents). The plugin makes no network requests of its own and stores no tokens; everything that
-talks to YouTrack goes through the CLI.
+Only two programs, always with an argument list and never through a shell:
+
+- `youtrack`, to read issues, comments and saved searches, save a search, apply a command, add a
+  comment, add a server through the browser and remove a server;
+- `orca`, to list projects and branches, create worktrees and launch agents.
+
+The plugin makes no network requests of its own, stores no tokens and collects no data about you;
+everything that talks to YouTrack goes through the CLI.
 
 ## Security notes
 
@@ -72,7 +111,7 @@ talks to YouTrack goes through the CLI.
 | Branch name template    | `{{id_lower}}-{{summary_slug}}`        | Name of the new workspace and branch.                                   |
 | Default agent           | `claude`                               | Agent preselected in the Start view; empty means terminal only.         |
 | Default launch mode     | New worktree                           | `New worktree` or `Current workspace`.                                  |
-| Include issue description | off                                  | Initial state of the checkbox in the Start view.                        |
+| Include issue description | off                                  | Initial state of the switch in the Start view.                          |
 | youtrack CLI path       | empty (auto-detect)                    | Full path to the `youtrack` executable if it is not found.              |
 
 Placeholders for the prompt templates and the branch name template: `{{id}}`, `{{id_lower}}`, `{{summary}}`,
@@ -86,10 +125,14 @@ beyond the commands in the prompt.
 
 ## Development
 
-    orca plugin test ./
-    orca plugin validate ./
-    orca plugin check ./
+No build step and no dependencies: the panel is TSX that Orca loads as it is, and the worker is plain
+JavaScript modules.
+
+    orca plugin dev load ./     # load this folder into Orca and reload on changes
+    orca plugin test ./         # unit and panel tests
+    orca plugin check ./        # type-check and render the panel scenarios
+    orca plugin validate ./     # manifest and file checks
 
 ## License
 
-MIT
+[MIT](LICENSE)
