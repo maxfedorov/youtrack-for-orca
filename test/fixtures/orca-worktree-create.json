@@ -24,7 +24,7 @@
       "isMainWorktree": false,
       "displayName": "demo-1-fix-login",
       "displayNameMode": "fixed",
-      "comment": "YouTrack DEMO-1 https://example.youtrack.cloud/issue/DEMO-1",
+      "comment": "YouTrack DEMO-1 https://youtrack.example.com/issue/DEMO-1",
       "linkedIssue": null,
       "linkedPR": null,
       "linkedLinearIssue": null,

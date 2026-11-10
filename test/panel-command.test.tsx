@@ -10,7 +10,7 @@ const issue = (n: number, state = 'Open') => ({
   created: 1_690_000_000_000 + n,
   updated: 1_700_000_000_000 + n,
   resolved: false,
-  url: `https://main.example.youtrack.cloud/issue/DEMO-${n}`
+  url: `https://main.example.com/issue/DEMO-${n}`
 })
 const detail = (n: number, state: string) => ({
   ...issue(n, state),
@@ -22,7 +22,7 @@ const detail = (n: number, state: string) => ({
 const env = ok({
   cli: { found: true },
   orcaCli: { found: true },
-  servers: [{ alias: 'main', url: 'https://main.example.youtrack.cloud', active: true, status: 'authenticated' }],
+  servers: [{ alias: 'main', url: 'https://main.example.com', active: true, status: 'authenticated' }],
   server: 'main',
   query: 'for: me',
   defaultQuery: 'for: me'

@@ -6,8 +6,8 @@ import { ok, fail } from '../worker/result.mjs'
 import { fakeOrca, fakeStorage } from './helpers.mjs'
 
 const SERVERS = [
-  { alias: 'one', url: 'https://one.youtrack.cloud', status: 'authenticated', active: false },
-  { alias: 'two', url: 'https://two.youtrack.cloud', status: 'authenticated', active: true },
+  { alias: 'one', url: 'https://one.example.com', status: 'authenticated', active: false },
+  { alias: 'two', url: 'https://two.example.com', status: 'authenticated', active: true },
 ]
 
 function setup({ count = ok(7), instances = ok(SERVERS), youtrack, stored } = {}) {

@@ -3,12 +3,12 @@ import * as panel from '../src/panel'
 
 const ok = <T,>(data: T) => ({ ok: true as const, data })
 const issue = {
-  id: 'DEMO-1', summary: 'Issue 1', created: 1, updated: 2, resolved: false, url: 'https://main.example.youtrack.cloud/issue/DEMO-1'
+  id: 'DEMO-1', summary: 'Issue 1', created: 1, updated: 2, resolved: false, url: 'https://main.example.com/issue/DEMO-1'
 }
 const requests = {
   'yt.env': ok({
     cli: { found: true }, orcaCli: { found: true },
-    servers: [{ alias: 'main', url: 'https://main.example.youtrack.cloud', active: true, status: 'authenticated' }],
+    servers: [{ alias: 'main', url: 'https://main.example.com', active: true, status: 'authenticated' }],
     server: 'main', query: 'q', defaultQuery: 'q'
   }),
   'yt.issues.search': ok({ issues: [issue], hasMore: false, total: 1 }),

@@ -159,7 +159,7 @@ test('countIssues parses plain number', async () => {
 })
 
 test('loginWeb reports authorizationUrl from stderr', async () => {
-  const url = 'https://example.youtrack.cloud/hub/auth?x'
+  const url = 'https://youtrack.example.com/hub/auth?x'
   const seen = []
   const run = async (args, opts) => {
     run.args = args
@@ -168,10 +168,10 @@ test('loginWeb reports authorizationUrl from stderr', async () => {
     opts.onStderrLine(JSON.stringify({ authorizationUrl: url }))
     return { exitCode: 0, stdout: '{"alias":"example"}', stderr: '', timedOut: false }
   }
-  const r = await createYoutrack({ bin: 'youtrack', run }).loginWeb('https://example.youtrack.cloud', (u) => seen.push(u))
+  const r = await createYoutrack({ bin: 'youtrack', run }).loginWeb('https://youtrack.example.com', (u) => seen.push(u))
   assert.deepEqual(seen, [url])
   assert.deepEqual(r, { ok: true, data: { alias: 'example' } })
-  assert.deepEqual(run.args, ['auth', 'login', 'https://example.youtrack.cloud', '--web', '--json'])
+  assert.deepEqual(run.args, ['auth', 'login', 'https://youtrack.example.com', '--web', '--json'])
   assert.equal(run.opts.timeoutMs, 600000)
 })
 

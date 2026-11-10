@@ -54,7 +54,7 @@ test('darwin falls back to orca on PATH, else null', () => {
 
 const input = {
   repoId: 'r1', name: 'demo-1-x', agent: 'claude', prompt: 'P',
-  issueId: 'DEMO-1', issueUrl: 'https://example.youtrack.cloud/issue/DEMO-1'
+  issueId: 'DEMO-1', issueUrl: 'https://youtrack.example.com/issue/DEMO-1'
 }
 const created = { 'worktree create': { stdout: fixture('orca-worktree-create.json') } }
 
@@ -63,7 +63,7 @@ test('createWorktree argv', async () => {
   await createOrcaCli({ run }).createWorktree(input)
   assert.deepEqual(run.calls[0].args, [
     'worktree', 'create', '--repo', 'id:r1', '--name=demo-1-x', '--no-parent', '--activate',
-    '--comment=DEMO-1 https://example.youtrack.cloud/issue/DEMO-1',
+    '--comment=DEMO-1 https://youtrack.example.com/issue/DEMO-1',
     '--agent', 'claude', '--prompt=P', '--json'
   ])
   assert.equal(run.calls[0].opts.timeoutMs, 60_000)

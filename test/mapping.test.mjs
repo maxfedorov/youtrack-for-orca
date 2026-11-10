@@ -10,7 +10,7 @@ const view = load('yt-issue-view-custom-fields.json')
 const comments = load('yt-issue-comment-list.json')
 const searches = load('yt-search-list.json')
 const instances = load('yt-instance-list.json')
-const BASE = 'https://example.youtrack.cloud'
+const BASE = 'https://youtrack.example.com'
 
 test('maps customFields by name', () => {
   const row = toIssueRow(issues[0], BASE)
@@ -108,7 +108,7 @@ test('saved searches keep name and query', () => {
 test('instances map status', () => {
   assert.deepEqual(toServer(instances[0]), {
     alias: 'example',
-    url: 'https://example.youtrack.cloud',
+    url: 'https://youtrack.example.com',
     active: true,
     status: 'authenticated'
   })
@@ -244,10 +244,10 @@ test('a field whose value throws while it is read is n/a', () => {
 test('toIssueDetail maps the reporter and tag names', async () => {
   const { toIssueDetail } = await import('../worker/mapping.mjs')
   const raw = { idReadable: 'DEMO-1', summary: 'S', project: {}, customFields: [], reporter: { login: 'jo', fullName: 'Jo Demo' }, tags: [{ name: 'ui' }, null, { name: '' }, { name: 'bug' }] }
-  const d = toIssueDetail(raw, [], 'https://example.youtrack.cloud')
+  const d = toIssueDetail(raw, [], 'https://youtrack.example.com')
   assert.deepEqual(d.reporter, { login: 'jo', fullName: 'Jo Demo' })
   assert.deepEqual(d.tags, ['ui', 'bug'])
-  const bare = toIssueDetail({ idReadable: 'DEMO-2', summary: 'S', project: {}, customFields: [] }, [], 'https://example.youtrack.cloud')
+  const bare = toIssueDetail({ idReadable: 'DEMO-2', summary: 'S', project: {}, customFields: [] }, [], 'https://youtrack.example.com')
   assert.equal('reporter' in bare, false)
   assert.deepEqual(bare.tags, [])
 })

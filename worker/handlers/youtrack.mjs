@@ -151,7 +151,7 @@ export function registerYoutrackHandlers(ctx) {
   })
 
   handle('yt.servers.add', async ({ url }) => {
-    if (!isPlainUrl(url)) return invalid('Enter a server address like https://example.youtrack.cloud')
+    if (!isPlainUrl(url)) return invalid('Enter a server address like https://youtrack.example.com')
     if (!ctx.youtrack) return fail(CODES.CLI_NOT_FOUND, 'The YouTrack CLI was not found.')
     login(url)
       .catch((e) => fail(CODES.UNKNOWN, e instanceof Error ? e.message : String(e)))

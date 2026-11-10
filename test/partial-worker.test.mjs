@@ -5,7 +5,7 @@ import { createStateStore } from '../worker/state.mjs'
 import { ok, fail } from '../worker/result.mjs'
 import { fakeOrca } from './helpers.mjs'
 
-const SERVERS = [{ alias: 'one', url: 'https://one.youtrack.cloud', status: 'authenticated', active: true }]
+const SERVERS = [{ alias: 'one', url: 'https://one.example.com', status: 'authenticated', active: true }]
 const rawIssue = (id, over = {}) => ({
   idReadable: id, summary: `Fix ${id}`, created: 1, updated: 5, resolved: null,
   project: { shortName: 'DEMO', name: 'Demo' }, description: 'Body', customFields: [], ...over

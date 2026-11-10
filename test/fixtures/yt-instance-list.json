@@ -1,7 +1,7 @@
 [
   {
     "alias": "example",
-    "url": "https://example.youtrack.cloud",
+    "url": "https://youtrack.example.com",
     "login": "demo",
     "fullName": "Demo User",
     "status": "authenticated",

@@ -11,7 +11,7 @@ import { runProcess } from '../worker/exec.mjs'
 import { ok, fail } from '../worker/result.mjs'
 import { fakeOrca, fakeStorage } from './helpers.mjs'
 
-const SERVERS = [{ alias: 'one', url: 'https://one.youtrack.cloud', status: 'authenticated', active: true }]
+const SERVERS = [{ alias: 'one', url: 'https://one.example.com', status: 'authenticated', active: true }]
 const WS = [{ id: 'identity:main', name: 'main', project: 'demo-repo', path: '/p/demo-repo', branch: 'main' }]
 const rawIssue = (id) => ({ idReadable: id, summary: `Fix ${id}`, project: { shortName: 'DEMO', name: 'Demo' }, customFields: [] })
 
@@ -103,7 +103,7 @@ test('a rejected sign-in link post does not leave an unhandled rejection', async
   const { orca, call } = setup({ yt })
   orca.panels.post = () => Promise.reject(new Error('no panel'))
   const seen = await stray(async () => {
-    const r = await call('yt.servers.add', { url: 'https://new.youtrack.cloud' })
+    const r = await call('yt.servers.add', { url: 'https://new.example.com' })
     assert.equal(r.ok, true)
   })
   assert.deepEqual(seen, [])
@@ -250,7 +250,7 @@ test('answers that JSON cannot carry become failures', async () => {
 const INPUTS = [
   null, undefined, {}, [], 'x', 42, true,
   { server: 5, id: {}, query: [], offset: 'a', limit: NaN, url: 7, name: null, repoId: {}, workspaceId: [], agent: 3, prompt: {}, command: {} },
-  { server: 'one', id: 'DEMO-1', query: 'q', offset: -1, limit: 1e9, url: 'https://x.youtrack.cloud', name: 'n', repoId: 'r1', workspaceId: 'w', agent: 'claude', prompt: 'p', command: 'login' },
+  { server: 'one', id: 'DEMO-1', query: 'q', offset: -1, limit: 1e9, url: 'https://x.example.com', name: 'n', repoId: 'r1', workspaceId: 'w', agent: 'claude', prompt: 'p', command: 'login' },
   { server: '__proto__', id: 'A-1', query: 'x'.repeat(5000), offset: 0, limit: 10, command: 'install' }
 ]
 const GARBAGE = [null, undefined, 'text', 42, [], {}, [null], { a: { b: null } }]

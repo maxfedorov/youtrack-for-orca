@@ -74,7 +74,7 @@
     "stderr": {
       "error": {
         "code": "internal_error",
-        "message": "refusing to send the saved token for \"example\" (https://example.youtrack.cloud) to https://down.example.com — pass --token or set YOUTRACK_TOKEN for that instance, or select its profile with --server <alias>"
+        "message": "refusing to send the saved token for \"example\" (https://youtrack.example.com) to https://down.example.com — pass --token or set YOUTRACK_TOKEN for that instance, or select its profile with --server <alias>"
       }
     }
   },

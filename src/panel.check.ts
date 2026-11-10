@@ -6,7 +6,7 @@ const ok = <T>(data: T) => ({ ok: true as const, data })
 const fail = (code: string, message: string) => ({ ok: false as const, error: { code, message } })
 
 const query = 'for: me #Unresolved'
-const server = { alias: 'main', url: 'https://main.example.youtrack.cloud', active: true, status: 'authenticated' }
+const server = { alias: 'main', url: 'https://main.example.com', active: true, status: 'authenticated' }
 const env = ok({
   cli: { found: true, version: '1.0.0' },
   orcaCli: { found: true },
@@ -24,7 +24,7 @@ const issue = (n: number) => ({
   created: 1_690_000_000_000 + n,
   updated: 1_700_000_000_000 + n,
   resolved: false,
-  url: `https://main.example.youtrack.cloud/issue/DEMO-${n}`
+  url: `https://main.example.com/issue/DEMO-${n}`
 })
 const requests = {
   'yt.env': env,

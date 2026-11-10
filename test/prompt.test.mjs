@@ -13,7 +13,7 @@ const TEMPLATE = BUILT_IN[0].body
 const issue = {
   id: 'DEMO-1',
   summary: 'Crash on login: Ошибка!',
-  url: 'https://example.youtrack.cloud/issue/DEMO-1',
+  url: 'https://youtrack.example.com/issue/DEMO-1',
   project: { shortName: 'DEMO' },
   state: { name: 'Open' },
   priority: { name: 'Major' },

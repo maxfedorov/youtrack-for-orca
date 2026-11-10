@@ -6,12 +6,12 @@ const fail = (code: string, message: string) => ({ ok: false as const, error: { 
 const issue = (n: number) => ({
   id: `DEMO-${n}`, summary: `Issue ${n}`, state: { name: 'Open' },
   created: 1_690_000_000_000 + n, updated: 1_700_000_000_000 + n, resolved: false,
-  url: `https://main.example.youtrack.cloud/issue/DEMO-${n}`
+  url: `https://main.example.com/issue/DEMO-${n}`
 })
 const comment = (n: number) => ({ id: `c${n}`, author: { login: 'bob', fullName: 'Bob Roe' }, created: 1_700_000_100_000 + n, textMd: `Comment ${n}` })
 const env = ok({
   cli: { found: true }, orcaCli: { found: true },
-  servers: [{ alias: 'main', url: 'https://main.example.youtrack.cloud', active: true, status: 'authenticated' }],
+  servers: [{ alias: 'main', url: 'https://main.example.com', active: true, status: 'authenticated' }],
   server: 'main', query: 'for: me', defaultQuery: 'for: me'
 })
 /** A fake server: an added comment is in the comments the next reads answer. */

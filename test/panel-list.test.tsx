@@ -13,14 +13,14 @@ const issue = (n: number, over: Record<string, unknown> = {}) => ({
   created: 1_690_000_000_000 + n,
   updated: 1_700_000_000_000 + n,
   resolved: false,
-  url: `https://main.example.youtrack.cloud/issue/DEMO-${n}`,
+  url: `https://main.example.com/issue/DEMO-${n}`,
   ...over
 })
 const env = (over: Record<string, unknown> = {}) =>
   ok({
     cli: { found: true },
     orcaCli: { found: true },
-    servers: [{ alias: 'main', url: 'https://main.example.youtrack.cloud', active: true, status: 'authenticated' }],
+    servers: [{ alias: 'main', url: 'https://main.example.com', active: true, status: 'authenticated' }],
     server: 'main',
     query: 'for: me #Unresolved',
     defaultQuery: 'for: me #Unresolved',
@@ -256,7 +256,7 @@ test('row actions are one row: open in browser, and a new workspace only when li
   const browser = view.find({ role: 'button', label: 'Open in browser' })
   assert.equal(browser.props.icon, 'open-external')
   await view.press({ role: 'button', label: 'Open in browser' })
-  assert.deepEqual(host.callsOf('shell.openExternal').at(-1), { url: 'https://main.example.youtrack.cloud/issue/DEMO-2' })
+  assert.deepEqual(host.callsOf('shell.openExternal').at(-1), { url: 'https://main.example.com/issue/DEMO-2' })
   await view.selectRows(view.find(table), ['DEMO-1'])
   assert.equal(view.find({ role: 'button', label: 'More actions' }), null)
   assert.ok(view.find({ role: 'button', text: 'Open →' }))
@@ -327,8 +327,8 @@ test('agent finished refreshes links', async () => {
 
 test('switching server reloads the query, saved searches and links', async () => {
   const two = [
-    { alias: 'main', url: 'https://main.example.youtrack.cloud', active: true, status: 'authenticated' },
-    { alias: 'other', url: 'https://other.example.youtrack.cloud', active: false, status: 'authenticated' }
+    { alias: 'main', url: 'https://main.example.com', active: true, status: 'authenticated' },
+    { alias: 'other', url: 'https://other.example.com', active: false, status: 'authenticated' }
   ]
   let switched = false
   const host = mockHost({
@@ -364,8 +364,8 @@ test('save button uses the star icon in both states', async () => {
 
 test('failed env after a server switch clears the old server and retries the switch', async () => {
   const two = [
-    { alias: 'main', url: 'https://main.example.youtrack.cloud', active: true, status: 'authenticated' },
-    { alias: 'other', url: 'https://other.example.youtrack.cloud', active: false, status: 'authenticated' }
+    { alias: 'main', url: 'https://main.example.com', active: true, status: 'authenticated' },
+    { alias: 'other', url: 'https://other.example.com', active: false, status: 'authenticated' }
   ]
   let phase = 0
   const host = mockHost({

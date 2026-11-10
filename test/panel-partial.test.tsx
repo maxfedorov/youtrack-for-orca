@@ -7,7 +7,7 @@ const fail = (code: string, message: string) => ({ ok: false as const, error: { 
 const issue = (n: number) => ({
   id: `DEMO-${n}`, summary: `Issue ${n}`, state: { name: 'Open' }, priority: { name: 'Major' },
   assignee: { login: 'jane', fullName: 'Jane Doe' }, created: 1_690_000_000_000 + n, updated: 1_700_000_000_000 + n, resolved: false,
-  url: `https://main.example.youtrack.cloud/issue/DEMO-${n}`
+  url: `https://main.example.com/issue/DEMO-${n}`
 })
 const COMMENT = { id: 'c1', author: { login: 'bob', fullName: 'Bob Roe' }, created: 1_700_000_100_000, textMd: 'First comment' }
 const detail = (n: number, over: Record<string, unknown> = {}) => ({
@@ -20,7 +20,7 @@ const detail = (n: number, over: Record<string, unknown> = {}) => ({
 })
 const env = ok({
   cli: { found: true }, orcaCli: { found: true },
-  servers: [{ alias: 'main', url: 'https://main.example.youtrack.cloud', active: true, status: 'authenticated' }],
+  servers: [{ alias: 'main', url: 'https://main.example.com', active: true, status: 'authenticated' }],
   server: 'main', query: 'for: me', defaultQuery: 'for: me'
 })
 const prepare = (over: Record<string, unknown> = {}) => ({
@@ -300,7 +300,7 @@ test('start with issue variables left out builds the prompt with empty text for 
 test('an environment with odd parts keeps the servers it can read', async () => {
   const odd = ok({
     cli: { found: true, version: 7 }, orcaCli: 'yes',
-    servers: [{ alias: 'main', url: 'https://main.example.youtrack.cloud', active: true, status: 'authenticated' }, null, { alias: 5 }],
+    servers: [{ alias: 'main', url: 'https://main.example.com', active: true, status: 'authenticated' }, null, { alias: 5 }],
     server: 'main', query: null, defaultQuery: 'for: me'
   })
   const host = mockHost({ requests: requests({ 'yt.env': odd }) })

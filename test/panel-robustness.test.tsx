@@ -6,12 +6,12 @@ const ok = <T,>(data: T) => ({ ok: true as const, data })
 const issue = (n: number) => ({
   id: `DEMO-${n}`, summary: `Issue ${n}`, state: { name: 'Open' }, priority: { name: 'Major' },
   assignee: { login: 'jane', fullName: 'Jane Doe' }, created: 1_690_000_000_000 + n, updated: 1_700_000_000_000 + n, resolved: false,
-  url: `https://main.example.youtrack.cloud/issue/DEMO-${n}`
+  url: `https://main.example.com/issue/DEMO-${n}`
 })
 const detail = (n: number) => ({ ...issue(n), project: { shortName: 'DEMO', name: 'Demo' }, fields: [], descriptionMd: 'Text', comments: [] })
 const env = ok({
   cli: { found: true }, orcaCli: { found: true },
-  servers: [{ alias: 'main', url: 'https://main.example.youtrack.cloud', active: true, status: 'authenticated' }],
+  servers: [{ alias: 'main', url: 'https://main.example.com', active: true, status: 'authenticated' }],
   server: 'main', query: 'for: me #Unresolved', defaultQuery: 'for: me #Unresolved'
 })
 const prepare = {
@@ -250,7 +250,7 @@ test('a saved search answered without an id reloads the list instead of adding a
 })
 
 test('the start form loads again for the same issue on another server', async () => {
-  const two = ok({ ...env.data, servers: [...env.data.servers, { alias: 'other', url: 'https://other.example.youtrack.cloud', active: false, status: 'authenticated' }] })
+  const two = ok({ ...env.data, servers: [...env.data.servers, { alias: 'other', url: 'https://other.example.com', active: false, status: 'authenticated' }] })
   let chosen = 'main'
   const host = mockHost({
     requests: {

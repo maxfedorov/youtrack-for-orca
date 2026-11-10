@@ -6,8 +6,8 @@ import { ok, fail } from '../worker/result.mjs'
 import { fakeOrca } from './helpers.mjs'
 
 const SERVERS = [
-  { alias: 'one', url: 'https://one.youtrack.cloud/', status: 'authenticated', active: false },
-  { alias: 'two', url: 'https://two.youtrack.cloud', status: 'authenticated', active: true },
+  { alias: 'one', url: 'https://one.example.com/', status: 'authenticated', active: false },
+  { alias: 'two', url: 'https://two.example.com', status: 'authenticated', active: true },
 ]
 const rawIssue = (id) => ({
   idReadable: id, summary: `Fix ${id}`, updated: 5, resolved: null,
@@ -135,7 +135,7 @@ test('search returns rows, hasMore and total only on the first page', async () =
   assert.equal(r.data.issues.length, 10)
   assert.equal(r.data.hasMore, true)
   assert.equal(r.data.total, 42)
-  assert.equal(r.data.issues[0].url, 'https://one.youtrack.cloud/issue/DEMO-0')
+  assert.equal(r.data.issues[0].url, 'https://one.example.com/issue/DEMO-0')
   const r2 = await call('yt.issues.search', { server: 'one', query: 'q', offset: 10, limit: 10 })
   assert.ok(!('total' in r2.data))
   assert.equal(yt.calls.filter((c) => c.name === 'countIssues').length, 1)
@@ -274,7 +274,7 @@ test('start.run stores link and launch', async () => {
   assert.deepEqual(r, ok({ workspaceId: 'identity:new' }))
   assert.deepEqual(cli.calls[0].a, {
     repoId: 'r1', name: 'demo-1-x', baseBranch: 'origin/dev', agent: 'claude', prompt: 'Go',
-    issueId: 'DEMO-1', issueUrl: 'https://one.youtrack.cloud/issue/DEMO-1',
+    issueId: 'DEMO-1', issueUrl: 'https://one.example.com/issue/DEMO-1',
   })
   assert.deepEqual(await links.forServer('one', new Set(['identity:new'])), { 'DEMO-1': 'identity:new' })
   assert.deepEqual(orca.storage.data().launches, [{ terminalId: 'identity:new', server: 'one', issueId: 'DEMO-1', workspaceId: 'identity:new', at: 1000 }])
@@ -420,8 +420,8 @@ test('no handler opens terminals: sign-in and install are run by the person', as
 })
 
 test('servers.add streams the auth url and posts the alias when done', async () => {
-  const { call, orca } = setup({ yt: fakeYt({ instances: async () => ok([{ alias: 'new', url: 'https://new.youtrack.cloud/', status: 'authenticated', active: false }]) }) })
-  const r = await call('yt.servers.add', { url: 'https://new.youtrack.cloud' })
+  const { call, orca } = setup({ yt: fakeYt({ instances: async () => ok([{ alias: 'new', url: 'https://new.example.com/', status: 'authenticated', active: false }]) }) })
+  const r = await call('yt.servers.add', { url: 'https://new.example.com' })
   assert.deepEqual(r, ok({ started: true }))
   await posted(orca, 'yt.servers.added')
   assert.deepEqual(orca.posts[0], { name: 'yt.servers.authUrl', payload: { url: 'https://auth.example/x' } })
@@ -431,7 +431,7 @@ test('servers.add streams the auth url and posts the alias when done', async () 
 
 test('servers.add posts a failure result', async () => {
   const { call, orca } = setup({ yt: fakeYt({ loginWeb: async () => fail('AUTH_FAILED', 'denied') }) })
-  await call('yt.servers.add', { url: 'https://new.youtrack.cloud' })
+  await call('yt.servers.add', { url: 'https://new.example.com' })
   await posted(orca, 'yt.servers.added')
   assert.deepEqual(orca.posts.at(-1), { name: 'yt.servers.added', payload: fail('AUTH_FAILED', 'denied') })
 })
@@ -491,7 +491,7 @@ test('small issues carry no truncated flag; prepare caps the description in vars
 
 test('servers.add survives an error thrown while finishing sign-in', async () => {
   const { call, orca } = setup({ yt: fakeYt({ instances: async () => { throw new Error('late') } }) })
-  await call('yt.servers.add', { url: 'https://new.youtrack.cloud' })
+  await call('yt.servers.add', { url: 'https://new.example.com' })
   await posted(orca, 'yt.servers.added')
   assert.equal(orca.posts.at(-1).payload.ok, false)
 })
