@@ -26,7 +26,7 @@ const prepare = (over: Record<string, unknown> = {}) => ({
   defaultAgent: 'claude',
   launchMode: 'worktree',
   includeDescription: true,
-  promptTemplate: 'Work on {{id}}: {{summary}}',
+  templates: [{ id: 't', name: 'T', body: 'Work on {{id}}: {{summary}}' }], defaultTemplateId: 't',
   vars: { id: 'DEMO-1', summary: 'Issue 1', description: 'Details of the issue' },
   workspaces: [
     { id: 'w1', name: 'main', project: 'alpha' },

@@ -18,7 +18,7 @@ const TEMPLATES = [
 ]
 const prepare = (over: Record<string, unknown> = {}) => ({
   repos: [{ id: 'r1', name: 'alpha' }], orcaCli: true, defaultRepoId: 'r1', name: 'demo-1', agents: { installed: ['claude'], other: [] },
-  defaultAgent: 'claude', launchMode: 'worktree', includeDescription: false, promptTemplate: 'B {{id}}: {{summary}}',
+  defaultAgent: 'claude', launchMode: 'worktree', includeDescription: false,
   templates: TEMPLATES, defaultTemplateId: 'b',
   vars: { id: 'DEMO-1', summary: 'Issue 1', description: '' }, workspaces: [], defaultWorkspaceId: null, ...over
 })
@@ -82,16 +82,6 @@ test('a prompt edited by hand stays when the template changes; Reset applies the
   assert.equal(promptOf(view), 'A DEMO-1')
   await pick(view, 'Template', 'b')
   assert.equal(promptOf(view), 'B DEMO-1: Issue 1')
-  clean(view)
-  await view.unmount()
-})
-
-test('without templates in the answer the prompt comes from the prompt template and no choice is shown', async () => {
-  const { templates: _t, defaultTemplateId: _d, ...old } = prepare({ promptTemplate: 'Old {{id}}' })
-  const host = mockHost({ requests: requests({ 'yt.start.prepare': ok(old) }) })
-  const view = await openStart(host)
-  assert.equal(view.find({ testId: 'Template:toggle' }), null)
-  assert.equal(promptOf(view), 'Old DEMO-1')
   clean(view)
   await view.unmount()
 })

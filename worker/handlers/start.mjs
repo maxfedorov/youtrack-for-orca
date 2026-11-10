@@ -125,7 +125,6 @@ export function registerStartHandlers(ctx) {
       includeDescription: (await get('includeDescription')) === true,
       templates: prompts.templates.map(({ id, name, body }) => ({ id, name, body })),
       defaultTemplateId: chosenTemplate ? chosenTemplate.id : null,
-      promptTemplate: chosenTemplate ? chosenTemplate.body : '',
       vars,
       workspaces: workspaceItems(workspaces, repoList, ctx.homedir),
       defaultWorkspaceId: linked ?? (active ? active.id : null)

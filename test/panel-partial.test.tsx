@@ -25,7 +25,7 @@ const env = ok({
 })
 const prepare = (over: Record<string, unknown> = {}) => ({
   repos: [{ id: 'r1', name: 'alpha' }], orcaCli: true, defaultRepoId: 'r1', name: 'demo-1', agents: { installed: ['claude'], other: ['codex'] },
-  defaultAgent: 'claude', launchMode: 'worktree', includeDescription: false, promptTemplate: 'Do {{id}}', vars: { id: 'DEMO-1' },
+  defaultAgent: 'claude', launchMode: 'worktree', includeDescription: false, templates: [{ id: 't', name: 'T', body: 'Do {{id}}' }], defaultTemplateId: 't', vars: { id: 'DEMO-1' },
   workspaces: [{ id: 'w1', name: 'main' }], defaultWorkspaceId: 'w1', ...over
 })
 function requests(over: Record<string, unknown> = {}) {
@@ -289,7 +289,7 @@ test('start with neither repositories nor workspaces shows both reasons and offe
 
 test('start with issue variables left out builds the prompt with empty text for them', async () => {
   const host = mockHost({
-    requests: requests({ 'yt.start.prepare': ok(prepare({ promptTemplate: 'Do {{id}} [{{state}}] [{{assignee}}]', vars: { id: 'DEMO-1' } })) })
+    requests: requests({ 'yt.start.prepare': ok(prepare({ templates: [{ id: 't', name: 'T', body: 'Do {{id}} [{{state}}] [{{assignee}}]' }], defaultTemplateId: 't', vars: { id: 'DEMO-1' } })) })
   })
   const view = await openStart(host)
   clean(view)
@@ -338,7 +338,7 @@ test('a start answer with odd projects, workspaces or variables keeps the rest',
         workspaces: [{ id: 'w1', name: 'main' }, 3],
         vars: { id: 'DEMO-1', summary: 9 },
         agents: { installed: 'claude', other: ['codex'] },
-        promptTemplate: 'Do {{id}} {{summary}}'
+        templates: [{ id: 't', name: 'T', body: 'Do {{id}} {{summary}}' }], defaultTemplateId: 't'
       }))
     })
   })

@@ -76,8 +76,8 @@ export const repoOf = (list: Repo[], id: string | null) => list.find((repo) => r
 /** Every issue variable the templates know; one the answer left out is empty text. */
 const EMPTY_VARS: Record<string, string> = issueVars({ issue: null, server: '' })
 
-/** Text of the chosen template, or the prompt template when none is chosen. */
-const templateText = (p: StartPrepare, id: string | null) => (p.templates ?? []).find((t) => t.id === id)?.body ?? p.promptTemplate
+/** Text of the chosen template; empty when the answer listed none. */
+const templateText = (p: StartPrepare, id: string | null) => (p.templates ?? []).find((t) => t.id === id)?.body ?? ''
 
 export function templatePrompt(p: StartPrepare, include: boolean, id: string | null = read(templateId)): string {
   const vars = { ...EMPTY_VARS, ...p.vars }

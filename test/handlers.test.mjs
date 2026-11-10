@@ -233,7 +233,6 @@ test('start.prepare gathers repos, workspaces, agents, name and vars', async () 
   assert.equal(d.defaultAgent, 'claude')
   assert.equal(d.launchMode, 'current')
   assert.equal(d.includeDescription, true)
-  assert.equal(d.promptTemplate, d.templates.find((t) => t.id === d.defaultTemplateId).body)
   assert.equal(d.vars.id, 'DEMO-3')
   assert.equal(d.vars.branch, '')
   assert.deepEqual(d.workspaces[2], { id: 'identity:dir', name: 'notes', project: 'n', path: '/n' })
@@ -695,11 +694,10 @@ const REPOS = [
 const threeRepos = () => fakeCli({ repos: async () => ok(REPOS) })
 
 test('start.prepare offers the templates with the default one as the prompt', async () => {
-  const { call } = setup({ settings: { promptTemplate: undefined } })
+  const { call } = setup()
   const r = await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
   assert.deepEqual(r.data.templates.map((t) => t.id), ['implement', 'bugfix', 'tests', 'plan', 'refactor'])
   assert.equal(r.data.defaultTemplateId, 'implement')
-  assert.equal(r.data.promptTemplate, r.data.templates[0].body)
   strict(r)
 })
 
@@ -717,7 +715,7 @@ test('start.prepare still answers with the built-ins when the templates cannot b
 })
 
 test('template requests create, edit, delete, mark the default and restore', async () => {
-  const { call } = setup({ settings: { promptTemplate: undefined } })
+  const { call } = setup()
   const created = await call('yt.templates.save', { name: 'Docs', body: 'Write docs for {{id}}' })
   assert.equal(created.ok, true)
   const id = created.data.id

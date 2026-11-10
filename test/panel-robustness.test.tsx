@@ -16,7 +16,7 @@ const env = ok({
 })
 const prepare = {
   repos: [{ id: 'r1', name: 'alpha' }], orcaCli: true, defaultRepoId: 'r1', name: 'demo-1', agents: { installed: ['claude'], other: [] },
-  defaultAgent: 'claude', launchMode: 'worktree', includeDescription: false, promptTemplate: 'Do {{id}}', vars: { id: 'DEMO-1' },
+  defaultAgent: 'claude', launchMode: 'worktree', includeDescription: false, templates: [{ id: 't', name: 'T', body: 'Do {{id}}' }], defaultTemplateId: 't', vars: { id: 'DEMO-1' },
   workspaces: [{ id: 'w1', name: 'main' }], defaultWorkspaceId: 'w1'
 }
 const healthy: Record<string, unknown> = {
@@ -32,7 +32,6 @@ const healthy: Record<string, unknown> = {
   'yt.start.run': ok({ workspaceId: 'w9' }),
   'yt.runInExisting': ok({}),
   'yt.workspace.open': ok({}),
-  'yt.terminal.run': ok({}),
   'yt.servers.add': ok({ started: true }),
   'yt.savedQueries.create': ok({ id: 's1', name: 'Mine', query: 'q' })
 }

@@ -208,7 +208,7 @@ test('the status bar flags a server list that is not a list', async () => {
   const orca = fakeOrca({ host: { 'statusBar.update': {} } })
   const bar = createStatusBar({
     host: orca.host, youtrack: { instances: async () => ok({ odd: true }), countIssues: async () => ok(1) },
-    state: createStateStore(fakeStorage()), settings: orca.settings, setInterval: () => 1, clearInterval: () => {}
+    state: createStateStore(fakeStorage()), settings: orca.settings
   })
   await bar.refresh()
   assert.deepEqual(orca.hostCalls.map((c) => c.params), [{ id: 'count', text: 'YT: !', tooltip: 'No YouTrack server. Open the panel to add one.', tone: 'warning', visible: true }])

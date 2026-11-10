@@ -60,7 +60,6 @@ export type StartPrepare = {
   templates: { id: string; name: string; body: string }[]
   defaultTemplateId: string | null
   /** Text of the default template. */
-  promptTemplate: string
   /** Template variables; render with ../worker/prompt.mjs. `branch` is ''. */
   vars: Record<string, string>
   workspaces: WorkspaceItem[]

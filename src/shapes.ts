@@ -137,7 +137,7 @@ const REPAIRS: Record<string, { core: Check; fix: (v: Obj) => unknown }> = {
   'yt.refs.search': { core: shape({ refs: Array.isArray }), fix: (v) => ({ refs: keep(v.refs, id) }) },
   'yt.start.prepare': {
     core: shape({
-      orcaCli: bool, name: str, defaultAgent: str, launchMode: (v) => v === 'worktree' || v === 'current', includeDescription: bool, promptTemplate: str
+      orcaCli: bool, name: str, defaultAgent: str, launchMode: (v) => v === 'worktree' || v === 'current', includeDescription: bool
     }),
     fix: fixPrepare
   },

@@ -24,7 +24,7 @@ function setup() {
       'yt.issue.get': (i: any) => ok({ ...issue(Number(i.id.split('-')[1])), project: { shortName: 'DEMO', name: 'Demo' }, fields: [], descriptionMd: 'Text', comments: [] }),
       'yt.start.prepare': ok({
         repos: [{ id: 'r1', name: 'alpha' }], orcaCli: true, defaultRepoId: 'r1', name: 'demo-1', agents: { installed: ['claude'], other: [] },
-        defaultAgent: 'claude', launchMode: 'worktree', includeDescription: false, promptTemplate: 'Work on {{id}}',
+        defaultAgent: 'claude', launchMode: 'worktree', includeDescription: false, templates: [{ id: 't', name: 'T', body: 'Work on {{id}}' }], defaultTemplateId: 't',
         vars: { id: 'DEMO-1', summary: 'Issue 1', description: '' }, workspaces: [], defaultWorkspaceId: null
       }),
       'yt.refs.search': ok({ refs: [] })
