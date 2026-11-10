@@ -264,3 +264,16 @@ test('stop cancels pending finishes', async () => {
   await clock.flush()
   assert.equal(shown().length, 0)
 })
+
+test('panes that never finish are forgotten past a limit, and the newest still notify', async () => {
+  const { store, n, shown, clock } = notifier()
+  await store.track({ terminalId: 'mine', server: 'two', issueId: 'DEMO-1', workspaceId: 'ws1', at: 1 })
+  // 300 other panes start working and are closed without ever reporting done
+  for (let i = 0; i < 300; i++) await n.onAgentStatus({ workspaceId: 'other', paneKey: `p${i}`, state: 'working' })
+  // the oldest are gone: done for one of them is a pane that never worked, so nothing is shown
+  await n.onAgentStatus({ workspaceId: 'other', paneKey: 'p0', terminalId: 'x0', state: 'done' })
+  await n.onAgentStatus({ workspaceId: 'ws1', paneKey: 'mine-pane', terminalId: 'mine', state: 'working' })
+  await n.onAgentStatus({ workspaceId: 'ws1', paneKey: 'mine-pane', terminalId: 'mine', state: 'done' })
+  await clock.flush()
+  assert.deepEqual(shown(), [{ title: 'Agent finished DEMO-1', body: 'two' }])
+})

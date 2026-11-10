@@ -95,6 +95,8 @@ export function createStatusBar({ host, youtrack: youtrack0, getYoutrack, state,
   }
 }
 
+/** Panes followed at once; every agent in Orca reports, so the oldest are dropped past this. */
+const MAX_PANES = 200
 /** How long an agent must stay done after working before it counts as finished. */
 const SETTLE_MS = 3_000
 
@@ -150,7 +152,12 @@ export function createFinishNotifier({
         const pane = panes.get(key)
         if (state !== 'done') {
           cancel(pane)
-          if (state === 'working') panes.set(key, { timer: null })
+          if (state === 'working') {
+            panes.delete(key)
+            panes.set(key, { timer: null })
+            // A pane closed while working never reports done; the oldest such entries go first.
+            if (panes.size > MAX_PANES) panes.delete(panes.keys().next().value)
+          }
           return
         }
         // Done without work since the last finish (starting up, or repeated): nothing finished.
