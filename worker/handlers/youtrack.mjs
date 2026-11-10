@@ -1,10 +1,11 @@
 /** Requests about servers, issues and saved queries (everything answered by the youtrack CLI). */
 import { ok, fail, CODES } from '../result.mjs'
-import { toIssueRow, toIssueDetail, toSavedQuery, toSavedQueries, toServers } from '../mapping.mjs'
-import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, isPlainUrl, normalizeUrl, settingString, capDetail, INSTALL } from './common.mjs'
+import { toIssueRow, toIssueDetail, toComments, toSavedQuery, toSavedQueries, toServers } from '../mapping.mjs'
+import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, isPlainUrl, normalizeUrl, settingString, capDetail, attempt, INSTALL } from './common.mjs'
 
 const MAX_LIMIT = 50
 const MAX_WINDOW = 500
+const COMMENTS_FAILED = 'Comments could not be loaded.'
 /** Table rows need unique keys; the first row of an id wins. */
 const unique = (rows) => rows.filter((r, i) => rows.findIndex((o) => o.idReadable === r.idReadable) === i)
 
@@ -79,10 +80,30 @@ export function registerYoutrackHandlers(ctx) {
     if (typeof id !== 'string' || !ISSUE_ID.test(id)) return invalid('Invalid issue id')
     const s = await resolveServer(server)
     if (!s.ok) return s
-    const [view, comments] = await Promise.all([ctx.youtrack.viewIssue(s.data.alias, id), ctx.youtrack.listComments(s.data.alias, id)])
+    const [view, comments] = await Promise.all([
+      attempt(() => ctx.youtrack.viewIssue(s.data.alias, id)),
+      attempt(() => ctx.youtrack.listComments(s.data.alias, id))
+    ])
     if (!view.ok) return view
     if (!hasId(view.data)) return unexpected()
-    return ok(capDetail(toIssueDetail(view.data, comments.ok ? comments.data : null, s.data.url)))
+    // The issue is shown without its comments when only they fail; the panel can load them again.
+    const loaded = comments.ok && Array.isArray(comments.data)
+    const detail = capDetail(toIssueDetail(view.data, loaded ? comments.data : null, s.data.url))
+    return ok(loaded ? detail : { ...detail, commentsError: COMMENTS_FAILED })
+  })
+
+  handle('yt.issue.comments', async ({ server, id }) => {
+    if (typeof id !== 'string' || !ISSUE_ID.test(id)) return invalid('Invalid issue id')
+    const s = await resolveServer(server)
+    if (!s.ok) return s
+    const r = await attempt(() => ctx.youtrack.listComments(s.data.alias, id))
+    if (!r.ok) return r
+    if (!Array.isArray(r.data)) return unexpected()
+    const capped = capDetail({ descriptionMd: '', comments: toComments(r.data) })
+    const data = { comments: capped.comments }
+    if (capped.commentsOmitted) data.commentsOmitted = capped.commentsOmitted
+    if (capped.truncated) data.truncated = true
+    return ok(data)
   })
 
   handle('yt.savedQueries', async ({ server }) => {

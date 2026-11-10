@@ -60,6 +60,28 @@ export function guard(fn, { name = 'request', log } = {}) {
   }
 }
 
+/**
+ * Run one part of a composite answer: a throw becomes a failed Result, so the other parts can still
+ * be answered.
+ * @param {() => any} fn
+ */
+export async function attempt(fn) {
+  try {
+    return await fn()
+  } catch (e) {
+    return fail(CODES.UNKNOWN, e instanceof Error && e.message ? shortMessage(e.message) : 'Something went wrong.')
+  }
+}
+
+/** A setting, or undefined when it cannot be read. */
+export async function readSetting(orca, key) {
+  try {
+    return await orca.settings.get(key)
+  } catch {
+    return undefined
+  }
+}
+
 /** Register a panel request handler behind `guard`. */
 export function safeHandle(orca, name, fn) {
   return orca.panels.handle(name, guard(fn, { name, log: (m) => orca.log?.(m) }))

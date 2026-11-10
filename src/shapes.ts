@@ -24,7 +24,10 @@ const savedQuery = shape({ id: str, name: str, query: str })
 
 const detail: Check = (v) =>
   row(v) &&
-  shape({ fields: list(shape({ name: str, value: str })), descriptionMd: str, comments: list(comment), commentsOmitted: optional(num) })(v)
+  shape({
+    fields: list(shape({ name: str, value: str })), descriptionMd: str, comments: list(comment), commentsOmitted: optional(num),
+    commentsError: optional(str)
+  })(v)
 
 const CHECKS: Record<string, Check> = {
   'yt.env': shape({
@@ -38,6 +41,7 @@ const CHECKS: Record<string, Check> = {
   }),
   'yt.issues.search': shape({ issues: list(row), hasMore: bool, total: optional(num) }),
   'yt.issue.get': detail,
+  'yt.issue.comments': shape({ comments: list(comment), commentsOmitted: optional(num) }),
   'yt.savedQueries': list(savedQuery),
   'yt.savedQueries.create': savedQuery,
   'yt.start.prepare': shape({

@@ -101,14 +101,13 @@ function toFields(raw) {
 }
 
 /**
- * @param {any} rawView `issue view --json`
- * @param {any[] | null} rawComments `issue comment list --json`, or null
- * @param {string} baseUrl
- * @returns {IssueDetail}
+ * Comments of `issue comment list --json`, oldest first; deleted ones are left out.
+ * @param {any} rawComments
+ * @returns {Comment[]}
  */
-export function toIssueDetail(rawView, rawComments, baseUrl) {
-  const comments = (Array.isArray(rawComments) ? rawComments : [])
-    .filter((c) => c && c.deleted !== true)
+export function toComments(rawComments) {
+  return (Array.isArray(rawComments) ? rawComments : [])
+    .filter((c) => c && typeof c === 'object' && c.deleted !== true)
     .map((c) => ({
       id: text(c.id),
       author: toUser(c.author) ?? { login: '', fullName: '' },
@@ -116,6 +115,16 @@ export function toIssueDetail(rawView, rawComments, baseUrl) {
       textMd: text(c.text)
     }))
     .sort((a, b) => a.created - b.created)
+}
+
+/**
+ * @param {any} rawView `issue view --json`
+ * @param {any[] | null} rawComments `issue comment list --json`, or null
+ * @param {string} baseUrl
+ * @returns {IssueDetail}
+ */
+export function toIssueDetail(rawView, rawComments, baseUrl) {
+  const comments = toComments(rawComments)
   /** @type {IssueDetail} */
   const detail = {
     ...toIssueRow(rawView, baseUrl),

@@ -4,7 +4,7 @@ import {
 import { links } from '../listState'
 import { call, refreshTick, server, view } from '../state'
 import { openInBrowser, openWorkspace, start } from './IssueRowActions'
-import type { IssueDetail as Detail } from '../protocol'
+import type { IssueComments, IssueDetail as Detail } from '../protocol'
 
 type Status = 'idle' | 'loading' | 'ok' | 'error'
 
@@ -26,6 +26,38 @@ const loadedFor = atom<string | null>(null)
 
 let seq = 0
 let seenTick = 0
+/** Comments are being loaded again after they failed. */
+const commentsBusy = atom(false)
+
+/** The comments merged into the loaded issue; the oldest are left out until it can be drawn. */
+function withComments(issue: Detail, loaded: IssueComments): Detail {
+  const { commentsError: _dropped, ...rest } = issue
+  let comments = loaded.comments
+  let omitted = loaded.commentsOmitted ?? 0
+  let next: Detail = { ...rest, comments }
+  while (!drawable(next) && comments.length > 0) {
+    comments = comments.slice(1)
+    omitted++
+    next = { ...rest, comments }
+  }
+  if (omitted > 0) next.commentsOmitted = omitted
+  else delete next.commentsOmitted
+  if (loaded.truncated || omitted > 0) next.truncated = true
+  return next
+}
+
+/** Loads only the comments of the shown issue again; the rest of the card stays as it is. */
+async function reloadComments(id: string): Promise<void> {
+  const current = read(server)
+  if (!current || read(commentsBusy)) return
+  const mine = seq
+  set(commentsBusy, true)
+  const answer = await call('yt.issue.comments', { server: current, id })
+  set(commentsBusy, false)
+  const issue = read(detail)
+  if (mine !== seq || !issue || issue.id !== id) return
+  set(detail, answer.ok ? withComments(issue, answer.data) : { ...issue, commentsError: answer.message })
+}
 
 async function load(id: string): Promise<void> {
   const current = read(server)
@@ -131,7 +163,16 @@ function Body({ issue }: { issue: Detail }) {
       {issue.descriptionMd ? <Markdown content={issue.descriptionMd} /> : null}
       <Separator />
       <Heading level={3}>Comments</Heading>
-      {issue.comments.length === 0 ? (
+      {issue.commentsError ? (
+        <Stack gap="xs">
+          <Text muted>{issue.commentsError}</Text>
+          <Row gap="xs">
+            <Button variant="ghost" size="sm" disabled={read(commentsBusy)} onPress={() => void reloadComments(issue.id)}>
+              Retry
+            </Button>
+          </Row>
+        </Stack>
+      ) : issue.comments.length === 0 ? (
         <Text muted>No comments</Text>
       ) : (
         issue.comments.map((comment, index) => (

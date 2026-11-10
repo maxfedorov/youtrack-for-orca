@@ -24,7 +24,10 @@ export type IssueDetail = IssueRow & {
   truncated?: true
   /** Number of older comments left out. */
   commentsOmitted?: number
+  /** Set when only the comments could not be loaded; `comments` is then empty. */
+  commentsError?: string
 }
+export type IssueComments = { comments: Comment[]; commentsOmitted?: number; truncated?: true }
 export type SavedQuery = { id: string; name: string; query: string }
 export type Repo = { id: string; name: string; path?: string; worktreeBaseRef?: string }
 export type WorkspaceItem = { id: string; name: string; project?: string; branch?: string }
@@ -78,7 +81,10 @@ declare module 'orca' {
       input: { server: string; query: string; offset: number; limit: number }
       output: Result<{ issues: IssueRow[]; hasMore: boolean; total?: number }>
     }
+    /** Fails only when the issue itself cannot be read; failed comments are reported in `commentsError`. */
     'yt.issue.get': { input: { server: string; id: string }; output: Result<IssueDetail> }
+    /** The comments of an issue alone, to load them again after they failed. */
+    'yt.issue.comments': { input: { server: string; id: string }; output: Result<IssueComments> }
     'yt.savedQueries': { input: { server: string }; output: Result<SavedQuery[]> }
     /** name <= 60 characters. */
     'yt.savedQueries.create': { input: { server: string; name: string; query: string }; output: Result<SavedQuery> }
