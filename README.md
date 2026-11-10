@@ -112,7 +112,7 @@ everything that talks to YouTrack goes through the CLI.
 | Default agent           | `claude`                               | Agent preselected in the Start view; empty means terminal only.         |
 | Default launch mode     | New worktree                           | `New worktree` or `Current workspace`.                                  |
 | Include issue description | off                                  | Initial state of the switch in the Start view.                          |
-| youtrack CLI path       | empty (auto-detect)                    | Full path to the `youtrack` executable if it is not found.              |
+| YouTrack CLI path       | empty (auto-detect)                    | Full path to the `youtrack` executable if it is not found.              |
 
 Placeholders for the prompt templates and the branch name template: `{{id}}`, `{{id_lower}}`, `{{summary}}`,
 `{{summary_slug}}`, `{{url}}`, `{{project}}`, `{{server}}`, `{{state}}`, `{{priority}}`, `{{assignee}}`,

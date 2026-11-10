@@ -522,8 +522,8 @@ test('cuts do not split surrogate pairs', async () => {
   assert.ok(!/[\ud800-\udbff](?![\udc00-\udfff])/.test(d))
 })
 
-test('env keeps cli and orcaCli when the youtrack CLI vanished', async () => {
-  const yt = fakeYt({ instances: async () => fail('CLI_NOT_FOUND', 'The youtrack CLI was not found.') })
+test('env keeps cli and orcaCli when the YouTrack CLI vanished', async () => {
+  const yt = fakeYt({ instances: async () => fail('CLI_NOT_FOUND', 'The YouTrack CLI was not found.') })
   const { call } = setup({ yt })
   const r = await call('yt.env')
   assert.equal(r.ok, true)
@@ -545,7 +545,7 @@ test('env keeps cli and orcaCli with the error when the instance list fails', as
   strict(r)
 })
 
-test('env re-resolves the youtrack CLI on every call', async () => {
+test('env re-resolves the YouTrack CLI on every call', async () => {
   const yt = fakeYt()
   let current = null
   const orca = fakeOrca({ host: {}, settings: {} })
@@ -561,7 +561,7 @@ test('env re-resolves the youtrack CLI on every call', async () => {
 
 test('a request that finds the CLI gone refreshes the resolved CLI', async () => {
   let refreshed = 0
-  let current = fakeYt({ instances: async () => fail('CLI_NOT_FOUND', 'The youtrack CLI was not found.') })
+  let current = fakeYt({ instances: async () => fail('CLI_NOT_FOUND', 'The YouTrack CLI was not found.') })
   const orca = fakeOrca({ host: {}, settings: {} })
   registerHandlers(orca, {
     getYoutrack: () => current, refreshYoutrack: async () => { refreshed++; current = null },

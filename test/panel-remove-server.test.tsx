@@ -139,7 +139,7 @@ test('a removal that timed out can be tried again and then finishes', async () =
       servers = [all[1]]
       if (first) {
         first = false
-        return fail('TIMEOUT', 'The youtrack CLI did not answer in time.')
+        return fail('TIMEOUT', 'The YouTrack CLI did not answer in time.')
       }
       return ok({})
     }
@@ -147,7 +147,7 @@ test('a removal that timed out can be tried again and then finishes', async () =
   const view = await mount(panel, { host })
   await view.press(removeButton)
   await view.press({ role: 'button', text: 'Remove' })
-  assert.ok(view.find({ text: 'The youtrack CLI did not answer in time.' }))
+  assert.ok(view.find({ text: 'The YouTrack CLI did not answer in time.' }))
   await view.press({ role: 'button', text: 'Remove' })
   assert.equal(view.find({ text: QUESTION }), null)
   assert.equal(view.find({ type: 'Select', label: 'Server' }).props.value, 'other')

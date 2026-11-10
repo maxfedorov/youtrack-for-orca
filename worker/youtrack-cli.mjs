@@ -55,14 +55,14 @@ function parseCliError(stderr) {
  * @returns {{ code: string, message: string }}
  */
 export function classifyCliError({ stderr, timedOut, spawnError }) {
-  if (spawnError === 'ENOENT') return { code: CODES.CLI_NOT_FOUND, message: 'The youtrack CLI was not found.' }
-  if (timedOut) return { code: CODES.TIMEOUT, message: 'The youtrack CLI did not answer in time.' }
+  if (spawnError === 'ENOENT') return { code: CODES.CLI_NOT_FOUND, message: 'The YouTrack CLI was not found.' }
+  if (timedOut) return { code: CODES.TIMEOUT, message: 'The YouTrack CLI did not answer in time.' }
   const err = parseCliError(stderr)
   if (!err) {
     const text = String(stderr ?? '').trim().split(/\r?\n/).filter(Boolean).pop()
-    return { code: CODES.UNKNOWN, message: text || 'The youtrack CLI failed.' }
+    return { code: CODES.UNKNOWN, message: text || 'The YouTrack CLI failed.' }
   }
-  const message = String(err.message ?? 'The youtrack CLI failed.')
+  const message = String(err.message ?? 'The YouTrack CLI failed.')
   const c = err.code
   const http = /HTTP (\d{3})/.exec(message)?.[1]
   if (c === 'unauthorized' || http === '401') return { code: CODES.AUTH_FAILED, message }
@@ -93,7 +93,7 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
     try {
       return ok(parse(r.stdout, r))
     } catch {
-      return fail(CODES.UNKNOWN, 'The youtrack CLI returned an unexpected answer.')
+      return fail(CODES.UNKNOWN, 'The YouTrack CLI returned an unexpected answer.')
     }
   }
 

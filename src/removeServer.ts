@@ -23,7 +23,7 @@ export function cancelRemove(): void {
 }
 
 /**
- * Removes the server in the youtrack CLI, then reads the server list again: another server is chosen
+ * Removes the server in the YouTrack CLI, then reads the server list again: another server is chosen
  * when it was the selected one, and the add-server screen is shown when none is left.
  */
 export async function confirmRemove(): Promise<void> {

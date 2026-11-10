@@ -28,7 +28,7 @@ import { createTemplateStore } from './templates.mjs'
  *   to a store in the plugin's storage
  */
 export function registerHandlers(orca, deps) {
-  /** The youtrack CLI as last resolved; null when it is not installed. */
+  /** The YouTrack CLI as last resolved; null when it is not installed. */
   const current = () => (deps.getYoutrack ? deps.getYoutrack() : (deps.youtrack ?? null))
   const refreshYoutrack = async () => {
     await deps.refreshYoutrack?.()
@@ -36,7 +36,7 @@ export function registerHandlers(orca, deps) {
   /** The configured server with this alias: `ok(Server)`, or why there is none. */
   async function resolveServer(alias) {
     const youtrack = current()
-    if (!youtrack) return fail(CODES.CLI_NOT_FOUND, 'The youtrack CLI was not found.')
+    if (!youtrack) return fail(CODES.CLI_NOT_FOUND, 'The YouTrack CLI was not found.')
     if (typeof alias !== 'string' || !alias) return fail(CODES.UNKNOWN, 'Unknown server')
     const r = await youtrack.instances()
     if (!r.ok) {

@@ -133,7 +133,7 @@ async function add(): Promise<void> {
 function InstallScreen() {
   const command = read(env)?.cli.installCommand
   return (
-    <EmptyState title="Install youtrack CLI" icon="terminal" description="The plugin talks to YouTrack through the youtrack command line tool.">
+    <EmptyState title="Install YouTrack CLI" icon="terminal" description="The plugin talks to YouTrack through the YouTrack command line tool.">
       {command ? <Text>Run this in a terminal, then press Check again:</Text> : null}
       {command ? <Code block>{command}</Code> : null}
       <Row gap="xs">

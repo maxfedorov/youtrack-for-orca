@@ -224,7 +224,7 @@ test('an open detail reloads the issue and the list behind it', async () => {
 })
 
 test('a timed out command says it may have been applied, refreshes and is not sent again', async () => {
-  const { host } = setup(() => fail('TIMEOUT', 'The youtrack CLI did not answer in time.'))
+  const { host } = setup(() => fail('TIMEOUT', 'The YouTrack CLI did not answer in time.'))
   const view = await mount(panel, { host })
   await view.selectRows(view.find(table), ['DEMO-1'])
   await view.type(commandInput, 'State Done')

@@ -9,7 +9,7 @@ const env = (over: Record<string, unknown> = {}) =>
 test('no CLI shows install screen', async () => {
   const host = mockHost({ requests: { 'yt.env': env({ cli: { found: false, installCommand: 'brew install jetbrains/utils/youtrack' }, servers: [], server: null }) } })
   const view = await mount(panel, { host })
-  assert.ok(view.find({ type: 'EmptyState', label: 'Install youtrack CLI' }))
+  assert.ok(view.find({ type: 'EmptyState', label: 'Install YouTrack CLI' }))
   assert.ok(view.find({ type: 'Code', text: 'brew install jetbrains/utils/youtrack' }))
   assert.equal(view.find({ role: 'button', text: 'Open terminal with command' }), null)
   assert.ok(view.find({ role: 'button', text: 'Check again' }))
@@ -166,7 +166,7 @@ test('a request that finds the CLI gone returns to the install screen', async ()
         gone
           ? env({ cli: { found: false, installCommand: 'brew install jetbrains/utils/youtrack' }, servers: [], server: null })
           : env(),
-      'yt.issues.search': () => (gone ? { ok: false, error: { code: 'CLI_NOT_FOUND', message: 'The youtrack CLI was not found.' } } : ok({ issues: [], hasMore: false, total: 0 })),
+      'yt.issues.search': () => (gone ? { ok: false, error: { code: 'CLI_NOT_FOUND', message: 'The YouTrack CLI was not found.' } } : ok({ issues: [], hasMore: false, total: 0 })),
       'yt.savedQueries': ok([]),
       'yt.links': ok({}),
       'yt.setQuery': ok({})
@@ -175,7 +175,7 @@ test('a request that finds the CLI gone returns to the install screen', async ()
   const view = await mount(panel, { host })
   gone = true
   await view.press({ role: 'button', label: 'Refresh' })
-  assert.ok(view.find({ type: 'EmptyState', label: 'Install youtrack CLI' }))
+  assert.ok(view.find({ type: 'EmptyState', label: 'Install YouTrack CLI' }))
   assert.equal(view.find({ type: 'Callout' }), null)
   await view.unmount()
 })

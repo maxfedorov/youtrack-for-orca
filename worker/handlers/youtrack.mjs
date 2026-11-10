@@ -1,4 +1,4 @@
-/** Requests about servers, issues and saved queries (everything answered by the youtrack CLI). */
+/** Requests about servers, issues and saved queries (everything answered by the YouTrack CLI). */
 import { ok, fail, CODES } from '../result.mjs'
 import { toIssueRow, toIssueDetail, toComments, toSavedQuery, toSavedQueries, toServers } from '../mapping.mjs'
 import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, MAX_COMMAND, MAX_NEW_COMMENT, isPlainUrl, normalizeUrl, settingString, capDetail, attempt, fallback, readSetting, INSTALL } from './common.mjs'
@@ -152,7 +152,7 @@ export function registerYoutrackHandlers(ctx) {
 
   handle('yt.servers.add', async ({ url }) => {
     if (!isPlainUrl(url)) return invalid('Enter a server address like https://example.youtrack.cloud')
-    if (!ctx.youtrack) return fail(CODES.CLI_NOT_FOUND, 'The youtrack CLI was not found.')
+    if (!ctx.youtrack) return fail(CODES.CLI_NOT_FOUND, 'The YouTrack CLI was not found.')
     login(url)
       .catch((e) => fail(CODES.UNKNOWN, e instanceof Error ? e.message : String(e)))
       .then((result) => safePost(orca, 'yt.servers.added', result))
@@ -162,7 +162,7 @@ export function registerYoutrackHandlers(ctx) {
   // Signs the CLI out of the server: run only after the person confirmed it in the panel.
   handle('yt.servers.remove', async ({ server }) => {
     if (typeof server !== 'string' || !server) return invalid('Unknown server')
-    if (!ctx.youtrack) return fail(CODES.CLI_NOT_FOUND, 'The youtrack CLI was not found.')
+    if (!ctx.youtrack) return fail(CODES.CLI_NOT_FOUND, 'The YouTrack CLI was not found.')
     const inst = await ctx.youtrack.instances()
     if (!inst.ok) return inst
     const warnings = []

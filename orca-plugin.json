@@ -93,8 +93,8 @@
       },
       {
         "key": "youtrackPath",
-        "title": "youtrack CLI path",
-        "description": "Leave empty to find the youtrack CLI automatically.",
+        "title": "YouTrack CLI path",
+        "description": "Leave empty to find the YouTrack CLI automatically.",
         "type": "string",
         "default": ""
       }

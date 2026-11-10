@@ -105,8 +105,8 @@ export function safePost(orca, name, payload) {
 /** A CLI issue object with a readable id; rows without one cannot be shown or opened. */
 export const hasId = (raw) => raw !== null && typeof raw === 'object' && !Array.isArray(raw) && typeof raw.idReadable === 'string' && raw.idReadable !== ''
 
-/** Shown when the youtrack CLI answered with JSON of an unexpected shape. */
-export const unexpected = () => fail(CODES.UNKNOWN, 'The youtrack CLI returned an unexpected answer.')
+/** Shown when the YouTrack CLI answered with JSON of an unexpected shape. */
+export const unexpected = () => fail(CODES.UNKNOWN, 'The YouTrack CLI returned an unexpected answer.')
 
 /** A non-empty string value that cannot be mistaken for a command-line flag. */
 export function token(v, what) {
@@ -199,7 +199,7 @@ export function capDetail(detail) {
   return out
 }
 
-/** Shell line that installs the youtrack CLI, per platform; shown by `yt.env` for the person to run. */
+/** Shell line that installs the YouTrack CLI, per platform; shown by `yt.env` for the person to run. */
 export const INSTALL = {
   darwin: 'brew install jetbrains/utils/youtrack',
   linux: 'brew install jetbrains/utils/youtrack',

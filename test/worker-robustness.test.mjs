@@ -70,7 +70,7 @@ async function stray(fn) {
 const isResult = (r) =>
   r !== null && typeof r === 'object' && (r.ok === true ? 'data' in r : r.ok === false && typeof r.error?.code === 'string' && typeof r.error?.message === 'string')
 
-test('the youtrack CLI is still found when the path setting cannot be read', async () => {
+test('the YouTrack CLI is still found when the path setting cannot be read', async () => {
   const holder = createYoutrackHolder({
     getSetting: async () => { throw new Error('settings unavailable') },
     env: { PATH: '/bin' }, platform: 'linux', homedir: '/home/demo',
@@ -189,9 +189,9 @@ test('an issue answer that is not an issue is reported, not shown as a blank iss
   for (const data of [null, 'text', 42, [], {}]) {
     const { call } = setup({ yt: fakeYt({ viewIssue: async () => ok(data) }) })
     const r = await call('yt.issue.get', { server: 'one', id: 'DEMO-1' })
-    assert.deepEqual(r, fail('UNKNOWN', 'The youtrack CLI returned an unexpected answer.'), JSON.stringify(data))
+    assert.deepEqual(r, fail('UNKNOWN', 'The YouTrack CLI returned an unexpected answer.'), JSON.stringify(data))
     const p = await call('yt.start.prepare', { server: 'one', id: 'DEMO-1' })
-    assert.deepEqual(p, fail('UNKNOWN', 'The youtrack CLI returned an unexpected answer.'), JSON.stringify(data))
+    assert.deepEqual(p, fail('UNKNOWN', 'The YouTrack CLI returned an unexpected answer.'), JSON.stringify(data))
   }
 })
 
@@ -201,7 +201,7 @@ test('search drops rows without an id and treats a non-list answer as unexpected
   assert.deepEqual(r.data.issues.map((i) => i.id), ['DEMO-1'])
   const odd = setup({ yt: fakeYt({ listIssues: async () => ok({ issues: [] }) }) })
   const o = await odd.call('yt.issues.search', { server: 'one', query: '', offset: 0, limit: 10 })
-  assert.deepEqual(o, fail('UNKNOWN', 'The youtrack CLI returned an unexpected answer.'))
+  assert.deepEqual(o, fail('UNKNOWN', 'The YouTrack CLI returned an unexpected answer.'))
 })
 
 test('the status bar flags a server list that is not a list', async () => {

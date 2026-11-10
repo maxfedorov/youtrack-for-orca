@@ -1,4 +1,4 @@
-// Pure mappers from youtrack CLI JSON to the plugin's UI models.
+// Pure mappers from YouTrack CLI JSON to the plugin's UI models.
 // Output is strict JSON: absent values are omitted, never set to undefined.
 
 /** @typedef {{ name: string, color?: string }} Value */

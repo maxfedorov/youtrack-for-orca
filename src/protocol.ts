@@ -66,7 +66,7 @@ export type StartPrepare = {
 declare module 'orca' {
   // oxlint-disable-next-line typescript/consistent-type-definitions -- declaration merging needs an interface
   interface PluginRequests {
-    /** Without the youtrack CLI: `cli.found` false and no servers (not an error). */
+    /** Without the YouTrack CLI: `cli.found` false and no servers (not an error). */
     'yt.env': {
       input: Record<string, never>
       output: Result<{
@@ -134,7 +134,7 @@ declare module 'orca' {
     /** Sets the project Start offers for a server when none was chosen before; null clears it. */
     'yt.servers.setDefaultRepo': { input: { server: string; repoId: string | null }; output: Result<Record<string, never>> }
     /**
-     * Removes the server from the youtrack CLI (signing it out) and forgets its saved query, links,
+     * Removes the server from the YouTrack CLI (signing it out) and forgets its saved query, links,
      * launches and projects. `warning`: removed, but some of that could not be forgotten.
      */
     'yt.servers.remove': { input: { server: string }; output: Result<{ warning?: string }> }

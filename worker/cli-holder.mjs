@@ -1,4 +1,4 @@
-// Holds the youtrack CLI wrapper and looks the binary up again on demand, so installing the CLI,
+// Holds the YouTrack CLI wrapper and looks the binary up again on demand, so installing the CLI,
 // removing it or changing the path setting takes effect without restarting the worker.
 import { createYoutrack, resolveYoutrack } from './youtrack-cli.mjs'
 

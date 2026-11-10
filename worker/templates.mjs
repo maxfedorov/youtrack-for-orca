@@ -11,7 +11,7 @@ export const MAX_TEMPLATE_BODY = 8000
 export const MAX_TEMPLATES_BYTES = 250_000
 const TEMPLATE_ID = /^[A-Za-z0-9][A-Za-z0-9-]{0,63}$/
 
-const CONTEXT = `Before you start, gather the full context with the youtrack CLI:
+const CONTEXT = `Before you start, gather the full context with the YouTrack CLI:
   youtrack --server {{server}} issue view {{id}}
   youtrack --server {{server}} issue comment list {{id}}
   youtrack --server {{server}} issue link list {{id}}
