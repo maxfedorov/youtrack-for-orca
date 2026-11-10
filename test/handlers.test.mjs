@@ -330,7 +330,8 @@ test('runInExisting launches through the Orca CLI with the prompt and tracks the
   // The host launch hands the prompt over separately and loses it while the agent starts.
   assert.equal(orca.hostCalls.some((c) => c.method === 'agent.launch'), false)
   const data = orca.storage.data()
-  assert.deepEqual(data.launches, [{ terminalId: 't9', paneKey: 'tab:pane', server: 'one', issueId: 'DEMO-1', workspaceId: 'identity:main', at: 1000 }])
+  // Other agents may run in this workspace, so the launch is known by its terminal and pane only.
+  assert.deepEqual(data.launches, [{ terminalId: 't9', paneKey: 'tab:pane', server: 'one', issueId: 'DEMO-1', workspaceId: 'identity:main', at: 1000, shared: true }])
   assert.equal(data.links, undefined)
 })
 

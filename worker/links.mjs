@@ -137,12 +137,17 @@ export function createLaunchTracker(storage) {
   }
 
   return {
-    /** @param {{ terminalId: string, server: string, issueId: string, workspaceId: string, at: number }} launch */
-    track: ({ terminalId, paneKey, server, issueId, workspaceId, at }) =>
+    /**
+     * `shared`: the workspace may run other agents too (a launch in an existing workspace), so only
+     * its terminal or pane identifies it, never the workspace.
+     * @param {{ terminalId: string, paneKey?: string, server: string, issueId: string, workspaceId: string, at: number, shared?: boolean }} launch
+     */
+    track: ({ terminalId, paneKey, server, issueId, workspaceId, at, shared }) =>
       serial(async () => {
         const list = (await read()).filter((e) => e.terminalId !== terminalId)
         const entry = { terminalId, server, issueId, workspaceId, at }
         if (paneKey) entry.paneKey = paneKey
+        if (shared) entry.shared = true
         list.push(entry)
         await storage.set('launches', list.slice(-MAX_LAUNCHES))
       }),
@@ -155,14 +160,15 @@ export function createLaunchTracker(storage) {
 
     /**
      * Returns the launch once and forgets it. `ids` is a terminal id or `{ terminalId, paneKey, workspaceId }`;
-     * a terminal match wins over a pane match, which wins over a workspace match.
+     * a terminal match wins over a pane match, which wins over a workspace match (not for shared launches).
      * @returns {Promise<{ server: string, issueId: string } | null>} */
     takeFinished: (ids) =>
       serial(async () => {
         const list = await read()
         const { terminalId, paneKey, workspaceId } = typeof ids === 'string' ? { terminalId: ids } : (ids ?? {})
-        const by = (key, value) => (value ? list.find((e) => e[key] === value) : undefined)
-        const found = by('terminalId', terminalId) ?? by('paneKey', paneKey) ?? by('workspaceId', workspaceId)
+        const by = (key, value, from = list) => (value ? from.find((e) => e[key] === value) : undefined)
+        const found =
+          by('terminalId', terminalId) ?? by('paneKey', paneKey) ?? by('workspaceId', workspaceId, list.filter((e) => !e.shared))
         if (!found) return null
         await storage.set('launches', list.filter((e) => e !== found))
         return { server: found.server, issueId: found.issueId }

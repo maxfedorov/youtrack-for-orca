@@ -188,3 +188,14 @@ test('a server alias containing | does not take the links of another server', as
   await links.dropServer('a')
   assert.deepEqual(Object.keys(storage.data().links), ['a|b|DEMO-2'])
 })
+
+test('a shared launch is never matched by its workspace, only by its terminal or pane', async () => {
+  const t = createLaunchTracker(fakeStorage())
+  await t.track({ terminalId: 'term-1', paneKey: 'tab:1', server: 's', issueId: 'DEMO-1', workspaceId: 'w', at: 1, shared: true })
+  // another agent in the same workspace finished
+  assert.equal(await t.takeFinished({ terminalId: 'term-other', paneKey: 'tab:9', workspaceId: 'w' }), null)
+  assert.deepEqual(await t.takeFinished({ terminalId: 'term-x', paneKey: 'tab:1', workspaceId: 'w' }), { server: 's', issueId: 'DEMO-1' })
+  // a launch in its own new worktree is still found by its workspace
+  await t.track({ terminalId: 'term-2', server: 's', issueId: 'DEMO-2', workspaceId: 'w2', at: 2 })
+  assert.deepEqual(await t.takeFinished({ terminalId: 'term-y', workspaceId: 'w2' }), { server: 's', issueId: 'DEMO-2' })
+})

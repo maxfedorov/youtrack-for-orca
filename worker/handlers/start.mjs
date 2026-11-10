@@ -203,9 +203,11 @@ export function registerStartHandlers(ctx) {
       const r = await host('agent.launch', params)
       terminalId = typeof r?.terminalId === 'string' ? r.terminalId : null
     }
-    // Without a terminal id the launch is tracked by workspace id (the notifier matches either).
+    // Without a terminal id the launch is tracked by workspace id (the notifier matches either). With
+    // one, other agents may already run in this workspace, so only the terminal or pane counts.
     const tracked = { terminalId: terminalId ?? workspaceId, server: s.data.alias, issueId: id, workspaceId, at: now() }
     if (paneKey) tracked.paneKey = paneKey
+    if (terminalId || paneKey) tracked.shared = true
     const warning = await remember('yt.runInExisting launch', () => launches.track(tracked))
     const data = terminalId ? { terminalId } : {}
     if (warning) data.warning = warning
