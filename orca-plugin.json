@@ -123,6 +123,10 @@
       "kind": "notifications:show"
     }
   ],
+  "cover": {
+    "path": "images/issues.png",
+    "alt": "The issue list for a YouTrack query, with saved searches, sortable columns and the actions of the selected issue"
+  },
   "screenshots": [
     {
       "path": "images/issues.png",
