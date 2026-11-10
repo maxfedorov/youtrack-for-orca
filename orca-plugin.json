@@ -85,9 +85,16 @@
         "default": "worktree"
       },
       {
+        "key": "startWithoutPrompt",
+        "title": "Start agents without a prompt",
+        "description": "Start the agent with no prompt, waiting for you in its terminal. Changeable for each start in the Start view.",
+        "type": "boolean",
+        "default": false
+      },
+      {
         "key": "includeDescription",
         "title": "Include issue description",
-        "description": "Initial state of the checkbox in the Start view.",
+        "description": "Whether the \"Include issue description in prompt\" switch starts on in the Start view.",
         "type": "boolean",
         "default": false
       },

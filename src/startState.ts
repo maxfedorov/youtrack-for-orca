@@ -36,6 +36,8 @@ export const workspaceId = atom<string | null>(null)
 export const agentChoice = atom(NONE)
 export const otherAgent = atom('')
 export const includeDescription = atom(true)
+/** The agent starts with no prompt; the prompt and the controls that build it are off. */
+export const withoutPrompt = atom(false)
 /** The chosen prompt template; null when the answer listed none (the prompt template text is used). */
 export const templateId = atom<string | null>(null)
 export const prompt = atom('')
@@ -113,7 +115,7 @@ export function canStart(): { ok: boolean; hint: string } {
     return { ok: false, hint: 'Choose an agent to run in the current workspace.' }
   }
   if (wantsOther) return { ok: false, hint: '' }
-  if (agent && read(prompt).length > PROMPT_LIMIT) return { ok: false, hint: '' }
+  if (agent && !read(withoutPrompt) && read(prompt).length > PROMPT_LIMIT) return { ok: false, hint: '' }
   return { ok: true, hint: '' }
 }
 
@@ -171,6 +173,11 @@ export function toggleDescription(include: boolean): void {
   if (p && !read(promptEdited)) set(prompt, templatePrompt(p, include))
 }
 
+/** Empties the prompt; it counts as edited, so other choices do not fill it again. */
+export function clearPrompt(): void {
+  editPrompt('')
+}
+
 export function editPrompt(text: string): void {
   set(prompt, text)
   set(promptEdited, true)
@@ -206,6 +213,7 @@ function init(p: StartPrepare): void {
   set(agentChoice, p.defaultAgent && (known || /^[a-z0-9][a-z0-9-]{0,63}$/.test(p.defaultAgent)) ? p.defaultAgent : NONE)
   set(otherAgent, '')
   set(includeDescription, p.includeDescription)
+  set(withoutPrompt, p.withoutPrompt === true)
   const templates = p.templates ?? []
   const chosen = templates.find((t) => t.id === p.defaultTemplateId) ?? templates[0]
   set(templateId, chosen ? chosen.id : null)
@@ -260,7 +268,8 @@ export async function submit(id: string): Promise<void> {
   const current = read(server)
   if (!current || !canStart().ok) return
   const agent = chosenAgent()
-  const text = read(prompt)
+  // With no prompt the agent just starts and waits in its terminal.
+  const text = read(withoutPrompt) ? '' : read(prompt)
   const mine = seq
   set(running, true)
   set(runError, '')

@@ -56,6 +56,8 @@ export type StartPrepare = {
   defaultAgent: string
   launchMode: 'worktree' | 'current'
   includeDescription: boolean
+  /** Start the agent with no prompt (the setting's choice; the Start view can change it). */
+  withoutPrompt?: boolean
   /** The prompt templates to choose from; the default one is chosen first. */
   templates: { id: string; name: string; body: string }[]
   defaultTemplateId: string | null

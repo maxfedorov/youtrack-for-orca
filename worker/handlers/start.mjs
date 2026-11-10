@@ -123,6 +123,7 @@ export function registerStartHandlers(ctx) {
       defaultAgent: AGENT_ID.test(defaultAgent) ? defaultAgent : '',
       launchMode: (await get('defaultLaunchMode')) === 'current' ? 'current' : 'worktree',
       includeDescription: (await get('includeDescription')) === true,
+      withoutPrompt: (await get('startWithoutPrompt')) === true,
       templates: prompts.templates.map(({ id, name, body }) => ({ id, name, body })),
       defaultTemplateId: chosenTemplate ? chosenTemplate.id : null,
       vars,

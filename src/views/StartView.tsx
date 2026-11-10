@@ -2,7 +2,7 @@ import { Button, Callout, Field, Heading, Input, Row, Select, Skeleton, Stack, S
 import {
   back, canStart, editPrompt, failure, includeDescription, load, loadedFor, mode, name, prep, prompt, PROMPT_LIMIT, resetPrompt,
   repoId, runError, running, setProject, status, submit, sync, toggleDescription, workspaceId, chosenAgent, currentAvailable, usableMode,
-  worktreeAvailable, workspaceOptions, templateId, chooseTemplate
+  worktreeAvailable, workspaceOptions, templateId, chooseTemplate, withoutPrompt, clearPrompt
 } from '../startState'
 import { AgentPicker } from './start/AgentPicker'
 import { BranchPicker } from './start/BranchPicker'
@@ -21,7 +21,10 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
   const worktree = current === 'worktree'
   const length = read(prompt).length
   const agent = chosenAgent()
-  const tooLong = Boolean(agent) && length > PROMPT_LIMIT
+  const noPrompt = read(withoutPrompt)
+  /** The prompt and the controls that build it: off without an agent or without a prompt. */
+  const promptOff = !agent || noPrompt
+  const tooLong = !promptOff && length > PROMPT_LIMIT
   const gate = canStart()
   const error = read(runError)
   return (
@@ -77,11 +80,17 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
       )}
       <AgentPicker />
       {gate.hint ? <Text muted size="sm">{gate.hint}</Text> : null}
-      {/* A Switch: Orca centers it on its label's line, while a Checkbox's box sits above the text. */}
+      {/* Switches: Orca centers them on their label's line, while a Checkbox's box sits above the text. */}
+      <Switch
+        label="Start without a prompt"
+        checked={noPrompt}
+        disabled={!agent}
+        onChange={(on) => set(withoutPrompt, on)}
+      />
       <Switch
         label="Include issue description in prompt"
         checked={read(includeDescription)}
-        disabled={!agent}
+        disabled={promptOff}
         onChange={toggleDescription}
       />
       {p.templates.length > 0 ? (
@@ -89,18 +98,23 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
           label="Template"
           value={read(templateId)}
           placeholder="Choose a template"
-          disabled={!agent}
+          disabled={promptOff}
           options={p.templates.map((t) => ({ value: t.id, label: t.name }))}
           onChange={chooseTemplate}
         />
       ) : null}
       <Field label="Prompt">
-        <Textarea label="Prompt" labelHidden rows={8} value={read(prompt)} disabled={!agent} onChange={editPrompt} />
+        <Textarea label="Prompt" labelHidden rows={8} value={read(prompt)} disabled={promptOff} onChange={editPrompt} />
       </Field>
       <Row gap="xs" align="center" justify="between">
-        <Button variant="ghost" size="sm" disabled={!agent} onPress={resetPrompt}>
-          Reset to template
-        </Button>
+        <Row gap="xs">
+          <Button variant="ghost" size="sm" disabled={promptOff} onPress={resetPrompt}>
+            Reset to template
+          </Button>
+          <Button variant="ghost" size="sm" disabled={promptOff || length === 0} onPress={clearPrompt}>
+            Clear
+          </Button>
+        </Row>
         <Text tone={tooLong ? 'danger' : undefined} muted={!tooLong} size="sm">
           {`${length} / ${PROMPT_LIMIT}`}
         </Text>

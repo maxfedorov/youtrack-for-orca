@@ -29,7 +29,12 @@ function Editor({ d }: { d: Draft }) {
           onChange={(body) => editDraft({ body })}
         />
       </Field>
-      <Text muted size="sm">{`${d.body.length} / ${MAX_TEMPLATE_BODY}`}</Text>
+      <Row gap="xs" align="center" justify="between">
+        <Button variant="ghost" size="sm" disabled={busy || d.body.length === 0} onPress={() => editDraft({ body: '' })}>
+          Clear
+        </Button>
+        <Text muted size="sm">{`${d.body.length} / ${MAX_TEMPLATE_BODY}`}</Text>
+      </Row>
       {error ? (
         <Text tone="danger" size="sm">
           {error}

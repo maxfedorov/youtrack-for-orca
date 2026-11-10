@@ -844,3 +844,9 @@ test('start.prepare does not guess between focused workspaces of the same name a
   await state.rememberProjectRepo('one', 'DEMO', 'rb')
   assert.equal((await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })).data.defaultWorkspaceId, 'identity:b')
 })
+
+test('start.prepare passes the start-without-prompt setting', async () => {
+  assert.equal((await setup().call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })).data.withoutPrompt, false)
+  const on = setup({ settings: { startWithoutPrompt: true } })
+  assert.equal((await on.call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })).data.withoutPrompt, true)
+})

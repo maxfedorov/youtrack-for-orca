@@ -239,3 +239,15 @@ test('a failed change shows its reason above the list', async () => {
   clean(view)
   await view.unmount()
 })
+
+test('Clear empties the template text, and an empty template cannot be saved', async () => {
+  const host = settingsHost()
+  const view = await openSettings(host)
+  await view.press({ role: 'button', label: 'Edit Beta' })
+  await view.press({ role: 'button', text: 'Clear' })
+  assert.equal(view.valueOf({ type: 'Textarea', label: 'Template' }), '')
+  assert.equal(view.find({ role: 'button', text: 'Clear' }).props.disabled, true)
+  assert.equal(view.find({ role: 'button', text: 'Save' }).props.disabled, true)
+  clean(view)
+  await view.unmount()
+})

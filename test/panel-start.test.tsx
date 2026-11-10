@@ -458,3 +458,45 @@ test('Run in has one label, drawn by a Field like the other fields, with the cho
   clean(view)
   await view.unmount()
 })
+
+test('start without a prompt turns the prompt controls off and sends no prompt', async () => {
+  const host = mockHost({ requests: requests() })
+  const view = await open(host)
+  const noPrompt = { type: 'Switch', label: 'Start without a prompt' }
+  assert.equal(view.find(noPrompt).props.checked, false)
+  await view.toggle(noPrompt)
+  for (const q of [
+    { type: 'Textarea', label: 'Prompt' }, { type: 'Switch', label: 'Include issue description in prompt' },
+    { role: 'button', text: 'Reset to template' }, { role: 'button', text: 'Clear' }
+  ]) assert.equal(disabled(view, q), true, JSON.stringify(q))
+  assert.equal(comboDisabled(view, 'Template'), true)
+  // a prompt over the limit does not matter when none is sent
+  await view.toggle(noPrompt)
+  await view.type({ type: 'Textarea', label: 'Prompt' }, 'x'.repeat(4097), { replace: true })
+  assert.equal(disabled(view, startButton), true)
+  await view.toggle(noPrompt)
+  assert.equal(disabled(view, startButton), false)
+  await view.press(startButton)
+  const input = calls(host, 'yt.start.run')[0].input
+  assert.equal(input.agent, 'claude')
+  assert.equal(input.prompt, '')
+  clean(view)
+  await view.unmount()
+})
+
+test('the setting can make Start begin without a prompt, and Clear empties the prompt', async () => {
+  const host = mockHost({ requests: requests({ 'yt.start.prepare': ok(prepare({ withoutPrompt: true })) }) })
+  const view = await open(host)
+  assert.equal(view.find({ type: 'Switch', label: 'Start without a prompt' }).props.checked, true)
+  await view.toggle({ type: 'Switch', label: 'Start without a prompt' })
+  await view.press({ role: 'button', text: 'Clear' })
+  assert.equal(view.find({ type: 'Textarea', label: 'Prompt' }).props.value, '')
+  assert.equal(disabled(view, { role: 'button', text: 'Clear' }), true)
+  // an emptied prompt stays empty when the description switch changes
+  await view.toggle({ type: 'Switch', label: 'Include issue description in prompt' })
+  assert.equal(view.find({ type: 'Textarea', label: 'Prompt' }).props.value, '')
+  await view.press({ role: 'button', text: 'Reset to template' })
+  assert.match(view.find({ type: 'Textarea', label: 'Prompt' }).props.value, /^Work on DEMO-1/)
+  clean(view)
+  await view.unmount()
+})
