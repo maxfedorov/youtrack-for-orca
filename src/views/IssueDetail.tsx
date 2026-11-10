@@ -138,7 +138,7 @@ function Body({ issue }: { issue: Detail }) {
         <Row gap="xs">
           <OpenInBrowser url={issue.url} />
           {workspaceId ? (
-            <Button variant="solid" size="sm" onPress={() => void openWorkspace(workspaceId)}>
+            <Button variant="solid" tone="accent" size="sm" onPress={() => void openWorkspace(workspaceId)}>
               Open →
             </Button>
           ) : (

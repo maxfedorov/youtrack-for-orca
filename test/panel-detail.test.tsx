@@ -158,6 +158,7 @@ test('start and open actions follow the workspace link', async () => {
   await view.activateRow(view.find(table), 'DEMO-2')
   assert.equal(view.find({ role: 'button', text: 'Start →' }), null)
   assert.equal(view.find({ role: 'button', text: 'Open →' }).props.variant, 'solid')
+  assert.equal(view.find({ role: 'button', text: 'Open →' }).props.tone, 'accent')
   await view.press({ role: 'button', text: 'Open →' })
   assert.deepEqual(calls(host, 'yt.workspace.open')[0].input, { workspaceId: 'ws-2' })
   await view.unmount()

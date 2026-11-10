@@ -226,6 +226,7 @@ test('open shown for linked issue', async () => {
   const view = await mount(panel, { host })
   await view.selectRows(view.find(table), ['DEMO-1'])
   assert.equal(view.find({ role: 'button', text: 'Open →' }).props.variant, 'solid')
+  assert.equal(view.find({ role: 'button', text: 'Open →' }).props.tone, 'accent')
   assert.equal(view.find({ role: 'button', text: 'Start →' }), null)
   await view.press({ role: 'button', text: 'Open →' })
   assert.deepEqual(calls(host, 'yt.workspace.open')[0].input, { workspaceId: 'ws-1' })

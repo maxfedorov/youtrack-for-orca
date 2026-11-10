@@ -27,7 +27,7 @@ export function IssueRowActions({ issue, workspaceId }: { issue: IssueRow; works
       <Text weight="medium">{issue.id}</Text>
       <Row gap="xs" align="center" wrap>
         {workspaceId ? (
-          <Button variant="solid" size="sm" onPress={() => void openWorkspace(workspaceId)}>
+          <Button variant="solid" tone="accent" size="sm" onPress={() => void openWorkspace(workspaceId)}>
             Open →
           </Button>
         ) : (
