@@ -13,6 +13,7 @@ import { safePost } from './handlers/common.mjs'
 
 const REFRESHING = ['yt.setServer', 'yt.start.run', 'yt.runInExisting', 'yt.savedQueries.create']
 let statusBar = null
+let notifier = null
 
 /** @param {import('orca/worker').OrcaWorkerApi} orca */
 export default async function activate(orca) {
@@ -40,7 +41,7 @@ export default async function activate(orca) {
 
   // The panel requests are registered above; each of these extras is set up on its own, so one that
   // fails does not stop the others or the activation.
-  const notifier = createFinishNotifier({ host: orca.host, launches, post: (name, payload) => safePost(orca, name, payload) })
+  notifier = createFinishNotifier({ host: orca.host, launches, post: (name, payload) => safePost(orca, name, payload) })
   await optional(orca, 'agent notifications', () => orca.events.on('agent.status.changed', notifier.onAgentStatus))
   await optional(orca, 'open panel command', () => orca.commands.register('youtrack.openPanel', createOpenPanelCommand({ orcaCli, host: orca.host })))
   await optional(orca, 'status bar', () => statusBar.start())
@@ -61,4 +62,6 @@ async function optional(orca, what, fn) {
 export async function deactivate() {
   statusBar?.stop()
   statusBar = null
+  notifier?.stop()
+  notifier = null
 }

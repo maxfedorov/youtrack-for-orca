@@ -81,13 +81,20 @@ test('the youtrack CLI is still found when the path setting cannot be read', asy
 })
 
 test('a rejected panel post does not leave an unhandled rejection after an agent finished', async () => {
+  const later = []
   const storage = fakeStorage({ launches: [{ terminalId: 't1', server: 'one', issueId: 'DEMO-1', workspaceId: 'w1', at: 1 }] })
   const notifier = createFinishNotifier({
     host: { call: async () => ({}) },
     launches: createLaunchTracker(storage),
-    post: () => Promise.reject(new Error('no panel'))
+    post: () => Promise.reject(new Error('no panel')),
+    setTimeout: (fn) => (later.push(fn), {}),
+    clearTimeout: () => {}
   })
-  const seen = await stray(() => notifier.onAgentStatus({ workspaceId: 'w1', terminalId: 't1', state: 'done' }))
+  const seen = await stray(async () => {
+    await notifier.onAgentStatus({ workspaceId: 'w1', terminalId: 't1', state: 'working' })
+    await notifier.onAgentStatus({ workspaceId: 'w1', terminalId: 't1', state: 'done' })
+    for (const fn of later) await fn()
+  })
   assert.deepEqual(seen, [])
 })
 
@@ -147,8 +154,14 @@ test('corrupt link and launch storage does not break links, starting or notifica
   assert.deepEqual(await call('yt.links', { server: 'one' }), ok({ 'DEMO-1': 'identity:main' }))
   const run = await call('yt.start.run', { server: 'one', id: 'DEMO-3', repoId: 'r1', name: 'n', agent: 'claude', prompt: 'p' })
   assert.deepEqual(run, ok({ workspaceId: 'identity:new' }))
-  const notifier = createFinishNotifier({ host: { call: async () => ({}) }, launches: createLaunchTracker(orca.storage) })
+  const later = []
+  const notifier = createFinishNotifier({
+    host: { call: async () => ({}) }, launches: createLaunchTracker(orca.storage),
+    setTimeout: (fn) => (later.push(fn), {}), clearTimeout: () => {}
+  })
+  await notifier.onAgentStatus({ workspaceId: 'identity:main', terminalId: 't1', state: 'working' })
   await notifier.onAgentStatus({ workspaceId: 'identity:main', terminalId: 't1', state: 'done' })
+  for (const fn of later) await fn()
   assert.equal((await orca.storage.get('launches')).some((e) => e?.terminalId === 't1'), false)
 })
 

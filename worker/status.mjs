@@ -81,30 +81,78 @@ export function createStatusBar({
   }
 }
 
+/** How long an agent must stay done after working before it counts as finished. */
+const SETTLE_MS = 3_000
+
 /**
+ * Notifies when an agent the plugin launched has finished its work. An agent reports `done` while it
+ * starts (also between brief `working` reports) and before its prompt runs, so a pane counts as
+ * finished only once it has worked and then stayed done for `settleMs`.
  * @param {{
  *   host: { call(method: string, params?: any): Promise<any> },
  *   launches: ReturnType<typeof import('./links.mjs').createLaunchTracker>,
- *   post?: (name: string, payload: any) => void
+ *   post?: (name: string, payload: any) => void,
+ *   settleMs?: number,
+ *   setTimeout?: typeof globalThis.setTimeout,
+ *   clearTimeout?: typeof globalThis.clearTimeout
  * }} o
  */
-export function createFinishNotifier({ host, launches, post }) {
+export function createFinishNotifier({
+  host, launches, post,
+  settleMs = SETTLE_MS,
+  setTimeout: setTimer = globalThis.setTimeout,
+  clearTimeout: clearTimer = globalThis.clearTimeout
+}) {
+  /** Panes that worked since their last finish, each with the finish waiting to settle, if any. */
+  const panes = new Map()
+
+  async function finish(event) {
+    try {
+      const found = await launches.takeFinished({
+        terminalId: event.terminalId,
+        paneKey: event.paneKey,
+        workspaceId: event.workspaceId ?? undefined
+      })
+      if (!found) return
+      await host.call('notifications.show', { title: `Agent finished ${found.issueId}`, body: found.server })
+      await post?.('yt.agentFinished', { server: found.server, issueId: found.issueId, workspaceId: event.workspaceId ?? null })
+    } catch {
+      // a failed notification must not break the event stream
+    }
+  }
+
+  function cancel(pane) {
+    if (pane?.timer) clearTimer(pane.timer)
+    if (pane) pane.timer = null
+  }
+
   return {
     /** @param {{ workspaceId: string | null, terminalId?: string, paneKey?: string, state: string, mainAgent?: { state: string } }} event */
     async onAgentStatus(event) {
       try {
-        if ((event.mainAgent?.state ?? event.state) !== 'done') return
-        const found = await launches.takeFinished({
-          terminalId: event.terminalId,
-          paneKey: event.paneKey,
-          workspaceId: event.workspaceId ?? undefined
-        })
-        if (!found) return
-        await host.call('notifications.show', { title: `Agent finished ${found.issueId}`, body: found.server })
-        await post?.('yt.agentFinished', { server: found.server, issueId: found.issueId, workspaceId: event.workspaceId ?? null })
+        const key = event?.paneKey || event?.terminalId || event?.workspaceId
+        if (!key) return
+        const state = event.mainAgent?.state ?? event.state
+        const pane = panes.get(key)
+        if (state !== 'done') {
+          cancel(pane)
+          if (state === 'working') panes.set(key, { timer: null })
+          return
+        }
+        // Done without work since the last finish (starting up, or repeated): nothing finished.
+        if (!pane || pane.timer) return
+        pane.timer = setTimer(() => {
+          panes.delete(key)
+          return finish(event)
+        }, settleMs)
+        pane.timer?.unref?.()
       } catch {
         // a failed notification must not break the event stream
       }
+    },
+    stop() {
+      for (const pane of panes.values()) cancel(pane)
+      panes.clear()
     }
   }
 }
