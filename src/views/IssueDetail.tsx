@@ -160,7 +160,7 @@ function Body({ issue }: { issue: Detail }) {
         </Callout>
       ) : null}
       {items.length > 0 ? <KeyValue label="Fields" items={items} /> : null}
-      {issue.descriptionMd ? <Markdown content={issue.descriptionMd} /> : null}
+      {issue.descriptionMd ? <Markdown content={issue.descriptionMd} /> : <Text muted>No description</Text>}
       <Separator />
       <Heading level={3}>Comments</Heading>
       {issue.commentsError ? (
@@ -178,8 +178,8 @@ function Body({ issue }: { issue: Detail }) {
         issue.comments.map((comment, index) => (
           <Stack key={keys[index]} gap="xs">
             <Row gap="xs" align="center">
-              <Text weight="medium">{comment.author.fullName || comment.author.login}</Text>
-              <RelativeTime at={comment.created} format="short" muted />
+              <Text weight="medium">{comment.author.fullName || comment.author.login || 'Unknown author'}</Text>
+              {comment.created > 0 ? <RelativeTime at={comment.created} format="short" muted /> : null}
             </Row>
             <Markdown content={comment.textMd} />
             {comment.truncated ? (

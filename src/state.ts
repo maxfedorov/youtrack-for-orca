@@ -1,6 +1,6 @@
 import { atom, plugin, set } from 'orca'
 import type { ErrorCode, Result, Server } from './protocol'
-import { validAnswer } from './shapes'
+import { fitAnswer } from './shapes'
 
 export type Env = {
   cli: { found: boolean; version?: string; installCommand?: string }
@@ -83,7 +83,10 @@ export async function call<N extends keyof import('orca').PluginRequests>(
   try {
     const timeoutMs = TIMEOUTS[name]
     let answer = unwrap((await (timeoutMs ? plugin.request(name, input, { timeoutMs }) : plugin.request(name, input))) as never)
-    if (answer.ok && !validAnswer(name, answer.data)) answer = { ok: false, code: 'UNKNOWN', message: UNEXPECTED }
+    if (answer.ok) {
+      const fitted = fitAnswer(name, answer.data)
+      answer = fitted ? { ok: true, data: fitted.data as never } : { ok: false, code: 'UNKNOWN', message: UNEXPECTED }
+    }
     if (answer.ok) set(panelError, null)
     else if (answer.code === 'CLI_NOT_FOUND' && name !== 'yt.env') void loadEnv()
     return answer as never

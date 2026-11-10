@@ -84,3 +84,53 @@ test('an issue whose comments failed shows the issue, a comments note and a Retr
   clean(view)
   await view.unmount()
 })
+
+test('a field of an unexpected shape is n/a and the rest of the issue is shown', async () => {
+  const fields = [{ name: 'State', value: 'Open' }, { name: 'Odd', value: { x: 1 } }, { value: 'no name' }, null, { name: 'Estimation', value: '2h' }]
+  const host = mockHost({ requests: requests({ 'yt.issue.get': ok(detail(1, { fields })) }) })
+  const view = await openIssue(host)
+  clean(view)
+  assert.equal(danger(view).length, 0)
+  assert.deepEqual(view.find({ type: 'KeyValue' }).props.items.map((i: any) => [i.label, i.value]), [
+    ['State', 'Open'], ['Odd', 'n/a'], ['Estimation', '2h']
+  ])
+  assert.ok(view.find({ type: 'Markdown', content: 'Description of issue 1' }))
+  assert.ok(view.find({ type: 'Markdown', content: 'First comment' }))
+  await view.unmount()
+})
+
+test('fields, description or comments of an unexpected shape do not hide the issue', async () => {
+  const odd = { id: 'c2', author: null, created: 'yesterday', textMd: 'Odd comment' }
+  const host = mockHost({
+    requests: requests({ 'yt.issue.get': ok(detail(1, { fields: 'x', descriptionMd: 5, comments: [COMMENT, null, { id: 'c3' }, odd] })) })
+  })
+  const view = await openIssue(host)
+  clean(view)
+  assert.ok(view.find({ type: 'Heading', text: 'Issue 1' }))
+  assert.equal(view.find({ type: 'KeyValue' }), null)
+  assert.ok(view.find({ text: 'No description' }))
+  assert.ok(view.find({ type: 'Markdown', content: 'First comment' }))
+  assert.ok(view.find({ type: 'Markdown', content: 'Odd comment' }))
+  assert.ok(view.find({ text: 'Unknown author' }))
+  await view.unmount()
+})
+
+test('comments that are not a list are reported as not loaded, with Retry', async () => {
+  const host = mockHost({ requests: requests({ 'yt.issue.get': ok(detail(1, { comments: 'x' })) }) })
+  const view = await openIssue(host)
+  clean(view)
+  assert.ok(view.find({ type: 'Heading', text: 'Issue 1' }))
+  assert.ok(view.find({ text: 'Comments could not be loaded.' }))
+  await view.press({ role: 'button', text: 'Retry' })
+  assert.ok(view.find({ type: 'Markdown', content: 'First comment' }))
+  await view.unmount()
+})
+
+test('an issue answer without an id is still a whole-card error', async () => {
+  const host = mockHost({ requests: requests({ 'yt.issue.get': ok({ ...detail(1), id: 5 }) }) })
+  const view = await openIssue(host)
+  clean(view)
+  assert.equal(danger(view).length, 1)
+  assert.ok(view.find({ role: 'button', text: 'Retry' }))
+  await view.unmount()
+})

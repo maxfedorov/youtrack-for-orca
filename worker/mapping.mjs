@@ -70,21 +70,46 @@ const MAX_FIELD_VALUE = 1000
 /** @param {string} v */
 const clip = (v) => (v.length <= MAX_FIELD_VALUE ? v : v.slice(0, MAX_FIELD_VALUE - 1).replace(/[\ud800-\udbff]$/, '') + '\u2026')
 
-/** Readable text of one value of a custom field; '' when there is nothing to show. @param {any} v @param {string} type */
+/** Shown for a field value of a shape the plugin cannot read. */
+export const NOT_AVAILABLE = 'n/a'
+
+/**
+ * Readable text of one value of a custom field: '' when there is nothing to show, null when the value
+ * has a shape the plugin cannot read. @param {any} v @param {string} type @returns {string | null}
+ */
 function fieldText(v, type) {
   if (v == null) return ''
-  if (Array.isArray(v)) return v.map((x) => fieldText(x, type)).filter(Boolean).join(', ')
+  if (Array.isArray(v)) {
+    const parts = v.map((x) => fieldText(x, type))
+    const shown = parts.filter(Boolean)
+    if (shown.length === 0 && parts.includes(null)) return null
+    return shown.join(', ')
+  }
   if (typeof v === 'object') {
     for (const key of ['presentation', 'text', 'fullName', 'name', 'login']) {
       if (typeof v[key] === 'string' && v[key] !== '') return v[key]
     }
-    return ''
+    return ['presentation', 'text', 'fullName', 'name', 'login'].some((key) => typeof v[key] === 'string') ? '' : null
   }
-  if (typeof v === 'number' && /^Date/.test(type) && Number.isFinite(v)) {
+  if (/^Date/.test(type) && typeof v !== 'string') {
+    if (typeof v !== 'number' || !Number.isFinite(v)) return null
     const d = new Date(v)
-    return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, type.startsWith('DateTime') ? 16 : 10).replace('T', ' ')
+    return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, type.startsWith('DateTime') ? 16 : 10).replace('T', ' ')
   }
   return String(v)
+}
+
+/** One custom field as display strings; a value that cannot be read is n/a, the field stays. */
+function toField(f) {
+  let shown
+  try {
+    shown = fieldText(f.value, text(f.$type).replace(/^(Single|Multi)/, ''))
+  } catch {
+    shown = null
+  }
+  if (shown === null) return { name: f.name, value: NOT_AVAILABLE }
+  const empty = f.projectCustomField?.emptyFieldText
+  return { name: f.name, value: clip(shown || (typeof empty === 'string' && empty ? empty : EMPTY)) }
 }
 
 /** All custom fields of an issue as display strings, in YouTrack order. @param {any} raw @returns {{ name: string, value: string }[]} */
@@ -93,11 +118,7 @@ function toFields(raw) {
   return list
     .filter((f) => typeof f?.name === 'string' && f.name !== '')
     .slice(0, MAX_FIELDS)
-    .map((f) => {
-      const shown = fieldText(f.value, text(f.$type).replace(/^(Single|Multi)/, ''))
-      const empty = f.projectCustomField?.emptyFieldText
-      return { name: f.name, value: clip(shown || (typeof empty === 'string' && empty ? empty : EMPTY)) }
-    })
+    .map(toField)
 }
 
 /**

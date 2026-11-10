@@ -213,5 +213,30 @@ test('missing customFields gives no fields', () => {
 
 test('fields without a name are skipped and values are always strings', () => {
   const f = fieldsOf({ idReadable: 'DEMO-3', customFields: [{ value: 'x' }, { name: 'N', value: { weird: true } }, null] })
-  assert.deepEqual(f, [{ name: 'N', value: '\u2014' }])
+  assert.deepEqual(f, [{ name: 'N', value: 'n/a' }])
+})
+
+test('a field value that cannot be formatted is n/a and the other fields stay', () => {
+  const f = fieldsOf({
+    idReadable: 'DEMO-3',
+    customFields: [
+      { name: 'State', value: { name: 'Open' } },
+      { name: 'Odd', value: { weird: true } },
+      { name: 'Odd list', value: [{ weird: 1 }, { weird: 2 }] },
+      { name: 'Bad date', $type: 'DateIssueCustomField', value: 1e20 },
+      { name: 'Mixed', value: [{ name: 'A' }, { weird: 1 }] },
+      { name: 'Empty', value: null },
+      { name: 'Points', value: 5 }
+    ]
+  })
+  assert.deepEqual(f.map((x) => [x.name, x.value]), [
+    ['State', 'Open'], ['Odd', 'n/a'], ['Odd list', 'n/a'], ['Bad date', 'n/a'], ['Mixed', 'A'], ['Empty', '\u2014'], ['Points', '5']
+  ])
+})
+
+test('a field whose value throws while it is read is n/a', () => {
+  const odd = { name: 'Odd' }
+  Object.defineProperty(odd, 'value', { get: () => { throw new Error('boom') }, enumerable: true })
+  const f = fieldsOf({ idReadable: 'DEMO-3', customFields: [odd, { name: 'Points', value: 5 }] })
+  assert.deepEqual(f, [{ name: 'Odd', value: 'n/a' }, { name: 'Points', value: '5' }])
 })
