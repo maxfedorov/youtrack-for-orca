@@ -208,9 +208,16 @@ test('start.prepare gathers repos, workspaces, agents, name and vars', async () 
   assert.equal(d.promptTemplate, 'Do {{id}}')
   assert.equal(d.vars.id, 'DEMO-3')
   assert.equal(d.vars.branch, '')
-  assert.deepEqual(d.workspaces[2], { id: 'identity:dir', name: 'notes' })
-  assert.deepEqual(d.workspaces[0], { id: 'identity:main', name: 'main', project: 'demo-repo', branch: 'main' })
+  assert.deepEqual(d.workspaces[2], { id: 'identity:dir', name: 'notes', project: 'n', path: '/n' })
+  assert.deepEqual(d.workspaces[0], { id: 'identity:main', name: 'main', project: 'demo-repo', branch: 'main', path: '/p/demo-repo' })
   strict(r)
+})
+
+test('start.prepare names a workspace without a listed project by the repository holding it', async () => {
+  const ws = [{ id: 'identity:main', kind: 'worktree', name: 'main', path: '/p/demo-repo', branch: 'main', hostId: 'local' }]
+  const { call } = setup({ host: { 'workspace.list': { workspaces: ws, truncated: false } } })
+  const r = await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.deepEqual(r.data.workspaces, [{ id: 'identity:main', name: 'main', project: 'demo-repo', branch: 'main', path: '/p/demo-repo' }])
 })
 
 test('start.prepare without orcaCli or a matching workspace', async () => {

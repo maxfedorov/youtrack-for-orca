@@ -169,7 +169,7 @@ test('odd workspace list entries do not break preparing a start', async () => {
   const { call } = setup({ host: { 'workspace.list': { workspaces: [null, 7, { name: 'no id' }, ...WS] } } })
   const r = await call('yt.start.prepare', { server: 'one', id: 'DEMO-1' })
   assert.equal(r.ok, true)
-  assert.deepEqual(r.data.workspaces, [{ id: 'identity:main', name: 'main', project: 'demo-repo', branch: 'main' }])
+  assert.deepEqual(r.data.workspaces, [{ id: 'identity:main', name: 'main', project: 'demo-repo', branch: 'main', path: '/p/demo-repo' }])
   assert.equal(r.data.defaultWorkspaceId, 'identity:main')
 })
 

@@ -50,18 +50,22 @@ let timer: ReturnType<typeof setTimeout> | null = null
 let queued: string | null = null
 
 /**
- * Workspace choices named "<project> / <name>" with the branch below, sorted by project and name;
- * the current workspace's project comes first and the current workspace says so.
+ * Workspace choices named "<project> / <name>", described by the branch (when it is not the name) and
+ * the path. The current workspace comes first, then the rest of its project, then the other projects
+ * by name; workspaces without a project come last.
  */
 export function workspaceOptions(list: readonly WorkspaceItem[], currentId: string | null): { value: string; label: string; description?: string }[] {
   const home = list.find((item) => item.id === currentId)?.project
-  const rank = (item: WorkspaceItem) => (item.project === undefined || item.project === '' ? 2 : item.project === home ? 0 : 1)
+  const rank = (item: WorkspaceItem) =>
+    item.id === currentId ? 0 : !item.project ? 3 : item.project === home ? 1 : 2
   const sorted = [...list].sort(
     (a, b) => rank(a) - rank(b) || (a.project ?? '').localeCompare(b.project ?? '') || a.name.localeCompare(b.name)
   )
   return sorted.map((item) => {
-    const label = `${item.project ? `${item.project} / ` : ''}${item.name}${item.id === currentId ? ' (current)' : ''}`
-    return item.branch ? { value: item.id, label, description: item.branch } : { value: item.id, label }
+    const prefix = item.project && item.project !== item.name ? `${item.project} / ` : ''
+    const label = `${prefix}${item.name}${item.id === currentId ? ' (current)' : ''}`
+    const description = [item.branch && item.branch !== item.name ? item.branch : '', item.path ?? ''].filter(Boolean).join(' · ')
+    return description ? { value: item.id, label, description } : { value: item.id, label }
   })
 }
 

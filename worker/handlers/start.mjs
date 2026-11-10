@@ -3,6 +3,7 @@ import { ok, fail, CODES } from '../result.mjs'
 import { toIssueDetail } from '../mapping.mjs'
 import { issueVars, workspaceName, PROMPT_LIMIT } from '../prompt.mjs'
 import { AGENTS } from '../agents.mjs'
+import { workspaceItems } from '../workspaces.mjs'
 import { safeHandle, shortMessage, unexpected, hasId, invalid, token, issueUrl, ISSUE_ID, settingString, isPlainUrl, capDetail, AGENT_ID, INSTALL, attempt, fallback, readSetting } from './common.mjs'
 
 const DEFAULT_BRANCH_TEMPLATE = '{{id_lower}}-{{summary_slug}}'
@@ -100,12 +101,7 @@ export function registerStartHandlers(ctx) {
       includeDescription: (await get('includeDescription')) === true,
       promptTemplate: settingString(await get('promptTemplate'), ''),
       vars,
-      workspaces: workspaces.map((w) => {
-        const item = { id: w.id, name: typeof w.name === 'string' && w.name ? w.name : w.id }
-        if (typeof w.project === 'string') item.project = w.project
-        if (typeof w.branch === 'string') item.branch = shortBranch(w.branch)
-        return item
-      }),
+      workspaces: workspaceItems(workspaces, repoList, ctx.homedir),
       defaultWorkspaceId: active ? active.id : null
     }
     if (!repos.ok) data.reposError = shortMessage(repos.error.message)

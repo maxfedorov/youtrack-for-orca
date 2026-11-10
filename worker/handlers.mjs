@@ -3,6 +3,7 @@
  * Requests are grouped in handlers/youtrack.mjs (servers, issues, saved queries) and
  * handlers/start.mjs (repos, workspaces, agent launches, terminals).
  */
+import os from 'node:os'
 import { fail, ok, CODES } from './result.mjs'
 import { toServers } from './mapping.mjs'
 import { registerYoutrackHandlers } from './handlers/youtrack.mjs'
@@ -18,8 +19,9 @@ import { registerStartHandlers } from './handlers/start.mjs'
  *   state: ReturnType<typeof import('./state.mjs').createStateStore>,
  *   detectAgents: () => { installed: string[], other: string[] },
  *   now: () => number,
- *   platform?: string
- * }} deps `platform` defaults to `process.platform`
+ *   platform?: string,
+ *   homedir?: string
+ * }} deps `platform` defaults to `process.platform`, `homedir` to the user's home folder
  */
 export function registerHandlers(orca, deps) {
   /** The youtrack CLI as last resolved; null when it is not installed. */
@@ -40,7 +42,7 @@ export function registerHandlers(orca, deps) {
     const found = toServers(r.data).find((s) => s.alias === alias)
     return found ? ok(found) : fail(CODES.UNKNOWN, 'Unknown server')
   }
-  const ctx = { ...deps, platform: deps.platform ?? process.platform, orca, resolveServer, refreshYoutrack }
+  const ctx = { ...deps, platform: deps.platform ?? process.platform, homedir: deps.homedir ?? os.homedir(), orca, resolveServer, refreshYoutrack }
   Object.defineProperty(ctx, 'youtrack', { get: current, enumerable: true })
   registerYoutrackHandlers(ctx)
   registerStartHandlers(ctx)

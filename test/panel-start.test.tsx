@@ -385,7 +385,7 @@ test('agents are grouped as installed and other, and filtering finds one', async
   await view.unmount()
 })
 
-test('workspaces are named by project and branch, the current project first', async () => {
+test('workspaces are named by project, the current one first, then its project', async () => {
   const workspaces = [
     { id: 'w1', name: 'main', project: 'beta', branch: 'main' },
     { id: 'w2', name: 'main', project: 'alpha', branch: 'main' },
@@ -397,10 +397,10 @@ test('workspaces are named by project and branch, the current project first', as
   const view = await open(host)
   assert.equal(shown(view, 'Workspace'), 'beta / main (current)')
   assert.deepEqual(await optionsOf(view, 'Workspace'), [
+    { value: 'w1', label: 'beta / main (current)' },
     { value: 'w5', label: 'beta / api' },
-    { value: 'w1', label: 'beta / main (current)', description: 'main' },
     { value: 'w3', label: 'alpha / feature', description: 'feat/x' },
-    { value: 'w2', label: 'alpha / main', description: 'main' },
+    { value: 'w2', label: 'alpha / main' },
     { value: 'w4', label: 'loose' }
   ])
   await filterCombo(view, 'Workspace', 'feat/')
@@ -419,6 +419,30 @@ test('Enter in the branch filter waits for the search, then picks its first bran
   await view.settled()
   await view.submit({ type: 'Input', label: 'Filter Create from' })
   assert.equal(shown(view, 'Create from'), 'origin/dev')
+  clean(view)
+  await view.unmount()
+})
+
+test('workspace choices show project and name, with the branch only when it differs and the path', async () => {
+  const workspaces = [
+    { id: 'w1', name: 'main', project: 'beta', branch: 'main', path: '~/code/beta' },
+    { id: 'w2', name: 'master', project: 'alpha', branch: 'master', path: '~/code/alpha' },
+    { id: 'w3', name: 'fix-login', project: 'beta', branch: 'feat/login', path: '~/…/beta/fix-login' },
+    { id: 'w4', name: 'notes', project: 'notes', path: '/srv/notes' },
+    { id: 'w5', name: 'api', project: 'beta', branch: 'api', path: '~/…/beta/api' }
+  ]
+  const host = mockHost({ requests: requests({ 'yt.start.prepare': ok(prepare({ launchMode: 'current', workspaces, defaultWorkspaceId: 'w1' })) }) })
+  const view = await open(host)
+  assert.equal(shown(view, 'Workspace'), 'beta / main (current)')
+  assert.deepEqual(await optionsOf(view, 'Workspace'), [
+    { value: 'w1', label: 'beta / main (current)', description: '~/code/beta' },
+    { value: 'w5', label: 'beta / api', description: '~/…/beta/api' },
+    { value: 'w3', label: 'beta / fix-login', description: 'feat/login · ~/…/beta/fix-login' },
+    { value: 'w2', label: 'alpha / master', description: '~/code/alpha' },
+    { value: 'w4', label: 'notes', description: '/srv/notes' }
+  ])
+  await filterCombo(view, 'Workspace', 'alpha')
+  assert.deepEqual((await optionsOf(view, 'Workspace')).map((o) => o.value), ['w2'])
   clean(view)
   await view.unmount()
 })

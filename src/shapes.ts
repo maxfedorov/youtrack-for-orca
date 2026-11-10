@@ -104,7 +104,7 @@ function fixPrepare(v: Obj): Obj {
   const out: Obj = {
     ...v,
     repos: keep(v.repos, shape({ id, name: str, worktreeBaseRef: optional(str) })),
-    workspaces: keep(v.workspaces, shape({ id, name: str, project: optional(str) })),
+    workspaces: keep(v.workspaces, shape({ id, name: str, project: optional(str), branch: optional(str), path: optional(str) })),
     vars: strings(v.vars),
     agents: detected ? agents : { installed: [], other: [...keep(agents.installed, str), ...keep(agents.other, str)] },
     defaultRepoId: or(str, v.defaultRepoId, null),

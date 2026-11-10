@@ -30,7 +30,8 @@ export type IssueDetail = IssueRow & {
 export type IssueComments = { comments: Comment[]; commentsOmitted?: number; truncated?: true }
 export type SavedQuery = { id: string; name: string; query: string }
 export type Repo = { id: string; name: string; path?: string; worktreeBaseRef?: string }
-export type WorkspaceItem = { id: string; name: string; project?: string; branch?: string }
+/** `project`: the listed project, the repository holding the folder, or the folder name; `path` is shortened for display. */
+export type WorkspaceItem = { id: string; name: string; project?: string; branch?: string; path?: string }
 export type StartPrepare = {
   repos: Repo[]
   /** Set when the repository list could not be read; new worktrees are then unavailable. */
