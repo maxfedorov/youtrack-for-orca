@@ -3,9 +3,9 @@ import {
   MAX_ISSUES, appliedQuery, defaultQuery, hasMore, issues, lastPageFull, links, linksFailed, listError, loadLinks, listStatus, loadMore, moreError, refreshList,
   runSearch, selectedIssue, syncList, total, totalKnown
 } from '../listState'
-import { query, view } from '../state'
+import { query } from '../state'
 import { applySort, parseSort } from '../../worker/query.mjs'
-import { IssueRowActions } from './IssueRowActions'
+import { IssueRowActions, openDetail } from './IssueRowActions'
 import { SearchBar } from './SearchBar'
 import { NOT_AVAILABLE } from '../shapes'
 import type { IssueRow } from '../protocol'
@@ -100,7 +100,7 @@ function Results() {
           loading={status === 'loading' || undefined}
           onSortChange={({ column }) => void runSearch(applySort(read(query), column))}
           onSelectionChange={({ keys }) => set(selectedIssue, Array.from(keys as Iterable<string>)[0] ?? null)}
-          onRowAction={({ key }) => set(view, { kind: 'detail', issueId: String(key) })}
+          onRowAction={({ key }) => openDetail(String(key))}
           onLoadMore={() => void loadMore()}
         />
         </Box>

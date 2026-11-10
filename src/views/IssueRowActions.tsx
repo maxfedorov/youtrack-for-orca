@@ -2,6 +2,8 @@ import { Button, IconButton, Row, Stack, Text, set, shell } from 'orca'
 import { call, panelError, view } from '../state'
 import type { IssueRow } from '../protocol'
 
+export const openDetail = (id: string) => set(view, { kind: 'detail', issueId: id })
+
 export const start = (id: string) => set(view, { kind: 'start', issueId: id })
 
 /** Opens a link in the browser; a failure is shown in the panel's error callout. */
@@ -38,6 +40,7 @@ export function IssueRowActions({ issue, workspaceId }: { issue: IssueRow; works
             Start new workspace
           </Button>
         ) : null}
+        <IconButton icon="file-text" label="Open issue details" variant="outline" onPress={() => openDetail(issue.id)} />
         <IconButton icon="open-external" label="Open in browser" variant="outline" onPress={() => void openInBrowser(issue.url)} />
       </Row>
     </Stack>

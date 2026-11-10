@@ -273,6 +273,21 @@ test('row activation opens the detail view', async () => {
   await view.unmount()
 })
 
+test('the row action Open issue details opens the detail view of the selected issue', async () => {
+  const host = mockHost({
+    requests: requests({ 'yt.issue.get': (i: any) => ok({ ...issue(Number(i.id.split('-')[1])), description: { text: 'Body', truncated: false }, comments: [] }) })
+  })
+  const view = await mount(panel, { host })
+  assert.equal(view.find({ role: 'button', label: 'Open issue details' }), null)
+  await view.selectRows(view.find(table), ['DEMO-2'])
+  assert.equal(view.find({ role: 'button', label: 'Open issue details' }).props.icon, 'file-text')
+  await view.press({ role: 'button', label: 'Open issue details' })
+  assert.equal(view.find(table), null)
+  assert.deepEqual(calls(host, 'yt.issue.get')[0].input, { server: 'main', id: 'DEMO-2' })
+  assert.deepEqual(view.refusals, [])
+  await view.unmount()
+})
+
 test('load more stops at 500', async () => {
   const host = mockHost({
     requests: requests({ 'yt.issues.search': (i: any) => page(i.offset + 1, 50, true, i.offset === 0 ? 900 : undefined) })
