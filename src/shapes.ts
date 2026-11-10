@@ -10,7 +10,6 @@ const str: Check = (v) => typeof v === 'string'
 const num: Check = (v) => typeof v === 'number' && Number.isFinite(v)
 const bool: Check = (v) => typeof v === 'boolean'
 const any: Check = () => true
-const nullable = (c: Check): Check => (v) => v === null || c(v)
 const optional = (c: Check): Check => (v) => v === undefined || c(v)
 const list = (c: Check): Check => (v) => Array.isArray(v) && v.every(c)
 const shape = (fields: Record<string, Check>): Check => (v) => isObj(v) && Object.entries(fields).every(([k, c]) => c(v[k]))
