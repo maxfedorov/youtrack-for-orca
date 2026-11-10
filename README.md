@@ -9,18 +9,23 @@ This is an unofficial plugin.
 
 | Issue details | Start work on an issue |
 | --- | --- |
-| ![The detail of an issue: its fields, description and comments, with Apply command and Add comment](images/issue-detail.png) | ![The Start view: run in a new worktree, project, branch name, base branch, agent, prompt template and the prompt](images/start.png) |
+| ![The detail of an issue: its fields, description and comments, with Apply command and Add comment](images/issue-detail.png) | ![The Start view: Run in New worktree, project, name, Create from, workspace, agent, the prompt switches, template and the editable prompt](images/start.png) |
 
 ## Install
 
 [Open in Orca](https://onorca.dev/plugins/maxfedorov.youtrack-for-orca?catalog=community) from the
-[Orca plugin directory](https://onorca.dev/plugins), or run:
+[Orca plugin directory](https://onorca.dev/plugins) and approve the access it asks for (see
+[Permissions](#permissions)). From a terminal (Orca 1.4.252 or newer):
 
-    orca plugin install maxfedorov/youtrack-for-orca
+    orca plugin install maxfedorov.youtrack-for-orca --catalog community
 
-Orca shows what the plugin asks access to before you approve it (see [Permissions](#permissions)).
-Then open the panel from the right sidebar, the `YT` item in the status bar, or the command palette
-("YouTrack: Open panel").
+Orca lists the access the plugin asks for and prints a fingerprint; run the command again with
+`--approve <fingerprint>` to install. Then open the panel from the right sidebar, the `YT` item in the
+status bar, or the command palette ("YouTrack: Open panel").
+
+**Update:** updates from the catalog install by themselves unless they ask for new access; to update
+now, run `orca plugin update maxfedorov.youtrack-for-orca`. **Remove:** Settings → Plugins, or
+`orca plugin uninstall maxfedorov.youtrack-for-orca`, which also deletes what the plugin saved.
 
 ## Requirements
 
@@ -32,27 +37,35 @@ Then open the panel from the right sidebar, the `YT` item in the status bar, or 
   | macOS / Linux | `brew install jetbrains/utils/youtrack`   |
   | Windows       | `winget install JetBrains.YouTrackCLI`    |
 
-- A YouTrack server known to the CLI. Add one with `youtrack auth login <url>`, or from the plugin's
-  panel ("Add a YouTrack server"), which signs in through the browser. When a server has no browser
-  sign-in for the CLI, the panel shows the command to run in a terminal instead: the CLI asks for a
-  permanent token there, so the plugin never handles tokens.
+- A YouTrack server known to the CLI. Add one with `youtrack auth login <url>`, or in the panel
+  ("Add a YouTrack server"), which signs you in through the browser. If browser sign-in fails, or you
+  choose **Sign in from a terminal instead**, the panel shows the `youtrack auth login` command to run in
+  your own terminal; then press **I've signed in**. A signed-out server offers **Sign in again** the same
+  way. The CLI asks for a permanent token there and keeps it; the plugin never sees it.
 
 If the CLI is missing, the panel shows the install command for your system to run in a terminal.
+
+Tested on macOS. Linux and Windows are supported (the CLI paths and shims of each are handled) but have
+seen less use.
 
 ## Features
 
 - Issue list for a YouTrack search query, with your saved searches in a drop-down.
 - Star button (☆) to save the current query as a saved search.
-- Sortable columns; the list reloads when you change the server or press Refresh.
-- Issue details: description, fields and comments.
+- Columns sort when you press their header. State, Priority and Assignee are left out when no issue in
+  the list has them. Refresh, or changing the server, reloads the list.
+- Issue details: who created the issue and when, tags, fields, description and comments.
 - **Apply command**: run a YouTrack command such as `State Done` on the selected issue or the open
   detail. It runs only when you press Apply or Enter.
 - **Add comment**: write a comment in the issue detail and press Send (or Cmd+Enter, Ctrl+Enter off macOS);
   it gets the server's default visibility. Applying a command, adding a comment and saving a search are
   the plugin's only YouTrack writes.
-- **Start**: begin work on an issue in a new worktree or in the current workspace. Pick the project,
-  branch name, base branch, agent and prompt template, and edit the prompt before it is sent.
-- **Prompt templates** (the gear button): named templates for the prompt. Five come built in —
+- **Start**: choose **Run in** (New worktree or Current workspace); for a new worktree the project,
+  the name of the new workspace and branch, and the branch to create it from ("Create from"), otherwise
+  the workspace; and the agent. Then either **Start without a prompt** (the agent waits for you in its
+  terminal), or build the prompt: include the issue description or not, pick a template, and edit or
+  clear the prompt (up to 4096 characters) before it is sent.
+- **Prompt templates** (the gear button, "Prompt templates and servers"): named templates for the prompt. Five come built in —
   Implement feature, Investigate and fix bug, Cover with automated tests, Review and plan (no code
   changes), Refactor safely. Create, edit, delete and choose the default (up to 30 templates, 8000
   characters each); "Restore built-in templates" puts the five back without touching your own.
@@ -80,8 +93,8 @@ If the CLI is missing, the panel shows the install command for your system to ru
 | `agent:launch`       | Starting an agent in the current workspace when the Orca CLI cannot.                     |
 | `notifications:show` | The "Agent finished" notification.                                                       |
 
-The plugin runs code in Orca (`trusted-worker`), because it starts the `youtrack` and `orca` command
-line tools.
+The plugin runs a Node.js worker on your machine with your user account's access (`trusted-worker`),
+because it starts the `youtrack` and `orca` command-line tools.
 
 ## What the plugin runs
 
@@ -100,8 +113,9 @@ everything that talks to YouTrack goes through the CLI.
   token; the plugin never sees it.
 - An agent that has shell access can run `youtrack` and so use the CLI's stored credentials. Start agents
   only where that is acceptable, and review the prompt before sending it.
-- Issue text and comments are untrusted input. The default prompt tells the agent to treat them as data,
-  not instructions, and the description is only included if you ask for it.
+- Issue text and comments are untrusted input. The built-in templates tell the agent to treat them as
+  data, not instructions. The description goes into the prompt only when the switch is on or the
+  template contains `{{description}}`, and always inside a block marked untrusted.
 
 ## Settings
 
@@ -109,8 +123,8 @@ everything that talks to YouTrack goes through the CLI.
 | ----------------------- | -------------------------------------- | ----------------------------------------------------------------------- |
 | Default query           | `for: me #Unresolved`                  | Query used on first open of each server.                                 |
 | Branch name template    | `{{id_lower}}-{{summary_slug}}`        | Name of the new workspace and branch.                                   |
-| Default agent           | `claude`                               | Agent preselected in the Start view; empty means terminal only.         |
-| Default launch mode     | New worktree                           | `New worktree` or `Current workspace`.                                  |
+| Default agent           | `claude`                               | Agent id (for example `claude`, `codex`) preselected in the Start view; empty means no agent, terminal only. |
+| Default launch mode     | New worktree                           | "Run in" choice preselected in the Start view: `New worktree` or `Current workspace`. |
 | Start agents without a prompt | off                              | Initial state of the "Start without a prompt" switch in the Start view. |
 | Include issue description | off                                  | Initial state of the switch in the Start view.                          |
 | YouTrack CLI path       | empty (auto-detect)                    | Full path to the `youtrack` executable if it is not found.              |
@@ -118,6 +132,16 @@ everything that talks to YouTrack goes through the CLI.
 Placeholders for the prompt templates and the branch name template: `{{id}}`, `{{id_lower}}`, `{{summary}}`,
 `{{summary_slug}}`, `{{url}}`, `{{project}}`, `{{server}}`, `{{state}}`, `{{priority}}`, `{{assignee}}`,
 `{{description}}`, `{{branch}}`.
+
+## Troubleshooting
+
+- **"Install YouTrack CLI" although it is installed:** set *YouTrack CLI path* in the plugin settings
+  to the full path of `youtrack`, then press Check again.
+- **"Orca CLI not found — new worktrees are unavailable":** the `orca` command that ships with Orca was
+  not found; Start can still run an agent in the current workspace.
+- **Signed out (`YT: !`):** press **Sign in again** in the panel and follow the steps.
+- **`YT: ?`:** the current query does not parse; fix it in the panel. **`YT: –`:** the server cannot be
+  reached; the tooltip says why.
 
 ## Tip
 

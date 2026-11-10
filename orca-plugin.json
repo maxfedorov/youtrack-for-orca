@@ -82,7 +82,8 @@
           "New worktree",
           "Current workspace"
         ],
-        "default": "worktree"
+        "default": "worktree",
+        "description": "\"Run in\" choice preselected in the Start view."
       },
       {
         "key": "startWithoutPrompt",
@@ -147,7 +148,7 @@
     },
     {
       "path": "images/start.png",
-      "alt": "The Start view: run in a new worktree, project, branch name, base branch, agent, prompt template and the prompt",
+      "alt": "The Start view: Run in New worktree, project, name, Create from, workspace, agent, the prompt switches, template and the editable prompt",
       "caption": "Start an agent on an issue"
     }
   ]
