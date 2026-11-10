@@ -25,7 +25,7 @@ Then open the panel from the right sidebar, the `YT` item in the status bar, or 
 ## Requirements
 
 - Orca 1.4.248 or newer.
-- The YouTrack CLI (`youtrack`):
+- The [YouTrack CLI](https://github.com/JetBrains/youtrack-cli) (`youtrack`):
 
   | OS            | Install                                   |
   | ------------- | ----------------------------------------- |
@@ -96,7 +96,7 @@ everything that talks to YouTrack goes through the CLI.
 
 ## Security notes
 
-- YouTrack permanent tokens have no scopes: a token can do whatever its user can do. The CLI keeps the
+- The plugin works through the YouTrack CLI and the token you signed it in with. The CLI keeps the
   token; the plugin never sees it.
 - An agent that has shell access can run `youtrack` and so use the CLI's stored credentials. Start agents
   only where that is acceptable, and review the prompt before sending it.
