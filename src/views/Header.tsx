@@ -28,8 +28,9 @@ export function Header() {
   const current = servers.find((item) => item.alias === read(server))
   return (
     <Stack gap="xs">
-      <Row gap="xs" justify="between">
-        <Row gap="xs">
+      {/* Bottom-aligned: the buttons line up with the Select control, not with its label above it. */}
+      <Row gap="xs" justify="between" align="end">
+        <Row gap="xs" align="end">
           <Select
             label="Server"
             value={read(server) ?? undefined}
@@ -38,6 +39,7 @@ export function Header() {
           />
           <IconButton
             icon="delete"
+            variant="outline"
             tone="danger"
             label="Remove server"
             disabled={!current}

@@ -41,6 +41,8 @@ test('removing asks first; Cancel removes nothing', async () => {
   const button = view.find(removeButton)
   assert.equal(button.props.tone, 'danger')
   assert.equal(button.props.icon, 'delete')
+  // A ghost IconButton is drawn without its tone; outline + danger is drawn red.
+  assert.equal(button.props.variant, 'outline')
   await view.press(removeButton)
   assert.ok(view.find({ text: QUESTION }))
   await view.press({ role: 'button', text: 'Cancel' })
@@ -100,5 +102,25 @@ test('a removal that could not clear its saved data still switches and shows the
   assert.equal(view.find({ type: 'Select', label: 'Server' }).props.value, 'other')
   assert.ok(view.find({ text: 'The server was removed, but not forgotten.' }))
   clean(view)
+  await view.unmount()
+})
+
+/** The Rows of the drawn tree that hold the server Select, outermost first. */
+function rowsAround(node: any, out: any[] = []): any[] | null {
+  if (!node || typeof node !== 'object') return null
+  if (node.type === 'Select' && node.props?.label === 'Server') return out
+  for (const child of node.children ?? []) {
+    const found = rowsAround(child, node.type === 'Row' ? [...out, node] : out)
+    if (found) return found
+  }
+  return null
+}
+
+test('the header buttons line up with the server control, not its label', async () => {
+  const { host } = setup()
+  const view = await mount(panel, { host })
+  const rows = rowsAround(view.tree()) ?? []
+  assert.equal(rows.length, 2)
+  for (const row of rows) assert.equal(row.props.align, 'end')
   await view.unmount()
 })
