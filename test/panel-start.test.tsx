@@ -446,3 +446,14 @@ test('workspace choices show project and name, with the branch only when it diff
   clean(view)
   await view.unmount()
 })
+
+test('Run in has one label, drawn by a Field like the other fields, with the choices under it', async () => {
+  const host = mockHost({ requests: requests() })
+  const view = await open(host)
+  assert.ok(view.find({ type: 'Field', label: 'Run in' }))
+  const group = view.find({ type: 'RadioGroup', label: 'Run in' })
+  assert.equal(group.props.labelHidden, true)
+  assert.equal(group.props.orientation ?? 'vertical', 'vertical')
+  clean(view)
+  await view.unmount()
+})

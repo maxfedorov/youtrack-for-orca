@@ -26,16 +26,24 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
   const error = read(runError)
   return (
     <Stack gap="sm">
-      <RadioGroup
-        label="Run in"
-        value={current}
-        orientation="horizontal"
-        options={[
-          { value: 'worktree', label: 'New worktree', disabled: !worktreeAvailable(p) },
-          { value: 'current', label: 'Current workspace', disabled: !currentAvailable(p) }
-        ]}
-        onChange={(value) => set(mode, usableMode(p, value === 'current' ? 'current' : 'worktree'))}
-      />
+      {/*
+        The Field draws the label, as for every other field here (the RadioGroup's own label is a
+        different element with other spacing). Vertical: each choice starts under the label, and a
+        narrow panel cannot wrap "Current workspace" onto a ragged second line.
+      */}
+      <Field label="Run in">
+        <RadioGroup
+          label="Run in"
+          labelHidden
+          value={current}
+          orientation="vertical"
+          options={[
+            { value: 'worktree', label: 'New worktree', disabled: !worktreeAvailable(p) },
+            { value: 'current', label: 'Current workspace', disabled: !currentAvailable(p) }
+          ]}
+          onChange={(value) => set(mode, usableMode(p, value === 'current' ? 'current' : 'worktree'))}
+        />
+      </Field>
       {p.orcaCli ? null : <Text muted>Orca CLI not found — new worktrees are unavailable.</Text>}
       {p.orcaCli && p.reposError ? (
         <Text muted size="sm">{`Projects could not be loaded, so new worktrees are unavailable: ${p.reposError}`}</Text>
