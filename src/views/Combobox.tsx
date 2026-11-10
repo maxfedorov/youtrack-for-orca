@@ -1,4 +1,4 @@
-import { atom, Box, Button, Field, Input, List, ListItem, read, set, Stack, Text, update } from 'orca'
+import { atom, Box, Field, IconButton, Input, List, ListItem, read, set, Stack, Text, update } from 'orca'
 
 export type ComboOption = {
   value: string
@@ -82,6 +82,7 @@ export function Combobox({ label, value, options, placeholder, disabled, onChang
     set(openOne, null)
     if (!remote) update(queries, (all) => ({ ...all, [label]: '' }))
   }
+  const toggle = () => (isOpen ? close() : set(openOne, label))
   const choose = (next: string) => {
     close()
     onChange(next)
@@ -89,15 +90,29 @@ export function Combobox({ label, value, options, placeholder, disabled, onChang
   return (
     <Field label={label}>
       <Stack gap="xs" align="stretch">
-        <Button
-          key={`${label}:toggle`}
-          variant="outline"
-          icon={isOpen ? 'collapse' : 'expand'}
-          disabled={disabled}
-          onPress={() => (isOpen ? close() : set(openOne, label))}
-        >
-          {chosen ? chosen.label : (placeholder ?? 'Choose…')}
-        </Button>
+        {/*
+          The closed field: a list row (Orca cuts its title short with an ellipsis, where a Button's
+          text would run past its edges in a narrow panel) in a border, with the chevron on the right.
+        */}
+        <Box key={`${label}:field`} direction="row" align="center" border radius="md">
+          <Box grow shrink minWidth={0}>
+            <List key={`${label}:chosen`} label={label}>
+              <ListItem
+                key={`${label}:toggle`}
+                title={chosen ? chosen.label : (placeholder ?? 'Choose…')}
+                disabled={disabled}
+                onPress={toggle}
+              />
+            </List>
+          </Box>
+          <IconButton
+            icon={isOpen ? 'collapse' : 'expand'}
+            label={isOpen ? `Close ${label}` : `Open ${label}`}
+            variant="ghost"
+            disabled={disabled}
+            onPress={toggle}
+          />
+        </Box>
         {isOpen ? (
           <Box key={`${label}:popup`} gap="xs" padding="xs" border radius="md">
             <Input

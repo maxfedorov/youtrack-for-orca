@@ -38,7 +38,8 @@ function Demo() {
 }
 
 const toggle = (label: string) => ({ testId: `${label}:toggle` })
-const items = (view: any) => view.findAll({ type: 'ListItem' }).map((item: any) => item.props.title)
+const items = (view: any) =>
+  view.findAll({ type: 'ListItem' }).filter((item: any) => !String(item.key).endsWith(':toggle')).map((item: any) => item.props.title)
 const clean = (view: any) => {
   assert.deepEqual(view.errors, [])
   assert.deepEqual(view.warnings, [])
@@ -46,16 +47,15 @@ const clean = (view: any) => {
 
 test('the button shows the chosen option and opens a filter with every option', async () => {
   const view = await mount(Demo)
-  const button = view.find(toggle('Fruit'))
-  assert.equal(button.props.variant, 'outline')
-  assert.equal(button.props.icon, 'expand')
-  assert.ok(view.find({ role: 'button', text: 'Apple' }))
+  // The closed field is a list row, which cuts a long title short, with a chevron button next to it.
+  assert.equal(view.find(toggle('Fruit')).props.title, 'Apple')
+  assert.equal(view.find({ type: 'IconButton', label: 'Open Fruit' }).props.icon, 'expand')
   assert.equal(view.find({ type: 'Input', label: 'Filter Fruit' }), null)
   await view.press(toggle('Fruit'))
-  assert.equal(view.find(toggle('Fruit')).props.icon, 'collapse')
+  assert.equal(view.find({ type: 'IconButton', label: 'Close Fruit' }).props.icon, 'collapse')
   assert.equal(view.find({ type: 'Input', label: 'Filter Fruit' }).props.placeholder, 'Type to filter…')
   assert.deepEqual(items(view), ['Apple', 'Cherry', 'Banana', 'Nothing'])
-  assert.equal(view.find({ type: 'ListItem', label: 'Apple' }).props.current, true)
+  assert.equal(view.find({ type: 'ListItem', testId: 'a' }).props.current, true)
   assert.ok(view.find({ type: 'Box', testId: 'Fruit:popup' }))
   assert.ok(view.findAll({ type: 'Box' }).some((box: any) => box.props.scroll === 'y' && box.props.maxHeight > 0))
   await view.press(toggle('Fruit'))
@@ -69,7 +69,7 @@ test('groups get a heading; options without one follow on their own', async () =
   await view.press(toggle('Fruit'))
   assert.ok(view.find({ text: 'Red' }))
   assert.ok(view.find({ text: 'Yellow' }))
-  assert.deepEqual(view.findAll({ type: 'List' }).map((list: any) => list.props.label), ['Red', 'Yellow', 'Fruit'])
+  assert.deepEqual(view.findAll({ type: 'List' }).filter((list: any) => !String(list.key).endsWith(':chosen')).map((list: any) => list.props.label), ['Red', 'Yellow', 'Fruit'])
   await view.unmount()
 })
 
@@ -186,7 +186,7 @@ test('Enter while a remote search is still running chooses nothing', async () =>
 test('a capped list says so', async () => {
   const view = await mount(Demo)
   await view.press(toggle('Many'))
-  assert.equal(view.findAll({ type: 'ListItem' }).length, 3)
+  assert.equal(items(view).length, 3)
   assert.ok(view.find({ text: 'Showing the first 3 — type to narrow' }))
   await view.type({ type: 'Input', label: 'Filter Many' }, 'Item 4')
   assert.equal(view.find({ text: /^Showing the first/ }), null)

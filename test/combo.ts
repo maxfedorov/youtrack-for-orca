@@ -4,7 +4,7 @@ export const toggle = (label: string) => ({ testId: `${label}:toggle` })
 const filterOf = (label: string) => ({ type: 'Input', label: `Filter ${label}` })
 
 /** What the closed combobox shows: the chosen option's label or the placeholder. */
-export const shown = (view: any, label: string): string | undefined => view.find(toggle(label))?.text
+export const shown = (view: any, label: string): string | undefined => view.find(toggle(label))?.props.title
 
 export const isOpen = (view: any, label: string) => Boolean(view.find(filterOf(label)))
 
@@ -16,7 +16,7 @@ export async function openCombo(view: any, label: string): Promise<void> {
 export async function optionsOf(view: any, label: string): Promise<{ value: string; label: string; description?: string }[]> {
   const wasOpen = isOpen(view, label)
   await openCombo(view, label)
-  const list = view.findAll({ type: 'ListItem' }).map((item: any) => ({
+  const list = view.findAll({ type: 'ListItem' }).filter((item: any) => !String(item.key).endsWith(':toggle')).map((item: any) => ({
     value: item.key,
     label: item.props.title,
     ...(item.props.description ? { description: item.props.description } : {})
@@ -35,4 +35,4 @@ export async function filterCombo(view: any, label: string, text: string): Promi
   await view.type(filterOf(label), text, { replace: true })
 }
 
-export const comboDisabled = (view: any, label: string) => Boolean(view.find(toggle(label))?.disabled)
+export const comboDisabled = (view: any, label: string) => Boolean(view.find(toggle(label))?.props.disabled)
