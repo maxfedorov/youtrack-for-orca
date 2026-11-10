@@ -424,7 +424,7 @@ test('500 cap note appears from a full last page when the total is unknown, not 
   await second.unmount()
 })
 
-test('table keeps every column and scrolls sideways instead of hiding columns', async () => {
+test('the table scrolls sideways instead of hiding columns that have values', async () => {
   const host = mockHost({ requests: requests() })
   const view = await mount(panel, { host })
   const columns = view.find(table).props.columns
@@ -437,5 +437,22 @@ test('table keeps every column and scrolls sideways instead of hiding columns', 
   const within = (outer: any, node: any) => JSON.stringify(node.path).startsWith(JSON.stringify(outer.path).slice(0, -1))
   assert.ok(within(outer, inner))
   assert.ok(within(inner, view.find(table)))
+  await view.unmount()
+})
+
+test('columns no loaded issue has a value for are left out, unless the list is sorted by them', async () => {
+  const bare = (n: number) => {
+    const { state: _s, priority: _p, assignee: _a, ...rest } = issue(n)
+    return rest
+  }
+  const host = mockHost({ requests: requests({ 'yt.issues.search': ok({ issues: [bare(1), { ...bare(2), priority: { name: 'Major' } }], hasMore: false, total: 2 }) }) })
+  const view = await mount(panel, { host })
+  assert.deepEqual(view.find(table).props.columns.map((c: any) => c.key), ['id', 'summary', 'priority', 'created', 'updated'])
+  // 3 x 96 + 144 + 144 + 24
+  assert.equal(view.find({ type: 'Box', testId: 'table-width' }).props.minWidth, 600)
+  // a query sorted by State keeps its column, so the sort shows
+  await view.type({ label: 'Query' }, 'for: me sort by: State asc', { replace: true, submit: true })
+  await view.settled()
+  assert.ok(view.find(table).props.columns.some((c: any) => c.key === 'state'))
   await view.unmount()
 })

@@ -10,7 +10,10 @@ import { SearchBar } from './SearchBar'
 import { NOT_AVAILABLE } from '../shapes'
 import type { IssueRow } from '../protocol'
 
-// Every column stays visible; a narrow sidebar scrolls the table sideways (see TABLE_MIN_WIDTH).
+// The columns a project may not have (or leave empty everywhere): hidden when no loaded issue has a
+// value, unless the list is sorted by it. The others always show; a narrow sidebar scrolls the table
+// sideways (see minWidth).
+const OPTIONAL = new Set(['state', 'priority', 'assignee'])
 const COLUMNS = [
   { key: 'id', label: 'ID', sortable: true, width: 'sm' },
   { key: 'summary', label: 'Summary', sortable: true, minWidth: 'md' },
@@ -19,10 +22,24 @@ const COLUMNS = [
   { key: 'assignee', label: 'Assignee', sortable: true, width: 'md' },
   { key: 'created', label: 'Created', sortable: true, width: 'sm' },
   { key: 'updated', label: 'Updated', sortable: true, width: 'sm' }
-]
-// Fixed columns take 672px (4 x 6rem + 2 x 9rem) and Summary needs 9rem (144px) at least, so 816px; the extra
-// 24px covers row borders. Below this the table's own overflow-hidden would clip, so the Box scrolls instead.
-const TABLE_MIN_WIDTH = 840
+] as const
+// Column widths: sm is 6rem (96px), md 9rem (144px); Summary needs 9rem at least, and 24px covers row
+// borders. Below this width the table's own overflow-hidden would clip, so the Box scrolls instead.
+const WIDTH = { sm: 96, md: 144 } as const
+const SUMMARY_MIN = 144
+const BORDERS = 24
+
+const has = (row: IssueRow, key: string) =>
+  key === 'state' ? Boolean(row.state) : key === 'priority' ? Boolean(row.priority) : key === 'assignee' ? Boolean(row.assignee) : true
+
+/** The columns to draw for these rows, and the width the table needs for them. */
+export function visibleColumns(rows: IssueRow[], sortColumn: string | null) {
+  const columns = COLUMNS.filter(
+    (column) => !OPTIONAL.has(column.key) || rows.length === 0 || column.key === sortColumn || rows.some((row) => has(row, column.key))
+  )
+  const minWidth = columns.reduce((sum, column) => sum + ('width' in column ? WIDTH[column.width] : SUMMARY_MIN), BORDERS)
+  return { columns: columns.map((column) => ({ ...column })), minWidth }
+}
 
 /** A time cell; a row without a readable time shows n/a. */
 const time = (at: number) => (at > 0 ? { type: 'relative', at, format: 'short' } : NOT_AVAILABLE)
@@ -85,13 +102,14 @@ function Results() {
   const selected = rows.find((row) => row.id === read(selectedIssue))
   const known = read(totalKnown)
   const capped = rows.length >= MAX_ISSUES && (known ? read(total) > MAX_ISSUES : read(lastPageFull))
+  const table = visibleColumns(rows, sort?.column ?? null)
   return (
     <Stack gap="xs">
       <Box key="table-scroll" scroll="x">
-        <Box key="table-width" minWidth={TABLE_MIN_WIDTH}>
+        <Box key="table-width" minWidth={table.minWidth}>
         <Table
           label="Issues"
-          columns={COLUMNS}
+          columns={table.columns}
           rows={rows.map(toRow)}
           sort={sort ?? undefined}
           selectionMode="single"
