@@ -42,7 +42,8 @@ If the CLI is missing, the panel shows the install command for your system to ru
   under Servers, and then the project of the current workspace.
 - **Remove server**: the bin button next to the server choice removes the server from the YouTrack CLI
   (which signs the CLI out of it) after you confirm, and forgets what the plugin saved for it.
-- Status bar item with the number of issues matching the default query.
+- Status bar item with the number of issues matching the default query on the selected server
+  (`YT: 13`); `YT: !` means signed out, `YT: ?` an invalid default query. The tooltip says why.
 - Desktop notification when an agent started from an issue finishes.
 - Command palette: "YouTrack: Open panel".
 
