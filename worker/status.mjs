@@ -41,8 +41,15 @@ export function createStatusBar({
     const stored = await state.getServer()
     const chosen = servers.find((s) => s.alias === stored) ?? servers.find((s) => s.active) ?? servers[0]
     if (!chosen) return { ok: false, error: { code: CODES.NO_SERVERS, message: '' } }
+    // The query the panel shows for this server; the default query until one was run there.
     const raw = await settings.get('defaultQuery')
-    const query = typeof raw === 'string' ? raw : ''
+    const fallback = typeof raw === 'string' ? raw : ''
+    let query = fallback
+    try {
+      query = await state.getQuery(chosen.alias, fallback)
+    } catch {
+      // unreadable memory: the default query is counted
+    }
     const where = `${chosen.alias}: ${query}`
     const count = await youtrack.countIssues(chosen.alias, query)
     return count.ok ? { ok: true, data: { count: count.data, tooltip: where } } : { ...count, where, alias: chosen.alias }
@@ -54,7 +61,7 @@ export function createStatusBar({
     if (r.error?.code === CODES.NO_SERVERS) return 'No YouTrack server. Open the panel to add one.'
     if (r.error?.code === CODES.AUTH_FAILED) return `Signed out of ${r.alias ?? 'the server'}. Open the panel to sign in again.`
     if (r.error?.code === CODES.QUERY_INVALID) {
-      return `The Default query in the plugin settings is not valid${message ? `: ${message}` : ''}`
+      return `The query ${r.where ?? ''} is not valid${message ? `: ${message}` : ''}`
     }
     return `The count could not be updated${r.where ? ` (${r.where})` : ''}${message ? `: ${message}` : ''}`
   }
@@ -74,7 +81,7 @@ export function createStatusBar({
         return await update({ text: lastText, tooltip, tone: 'warning', visible: true })
       }
       if (r.error.code === CODES.QUERY_INVALID) {
-        // No count can be shown for a query that never works, so none is kept either.
+        // No count can be shown for a query that does not parse, so none is kept either.
         lastText = 'YT: ?'
         return await update({ text: lastText, tooltip, tone: 'warning', visible: true })
       }

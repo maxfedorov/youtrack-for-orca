@@ -42,8 +42,8 @@ If the CLI is missing, the panel shows the install command for your system to ru
   under Servers, and then the project of the current workspace.
 - **Remove server**: the bin button next to the server choice removes the server from the YouTrack CLI
   (which signs the CLI out of it) after you confirm, and forgets what the plugin saved for it.
-- Status bar item with the number of issues matching the default query on the selected server
-  (`YT: 13`); `YT: !` means signed out, `YT: ?` an invalid default query. The tooltip says why.
+- Status bar item with the number of issues matching the panel's current query on the selected server
+  (`YT: 13`); `YT: !` means signed out, `YT: ?` a query that does not parse. The tooltip says why.
 - Desktop notification when an agent started from an issue finishes.
 - Command palette: "YouTrack: Open panel".
 
@@ -66,7 +66,7 @@ talks to YouTrack goes through the CLI.
 
 | Setting                 | Default                                | Meaning                                                                 |
 | ----------------------- | -------------------------------------- | ----------------------------------------------------------------------- |
-| Default query           | `for: me #Unresolved`                  | Query used on first open and for the status bar count.                  |
+| Default query           | `for: me #Unresolved`                  | Query used on first open of each server.                                 |
 | Branch name template    | `{{id_lower}}-{{summary_slug}}`        | Name of the new workspace and branch.                                   |
 | Default agent           | `claude`                               | Agent preselected in the Start view; empty means terminal only.         |
 | Default launch mode     | New worktree                           | `New worktree` or `Current workspace`.                                  |

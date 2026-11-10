@@ -26,7 +26,7 @@ function setup({ count = ok(7), instances = ok(SERVERS), youtrack, stored } = {}
     clearInterval: (id) => cleared.push(id),
   })
   const updates = () => orca.hostCalls.filter((c) => c.method === 'statusBar.update').map((c) => c.params)
-  return { bar, updates, counted, timers, cleared, orca }
+  return { bar, updates, counted, timers, cleared, orca, state }
 }
 
 test('shows count', async () => {
@@ -58,8 +58,18 @@ test('an invalid default query shows YT: ? and says why', async () => {
   await bar.refresh()
   assert.deepEqual(updates().at(-1), {
     id: 'count', text: 'YT: ?', tone: 'warning', visible: true,
-    tooltip: "The Default query in the plugin settings is not valid: HTTP 400: Can't parse search query"
+    tooltip: "The query two: for: me is not valid: HTTP 400: Can't parse search query"
   })
+})
+
+test('counts the query last run on the server, and the default query before any', async () => {
+  const { bar, counted, state } = setup()
+  await bar.refresh()
+  assert.deepEqual(counted.at(-1), ['two', 'for: me'])
+  await state.setQuery('one', 'other')
+  await state.setQuery('two', 'state: Open')
+  await bar.refresh()
+  assert.deepEqual(counted.at(-1), ['two', 'state: Open'])
 })
 
 test('network error keeps the last text', async () => {

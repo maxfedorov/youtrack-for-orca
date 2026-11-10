@@ -12,7 +12,7 @@ import { createOpenPanelCommand } from './open-panel.mjs'
 import { createStatusBar, createFinishNotifier, refreshAfter } from './status.mjs'
 import { safePost } from './handlers/common.mjs'
 
-const REFRESHING = ['yt.setServer', 'yt.start.run', 'yt.runInExisting', 'yt.savedQueries.create', 'yt.issue.command', 'yt.servers.remove']
+const REFRESHING = ['yt.setServer', 'yt.setQuery', 'yt.start.run', 'yt.runInExisting', 'yt.savedQueries.create', 'yt.issue.command', 'yt.servers.remove']
 let statusBar = null
 let notifier = null
 
