@@ -414,32 +414,9 @@ test('a failed open keeps links when the workspace list is truncated', async () 
   assert.ok(orca.storage.data().links['one|DEMO-2'])
 })
 
-test('install command matches platform', async () => {
-  const cases = { darwin: 'brew install jetbrains/utils/youtrack', linux: 'brew install jetbrains/utils/youtrack', win32: 'winget install JetBrains.YouTrackCLI' }
-  for (const [platform, command] of Object.entries(cases)) {
-    const { call, orca } = setup({ platform, host: { 'terminal.create': { terminalId: 't' } } })
-    const r = await call('yt.terminal.run', { command: 'install' })
-    assert.equal(r.ok, true)
-    const t = orca.hostCalls.find((c) => c.method === 'terminal.create')
-    assert.equal(t.params.command, command)
-    assert.equal(t.params.workspaceId, 'identity:feat')
-  }
-  assert.equal((await setup({ platform: 'plan9' }).call('yt.terminal.run', { command: 'install' })).ok, false)
-})
-
-test('login command is built only from a plain http(s) url', async () => {
-  const { call, orca } = setup({ host: { 'terminal.create': { terminalId: 't' } } })
-  assert.equal((await call('yt.terminal.run', { command: 'login', url: 'https://example.youtrack.cloud' })).ok, true)
-  assert.equal(orca.hostCalls.at(-1).params.command, 'youtrack auth login https://example.youtrack.cloud')
-  for (const url of ['https://x.io; rm -rf ~', 'file:///etc/passwd', "https://x.io/'$(id)", '--web', undefined]) {
-    assert.equal((await call('yt.terminal.run', { command: 'login', url })).ok, false, String(url))
-  }
-  assert.equal((await call('yt.terminal.run', { command: 'other' })).ok, false)
-})
-
-test('terminal.run needs an active workspace', async () => {
-  const { call } = setup({ host: { 'workspace.readContext': null, 'terminal.create': { terminalId: 't' } } })
-  assert.equal((await call('yt.terminal.run', { command: 'install' })).ok, false)
+test('no handler opens terminals: sign-in and install are run by the person', async () => {
+  const { orca } = setup()
+  assert.equal(orca.handlers.has('yt.terminal.run'), false)
 })
 
 test('servers.add streams the auth url and posts the alias when done', async () => {
@@ -868,17 +845,11 @@ test('start.prepare does not guess between focused workspaces of the same name a
     { id: 'identity:a', kind: 'worktree', name: 'main', project: 'alpha', path: '/p/alpha', branch: 'main' },
     { id: 'identity:b', kind: 'worktree', name: 'main', project: 'beta', path: '/p/beta', branch: 'main' },
   ]
-  const host = {
-    'workspace.list': { workspaces: twins, truncated: false },
-    'workspace.readContext': { branch: 'main', displayName: 'main', terminals: [] },
-    'terminal.create': { terminalId: 't' },
-  }
+  const host = { 'workspace.list': { workspaces: twins, truncated: false }, 'workspace.readContext': { branch: 'main', displayName: 'main', terminals: [] } }
   const repos = async () => ok([{ id: 'ra', name: 'alpha', path: '/p/alpha' }, { id: 'rb', name: 'beta', path: '/p/beta' }])
   const { call, state } = setup({ host, cli: fakeCli({ repos }) })
   assert.equal((await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })).data.defaultWorkspaceId, null)
   // the project remembered for DEMO settles it
   await state.rememberProjectRepo('one', 'DEMO', 'rb')
   assert.equal((await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })).data.defaultWorkspaceId, 'identity:b')
-  // the terminal needs only some workspace
-  assert.deepEqual(await call('yt.terminal.run', { command: 'login', url: 'https://one.youtrack.cloud' }), ok({}))
 })

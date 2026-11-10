@@ -5,7 +5,7 @@ import { issueVars, workspaceName, PROMPT_LIMIT } from '../prompt.mjs'
 import { AGENTS } from '../agents.mjs'
 import { workspaceItems } from '../workspaces.mjs'
 import { BUILT_IN } from '../templates.mjs'
-import { safeHandle, shortMessage, unexpected, hasId, invalid, token, issueUrl, ISSUE_ID, settingString, isPlainUrl, capDetail, AGENT_ID, INSTALL, attempt, fallback, readSetting } from './common.mjs'
+import { safeHandle, shortMessage, unexpected, hasId, invalid, token, issueUrl, ISSUE_ID, settingString, capDetail, AGENT_ID, attempt, fallback, readSetting } from './common.mjs'
 
 const DEFAULT_BRANCH_TEMPLATE = '{{id_lower}}-{{summary_slug}}'
 const noOrcaCli = () => fail(CODES.ORCA_CLI_NOT_FOUND, 'The Orca CLI was not found.')
@@ -20,7 +20,7 @@ const projectOf = (id) => id.slice(0, id.lastIndexOf('-'))
 const inside = (dir, p) => p === dir || p.startsWith(dir.replace(/[\\/]+$/, '') + '/') || p.startsWith(dir.replace(/[\\/]+$/, '') + '\\')
 
 export function registerStartHandlers(ctx) {
-  const { orca, orcaCli, links, launches, templates, detectAgents, now, platform, resolveServer } = ctx
+  const { orca, orcaCli, links, launches, templates, detectAgents, now, resolveServer } = ctx
   const handle = (name, fn) => safeHandle(orca, name, fn)
   const host = (method, params) => orca.host.call(method, params)
   /**
@@ -51,10 +51,9 @@ export function registerStartHandlers(ctx) {
 
   /**
    * The focused workspace: readContext has no id, so match branch and name against the list. When
-   * several match (say `main` in two projects), the one in `repo` wins; otherwise none is guessed,
-   * unless `anyMatch` (where any of them will do).
+   * several match (say `main` in two projects), the one in `repo` wins; otherwise none is guessed.
    */
-  async function activeWorkspace(list, { repo = null, anyMatch = false } = {}) {
+  async function activeWorkspace(list, repo = null) {
     let c = null
     try {
       c = await host('workspace.readContext', {})
@@ -63,7 +62,7 @@ export function registerStartHandlers(ctx) {
     }
     if (!c || typeof c !== 'object') return null
     const found = list.filter((w) => shortBranch(w.branch) === shortBranch(c.branch) && w.name === c.displayName)
-    if (found.length <= 1 || anyMatch) return found[0] ?? null
+    if (found.length <= 1) return found[0] ?? null
     const inRepo = found.filter((w) => repo && (w.project === repo.name || (repo.path && w.path && inside(repo.path, w.path))))
     return inRepo.length === 1 ? inRepo[0] : null
   }
@@ -102,7 +101,7 @@ export function registerStartHandlers(ctx) {
     const repoList = repos.ok && Array.isArray(repos.data) ? repos.data : []
     const listed = (repoId) => (repoId ? repoList.find((r) => r.id === repoId) : undefined)
     const remembered = listed(await fallback(() => ctx.state.projectRepo(s.data.alias, projectOf(id)), null))
-    const active = await activeWorkspace(workspaces, { repo: remembered })
+    const active = await activeWorkspace(workspaces, remembered)
     // The workspace started for this issue last time, if it is still there; otherwise the focused one.
     const linked = await fallback(() => links.latest(s.data.alias, id, new Set(workspaces.map((w) => w.id))), null)
     const ofWorkspace =
@@ -236,25 +235,6 @@ export function registerStartHandlers(ctx) {
       await links.prune(new Set(listed.list.map((w) => w.id)), snapshotAt)
       return fail(CODES.NOT_FOUND, 'That workspace no longer exists.')
     }
-    return ok({})
-  })
-
-  handle('yt.terminal.run', async ({ command, url }) => {
-    let line
-    if (command === 'install') {
-      line = INSTALL[platform]
-      if (!line) return invalid('Automatic install is not supported on this system.')
-    } else if (command === 'login') {
-      if (!isPlainUrl(url)) return invalid('Enter a server address like https://example.youtrack.cloud')
-      line = `youtrack auth login ${url}`
-    } else {
-      return invalid('Unknown terminal command')
-    }
-    const { list } = await listWorkspaces()
-    // The terminal only needs some workspace to open in.
-    const active = await activeWorkspace(list, { anyMatch: true })
-    if (!active) return invalid('Open a workspace first.')
-    await host('terminal.create', { workspaceId: active.id, title: 'YouTrack', command: line })
     return ok({})
   })
 }

@@ -11,7 +11,7 @@ test('no CLI shows install screen', async () => {
   const view = await mount(panel, { host })
   assert.ok(view.find({ type: 'EmptyState', label: 'Install youtrack CLI' }))
   assert.ok(view.find({ type: 'Code', text: 'brew install jetbrains/utils/youtrack' }))
-  assert.ok(view.find({ role: 'button', text: 'Open terminal with command' }))
+  assert.equal(view.find({ role: 'button', text: 'Open terminal with command' }), null)
   assert.ok(view.find({ role: 'button', text: 'Check again' }))
   assert.deepEqual(view.refusals, [])
   await view.unmount()
@@ -36,8 +36,15 @@ test('no servers shows add server', async () => {
   await view.unmount()
 })
 
-test('add server waits for sign-in, then fails with terminal fallback', async () => {
-  const host = mockHost({ requests: { 'yt.env': env({ servers: [], server: null }), 'yt.servers.add': ok({ started: true }), 'yt.terminal.run': ok({}) } })
+test('add server waits for sign-in, then fails and shows the terminal command', async () => {
+  let signedIn = false
+  const host = mockHost({
+    requests: withList({
+      'yt.env': () => env(signedIn ? { servers: [server('yt')], server: 'yt' } : { servers: [], server: null }),
+      'yt.servers.add': ok({ started: true }),
+      'yt.setServer': ok({})
+    })
+  })
   const view = await mount(panel, { host })
   await view.type({ label: 'Server URL' }, 'https://yt.example.com')
   await view.press({ role: 'button', text: 'Add server' })
@@ -46,9 +53,29 @@ test('add server waits for sign-in, then fails with terminal fallback', async ()
   assert.ok(view.find({ type: 'Link' }))
   await view.post('yt.servers.added', { ok: false, error: { code: 'UNKNOWN', message: 'Sign-in failed' } })
   assert.ok(view.find({ text: 'Sign-in failed' }))
-  await view.press({ role: 'button', text: 'Sign in in terminal' })
-  assert.deepEqual(host.callsOf('plugin.request').at(-1), { name: 'yt.terminal.run', input: { command: 'login', url: 'https://yt.example.com' } })
+  assert.ok(view.find({ type: 'Code', text: 'youtrack auth login https://yt.example.com' }))
+  await view.press({ role: 'button', text: "I've signed in" })
+  assert.ok(view.find({ text: 'Not signed in yet.' }))
+  signedIn = true
+  await view.press({ role: 'button', text: "I've signed in" })
+  await view.settled()
+  assert.ok(host.callsOf('plugin.request').some((c: any) => c.name === 'yt.setServer' && c.input.server === 'yt'))
+  assert.equal(view.find({ text: 'Add a YouTrack server' }), null)
+  // the plugin itself never asked anything to open a terminal
+  assert.equal(host.callsOf('plugin.request').some((c: any) => c.name === 'yt.terminal.run'), false)
   assert.deepEqual(view.refusals, [])
+  await view.unmount()
+})
+
+test('the terminal command can be asked for without trying the browser, and is never a shell injection', async () => {
+  const host = mockHost({ requests: { 'yt.env': env({ servers: [], server: null }) } })
+  const view = await mount(panel, { host })
+  await view.type({ label: 'Server URL' }, 'https://yt.example.com:8443/youtrack')
+  await view.press({ role: 'button', text: 'Sign in from a terminal instead' })
+  assert.ok(view.find({ type: 'Code', text: 'youtrack auth login https://yt.example.com:8443/youtrack' }))
+  assert.equal(host.callsOf('plugin.request').some((c: any) => c.name === 'yt.servers.add'), false)
+  await view.type({ label: 'Server URL' }, 'https://x.io; rm -rf ~', { replace: true })
+  assert.ok(view.find({ type: 'Code', text: 'youtrack auth login <server-url>' }))
   await view.unmount()
 })
 
@@ -66,12 +93,20 @@ test('server select persists via yt.setServer', async () => {
   await view.unmount()
 })
 
-test('expired server shows Sign in again', async () => {
-  const host = mockHost({ requests: { 'yt.env': env({ servers: [server('main', 'expired')] }), 'yt.terminal.run': ok({}) } })
+test('expired server shows Sign in again with the terminal command', async () => {
+  let status = 'expired'
+  const host = mockHost({ requests: withList({ 'yt.env': () => env({ servers: [server('main', status)] }) }) })
   const view = await mount(panel, { host })
   assert.ok(view.find({ text: 'Signed out' }))
   await view.press({ role: 'button', text: 'Sign in again' })
-  assert.deepEqual(host.callsOf('plugin.request').at(-1), { name: 'yt.terminal.run', input: { command: 'login', url: 'https://main.example.com' } })
+  assert.ok(view.find({ type: 'Code', text: 'youtrack auth login main' }))
+  await view.press({ role: 'button', text: "I've signed in" })
+  assert.ok(view.find({ text: 'Not signed in yet.' }))
+  status = 'authenticated'
+  await view.press({ role: 'button', text: "I've signed in" })
+  await view.settled()
+  assert.equal(view.find({ text: 'Signed out' }), null)
+  assert.equal(view.find({ type: 'Code', text: 'youtrack auth login main' }), null)
   assert.deepEqual(view.refusals, [])
   await view.unmount()
 })
@@ -184,7 +219,6 @@ test('adding a second server shows the sign-in link and failure, then selects th
         env({ servers: added ? [server('main'), server('fresh')] : [server('main')], server: chosen }),
       'yt.servers.add': ok({ started: true }),
       'yt.setServer': (i: any) => ((chosen = i.server), ok({})),
-      'yt.terminal.run': ok({})
     })
   })
   const view = await mount(panel, { host })
@@ -196,7 +230,7 @@ test('adding a second server shows the sign-in link and failure, then selects th
   assert.ok(view.find({ type: 'Link' }))
   await view.post('yt.servers.added', { ok: false, error: { code: 'UNKNOWN', message: 'Sign-in failed' } })
   assert.ok(view.find({ text: 'Sign-in failed' }))
-  assert.ok(view.find({ role: 'button', text: 'Sign in in terminal' }))
+  assert.ok(view.find({ role: 'button', text: "I've signed in" }))
   added = true
   await view.post('yt.servers.added', { ok: true, data: { alias: 'fresh' } })
   assert.ok(host.callsOf('plugin.request').some((c: any) => c.name === 'yt.setServer' && c.input.server === 'fresh'))
@@ -280,8 +314,8 @@ test('a sign-in that never reports back turns into an error after the deadline',
     ;(fire as unknown as () => void)()
     await view.settled()
     assert.equal(view.find(waiting), null)
-    assert.ok(view.find({ text: 'Sign-in did not finish. Try again, or sign in in the terminal.' }))
-    assert.ok(view.find({ role: 'button', text: 'Sign in in terminal' }))
+    assert.ok(view.find({ text: 'Sign-in did not finish. Try again, or sign in from a terminal.' }))
+    assert.ok(view.find({ role: 'button', text: "I've signed in" }))
     assert.deepEqual(view.errors, [])
     await view.unmount()
   } finally {

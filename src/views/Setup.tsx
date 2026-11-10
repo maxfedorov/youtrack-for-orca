@@ -1,20 +1,22 @@
 import { atom, Button, Callout, Code, EmptyState, Input, Link, Row, Stack, Text, read, set } from 'orca'
 import { call, env, loadEnv, panelError, server, unwrap, view } from '../state'
 import { onServerChanged } from '../listState'
-import { signIn } from './Header'
+import { TerminalSignIn } from './TerminalSignIn'
 
 const urlDraft = atom('')
 const adding = atom(false)
 /** Sign-in link of a running 'yt.servers.add'. */
 export const authUrl = atom<string | null>(null)
-/** Failure of the last add; offers the terminal sign-in. */
+/** Failure of the last add; the terminal sign-in is offered with it. */
 export const addError = atom<string | null>(null)
 /** Shown under the waiting text when "Check again" found no new server yet. */
 const notYet = atom(false)
+/** The terminal sign-in was asked for without trying the browser. */
+const viaTerminal = atom(false)
 
 /** The worker gives the browser sign-in 10 minutes; past this the post is not coming. */
 export const SIGN_IN_DEADLINE_MS = 11 * 60_000
-const DID_NOT_FINISH = 'Sign-in did not finish. Try again, or sign in in the terminal.'
+const DID_NOT_FINISH = 'Sign-in did not finish. Try again, or sign in from a terminal.'
 let deadline: ReturnType<typeof setTimeout> | null = null
 /** False after Cancel or leaving the form: a late failure of that sign-in is not shown. */
 let pending = false
@@ -38,6 +40,7 @@ export function openAddServer(): void {
   stopWaiting()
   set(urlDraft, '')
   set(addError, null)
+  set(viaTerminal, false)
   set(view, { kind: 'add' })
 }
 
@@ -58,6 +61,25 @@ async function checkAdded(): Promise<void> {
   if (read(view).kind === 'add') await selectAdded(found.alias)
   else await loadEnv()
 }
+
+/** "I've signed in" after the terminal sign-in: selects the server once the CLI lists it signed in. */
+async function checkTerminalSignIn(url: string): Promise<boolean> {
+  const answer = await call('yt.env', {})
+  const found = answer.ok ? answer.data.servers.find((item) => sameUrl(item.url, url) && item.status === 'authenticated') : undefined
+  if (!found) return false
+  stopWaiting()
+  set(addError, null)
+  set(viaTerminal, false)
+  set(urlDraft, '')
+  await selectAdded(found.alias)
+  return true
+}
+
+/**
+ * The command that signs in to a server in a terminal. Only characters a shell reads as they are go in;
+ * anything else (a space, `&`, `;`, quotes) gets a placeholder, so pasting the command never runs more.
+ */
+export const loginCommand = (target: string) => `youtrack auth login ${/^\w[\w.:/@~+-]*$/.test(target) ? target : '<server-url>'}`
 
 /** Called from the panel's event subscription. */
 export function onAdded(payload: unknown): void {
@@ -112,18 +134,10 @@ function InstallScreen() {
   const command = read(env)?.cli.installCommand
   return (
     <EmptyState title="Install youtrack CLI" icon="terminal" description="The plugin talks to YouTrack through the youtrack command line tool.">
+      {command ? <Text>Run this in a terminal, then press Check again:</Text> : null}
       {command ? <Code block>{command}</Code> : null}
       <Row gap="xs">
-        <Button
-          onPress={() =>
-            void call('yt.terminal.run', { command: 'install' }).then((answer) => {
-              if (!answer.ok) set(panelError, answer.message)
-            })
-          }
-        >
-          Open terminal with command
-        </Button>
-        <Button variant="ghost" onPress={() => void loadEnv()}>
+        <Button variant="outline" onPress={() => void loadEnv()}>
           Check again
         </Button>
       </Row>
@@ -163,15 +177,20 @@ function AddServerScreen() {
           </Button>
         </Row>
       ) : null}
+      {!waiting && !failure && !read(viaTerminal) ? (
+        <Row gap="xs">
+          <Button variant="ghost" size="sm" disabled={!draft.trim()} onPress={() => set(viaTerminal, true)}>
+            Sign in from a terminal instead
+          </Button>
+        </Row>
+      ) : null}
       {failure ? (
         <Callout tone="danger">
-          <Stack gap="xs">
-            <Text>{failure}</Text>
-            <Button variant="ghost" onPress={() => signIn(draft.trim())}>
-              Sign in in terminal
-            </Button>
-          </Stack>
+          <Text>{failure}</Text>
         </Callout>
+      ) : null}
+      {(failure || read(viaTerminal)) && !waiting && draft.trim() ? (
+        <TerminalSignIn command={loginCommand(draft.trim())} check={() => checkTerminalSignIn(draft.trim())} />
       ) : null}
     </Stack>
   )

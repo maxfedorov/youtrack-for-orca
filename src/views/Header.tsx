@@ -1,15 +1,22 @@
-import { Badge, Button, IconButton, Row, Select, Stack, read, set } from 'orca'
+import { Badge, Button, IconButton, Row, Select, Stack, atom, read, set } from 'orca'
 import { onServerChanged, refreshAll } from '../listState'
-import { openAddServer } from './Setup'
+import { loginCommand, openAddServer } from './Setup'
+import { TerminalSignIn } from './TerminalSignIn'
 import { call, env, panelError, server } from '../state'
 import { askRemove } from '../removeServer'
 import { RemoveServerQuestion } from './RemoveServer'
 import { openSettings } from '../settingsState'
 
-export function signIn(url: string): void {
-  void call('yt.terminal.run', { command: 'login', url }).then((answer) => {
-    if (!answer.ok) set(panelError, answer.message)
-  })
+/** The signed-out server whose terminal sign-in is shown. */
+const signingIn = atom<string | null>(null)
+
+/** "I've signed in" for a signed-out server: done once the CLI lists it signed in again. */
+async function checkSignedIn(alias: string): Promise<boolean> {
+  await refreshAll()
+  const again = read(env)?.servers.find((item) => item.alias === alias)
+  if (again?.status !== 'authenticated') return false
+  set(signingIn, null)
+  return true
 }
 
 async function choose(alias: string): Promise<void> {
@@ -57,10 +64,13 @@ export function Header() {
       {current && current.status !== 'authenticated' ? (
         <Row gap="xs">
           <Badge tone="warning">Signed out</Badge>
-          <Button variant="ghost" onPress={() => signIn(current.url)}>
+          <Button variant="ghost" onPress={() => set(signingIn, read(signingIn) === current.alias ? null : current.alias)}>
             Sign in again
           </Button>
         </Row>
+      ) : null}
+      {current && current.status !== 'authenticated' && read(signingIn) === current.alias ? (
+        <TerminalSignIn command={loginCommand(current.alias)} check={() => checkSignedIn(current.alias)} />
       ) : null}
     </Stack>
   )

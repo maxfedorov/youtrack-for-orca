@@ -224,7 +224,7 @@ test('requests keep working when notifications, the command or the status bar ca
   orca.events = { on: () => boom() }
   orca.commands = { register: () => boom() }
   await main.default(orca)
-  const r = await orca.handlers.get('yt.terminal.run')({ command: 'other' })
-  assert.deepEqual(r, fail('UNKNOWN', 'Unknown terminal command'))
+  const r = await orca.handlers.get('yt.issue.comment')({ server: 'x', id: '-bad', text: 'x' })
+  assert.deepEqual(r, fail('UNKNOWN', 'Invalid issue id'))
   await main.deactivate()
 })

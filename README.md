@@ -14,9 +14,11 @@ starts a coding agent on any of them.
   | Windows       | `winget install JetBrains.YouTrackCLI`    |
 
 - A YouTrack server known to the CLI. Add one with `youtrack auth login <url>`, or from the plugin's
-  panel ("Add a YouTrack server").
+  panel ("Add a YouTrack server"), which signs in through the browser. When a server has no browser
+  sign-in for the CLI, the panel shows the command to run in a terminal instead: the CLI asks for a
+  permanent token there, so the plugin never handles tokens.
 
-If the CLI is missing, the panel shows the install command for your system and can open it in a terminal.
+If the CLI is missing, the panel shows the install command for your system to run in a terminal.
 
 ## Features
 

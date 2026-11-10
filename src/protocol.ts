@@ -120,8 +120,6 @@ declare module 'orca' {
     /** Issue id -> newest live workspace id. */
     'yt.links': { input: { server: string }; output: Result<Record<string, string>> }
     'yt.workspace.open': { input: { workspaceId: string }; output: Result<Record<string, never>> }
-    /** Opens a terminal in the active workspace; `url` is required for 'login'. */
-    'yt.terminal.run': { input: { command: 'install' | 'login'; url?: string }; output: Result<Record<string, never>> }
     /** The prompt templates; the built-ins (and a changed old prompt setting) are set up on first use. */
     'yt.templates': { input: Record<string, never>; output: Result<Templates> }
     /** Creates (no `id`) or changes a template; name 1..60, body 1..8000 characters, at most 30 templates. */
