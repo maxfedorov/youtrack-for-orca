@@ -98,6 +98,7 @@ test('mode switch disables project, name, branch and enables workspace', async (
   const host = mockHost({ requests: requests() })
   const view = await open(host)
   assert.equal(comboDisabled(view, 'Workspace'), true)
+  assert.equal(shown(view, 'Workspace'), 'A new worktree is created')
   assert.ok(!view.find({ text: 'The agent works in this folder on its current branch. No new branch is created.' }))
   await view.select({ type: 'RadioGroup', label: 'Run in' }, 'current')
   assert.equal(comboDisabled(view, 'Project'), true)

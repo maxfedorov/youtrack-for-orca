@@ -63,10 +63,11 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
         <Input label="Name" labelHidden value={read(name)} disabled={!worktree} onChange={(value) => set(name, value)} />
       </Field>
       <BranchPicker enabled={worktree} />
+      {/* Not used for a new worktree: no value is shown then, but the choice is kept for Current workspace. */}
       <Combobox
         label="Workspace"
-        value={read(workspaceId)}
-        placeholder="Choose a workspace"
+        value={worktree ? null : read(workspaceId)}
+        placeholder={worktree ? 'A new worktree is created' : 'Choose a workspace'}
         disabled={worktree}
         options={workspaceOptions(p.workspaces, p.defaultWorkspaceId)}
         onChange={(value) => set(workspaceId, value)}
