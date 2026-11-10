@@ -116,11 +116,16 @@ function rowsAround(node: any, out: any[] = []): any[] | null {
   return null
 }
 
-test('the header buttons line up with the server control, not its label', async () => {
+test('the header controls sit together right after the server choice, lined up with the control', async () => {
   const { host } = setup()
   const view = await mount(panel, { host })
   const rows = rowsAround(view.tree()) ?? []
-  assert.equal(rows.length, 2)
-  for (const row of rows) assert.equal(row.props.align, 'end')
+  assert.equal(rows.length, 1)
+  const [row] = rows
+  assert.equal(row.props.align, 'end')
+  assert.equal(row.props.justify, undefined)
+  const controls = row.children.map((c: any) => (c.type === 'Select' ? 'Select' : c.props.label))
+  assert.deepEqual(controls, ['Select', 'Add server', 'Remove server', 'Refresh'])
+  for (const c of row.children) if (c.type === 'IconButton') assert.equal(c.props.size ?? 'sm', 'sm')
   await view.unmount()
 })

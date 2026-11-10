@@ -28,28 +28,27 @@ export function Header() {
   const current = servers.find((item) => item.alias === read(server))
   return (
     <Stack gap="xs">
-      {/* Bottom-aligned: the buttons line up with the Select control, not with its label above it. */}
-      <Row gap="xs" justify="between" align="end">
-        <Row gap="xs" align="end">
-          <Select
-            label="Server"
-            value={read(server) ?? undefined}
-            options={servers.map((item) => ({ value: item.alias, label: item.alias }))}
-            onChange={(value) => void choose(value)}
-          />
-          <IconButton
-            icon="delete"
-            variant="outline"
-            tone="danger"
-            label="Remove server"
-            disabled={!current}
-            onPress={() => (current ? askRemove(current.alias, 'header') : undefined)}
-          />
-        </Row>
-        <Row gap="xs">
-          <IconButton icon="refresh" label="Refresh" onPress={() => void refreshAll()} />
-          <IconButton icon="add" label="Add server" onPress={openAddServer} />
-        </Row>
+      {/*
+        One row of controls right after the Select: the server actions next to it, then refresh. Bottom-aligned, so the buttons line up with the Select control rather than its label;
+        all are 32 px high (Select and IconButton size sm). It wraps when the panel is narrow.
+      */}
+      <Row gap="xs" align="end" wrap>
+        <Select
+          label="Server"
+          value={read(server) ?? undefined}
+          options={servers.map((item) => ({ value: item.alias, label: item.alias }))}
+          onChange={(value) => void choose(value)}
+        />
+        <IconButton icon="add" variant="outline" label="Add server" onPress={openAddServer} />
+        <IconButton
+          icon="delete"
+          variant="outline"
+          tone="danger"
+          label="Remove server"
+          disabled={!current}
+          onPress={() => (current ? askRemove(current.alias, 'header') : undefined)}
+        />
+        <IconButton icon="refresh" variant="ghost" label="Refresh" onPress={() => void refreshAll()} />
       </Row>
       <RemoveServerQuestion from="header" />
       {current && current.status !== 'authenticated' ? (
