@@ -853,3 +853,32 @@ test('issue.comment answers the CLI failure', async () => {
   const { call } = setup({ yt: fakeYt({ addComment: async () => fail('FORBIDDEN', 'HTTP 403: Forbidden') }) })
   assert.deepEqual(await call('yt.issue.comment', { server: 'one', id: 'DEMO-1', text: 'x' }), fail('FORBIDDEN', 'HTTP 403: Forbidden'))
 })
+
+test('start.prepare offers the workspace started for the issue before the focused one', async () => {
+  const { call, links } = setup()
+  await links.add('one', 'DEMO-3', 'identity:main', 1)
+  assert.equal((await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })).data.defaultWorkspaceId, 'identity:main')
+  // a workspace that is gone is skipped
+  await links.add('one', 'DEMO-4', 'identity:gone', 2)
+  assert.equal((await call('yt.start.prepare', { server: 'one', id: 'DEMO-4' })).data.defaultWorkspaceId, 'identity:feat')
+})
+
+test('start.prepare does not guess between focused workspaces of the same name and branch', async () => {
+  const twins = [
+    { id: 'identity:a', kind: 'worktree', name: 'main', project: 'alpha', path: '/p/alpha', branch: 'main' },
+    { id: 'identity:b', kind: 'worktree', name: 'main', project: 'beta', path: '/p/beta', branch: 'main' },
+  ]
+  const host = {
+    'workspace.list': { workspaces: twins, truncated: false },
+    'workspace.readContext': { branch: 'main', displayName: 'main', terminals: [] },
+    'terminal.create': { terminalId: 't' },
+  }
+  const repos = async () => ok([{ id: 'ra', name: 'alpha', path: '/p/alpha' }, { id: 'rb', name: 'beta', path: '/p/beta' }])
+  const { call, state } = setup({ host, cli: fakeCli({ repos }) })
+  assert.equal((await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })).data.defaultWorkspaceId, null)
+  // the project remembered for DEMO settles it
+  await state.rememberProjectRepo('one', 'DEMO', 'rb')
+  assert.equal((await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })).data.defaultWorkspaceId, 'identity:b')
+  // the terminal needs only some workspace
+  assert.deepEqual(await call('yt.terminal.run', { command: 'login', url: 'https://one.youtrack.cloud' }), ok({}))
+})

@@ -49,8 +49,12 @@ export function registerStartHandlers(ctx) {
     return { list, truncated: r?.truncated === true }
   }
 
-  /** The focused workspace: readContext has no id, so match branch and name against the list. */
-  async function activeWorkspace(list) {
+  /**
+   * The focused workspace: readContext has no id, so match branch and name against the list. When
+   * several match (say `main` in two projects), the one in `repo` wins; otherwise none is guessed,
+   * unless `anyMatch` (where any of them will do).
+   */
+  async function activeWorkspace(list, { repo = null, anyMatch = false } = {}) {
     let c = null
     try {
       c = await host('workspace.readContext', {})
@@ -58,7 +62,10 @@ export function registerStartHandlers(ctx) {
       return null
     }
     if (!c || typeof c !== 'object') return null
-    return list.find((w) => shortBranch(w.branch) === shortBranch(c.branch) && w.name === c.displayName) ?? null
+    const found = list.filter((w) => shortBranch(w.branch) === shortBranch(c.branch) && w.name === c.displayName)
+    if (found.length <= 1 || anyMatch) return found[0] ?? null
+    const inRepo = found.filter((w) => repo && (w.project === repo.name || (repo.path && w.path && inside(repo.path, w.path))))
+    return inRepo.length === 1 ? inRepo[0] : null
   }
 
   /** Validate agent (empty means none) and prompt; returns `{ agent, prompt }` or a failed Result. */
@@ -92,9 +99,12 @@ export function registerStartHandlers(ctx) {
     const chosenTemplate = prompts.templates.find((t) => t.id === prompts.defaultId) ?? prompts.templates[0]
     const defaultAgent = settingString(await get('defaultAgent'), '')
     const workspaces = ws.ok ? ws.data.list : []
-    const active = await activeWorkspace(workspaces)
     const repoList = repos.ok && Array.isArray(repos.data) ? repos.data : []
     const listed = (repoId) => (repoId ? repoList.find((r) => r.id === repoId) : undefined)
+    const remembered = listed(await fallback(() => ctx.state.projectRepo(s.data.alias, projectOf(id)), null))
+    const active = await activeWorkspace(workspaces, { repo: remembered })
+    // The workspace started for this issue last time, if it is still there; otherwise the focused one.
+    const linked = await fallback(() => links.latest(s.data.alias, id, new Set(workspaces.map((w) => w.id))), null)
     const ofWorkspace =
       active &&
       (repoList.find((r) => typeof r.path === 'string' && r.path && typeof active.path === 'string' && active.path && inside(r.path, active.path)) ??
@@ -102,7 +112,7 @@ export function registerStartHandlers(ctx) {
     // The project last chosen for this YouTrack project, then the server's default, then the current
     // workspace's; one no longer in Orca is skipped. Unreadable memory only skips its step.
     const repo =
-      listed(await fallback(() => ctx.state.projectRepo(s.data.alias, projectOf(id)), null)) ??
+      remembered ??
       listed(await fallback(() => ctx.state.serverRepo(s.data.alias), null)) ??
       ofWorkspace
     const data = {
@@ -119,7 +129,7 @@ export function registerStartHandlers(ctx) {
       promptTemplate: chosenTemplate ? chosenTemplate.body : '',
       vars,
       workspaces: workspaceItems(workspaces, repoList, ctx.homedir),
-      defaultWorkspaceId: active ? active.id : null
+      defaultWorkspaceId: linked ?? (active ? active.id : null)
     }
     if (!repos.ok) data.reposError = shortMessage(repos.error.message)
     if (!ws.ok) data.workspacesError = shortMessage(ws.error.message)
@@ -241,7 +251,8 @@ export function registerStartHandlers(ctx) {
       return invalid('Unknown terminal command')
     }
     const { list } = await listWorkspaces()
-    const active = await activeWorkspace(list)
+    // The terminal only needs some workspace to open in.
+    const active = await activeWorkspace(list, { anyMatch: true })
     if (!active) return invalid('Open a workspace first.')
     await host('terminal.create', { workspaceId: active.id, title: 'YouTrack', command: line })
     return ok({})
