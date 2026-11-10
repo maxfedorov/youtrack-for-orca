@@ -36,6 +36,8 @@ const CHECKS: Record<string, Check> = {
   'yt.start.prepare': shape({
     repos: list(shape({ id: str, name: str, worktreeBaseRef: optional(str) })),
     reposError: optional(str),
+    workspacesError: optional(str),
+    agentsError: optional(str),
     orcaCli: bool,
     defaultRepoId: nullable(str),
     name: str,

@@ -1,7 +1,8 @@
 import { Button, Callout, Checkbox, Field, Heading, Input, RadioGroup, Row, Select, Skeleton, Stack, Text, Textarea, read, set } from 'orca'
 import {
   back, canStart, editPrompt, failure, includeDescription, load, loadedFor, mode, name, prep, prompt, PROMPT_LIMIT, resetPrompt,
-  repoId, runError, running, setProject, status, submit, sync, toggleDescription, workspaceId, chosenAgent
+  repoId, runError, running, setProject, status, submit, sync, toggleDescription, workspaceId, chosenAgent, currentAvailable, usableMode,
+  worktreeAvailable
 } from '../startState'
 import { AgentPicker } from './start/AgentPicker'
 import { BranchPicker } from './start/BranchPicker'
@@ -29,13 +30,18 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
         value={current}
         orientation="horizontal"
         options={[
-          { value: 'worktree', label: 'New worktree', disabled: !p.orcaCli },
-          { value: 'current', label: 'Current workspace' }
+          { value: 'worktree', label: 'New worktree', disabled: !worktreeAvailable(p) },
+          { value: 'current', label: 'Current workspace', disabled: !currentAvailable(p) }
         ]}
-        onChange={(value) => set(mode, value === 'current' || !p.orcaCli ? 'current' : 'worktree')}
+        onChange={(value) => set(mode, usableMode(p, value === 'current' ? 'current' : 'worktree'))}
       />
       {p.orcaCli ? null : <Text muted>Orca CLI not found — new worktrees are unavailable.</Text>}
-      {p.reposError ? <Text tone="danger" size="sm">{p.reposError}</Text> : null}
+      {p.orcaCli && p.reposError ? (
+        <Text muted size="sm">{`Projects could not be loaded, so new worktrees are unavailable: ${p.reposError}`}</Text>
+      ) : null}
+      {p.workspacesError ? (
+        <Text muted size="sm">{`Workspaces could not be loaded, so the current workspace is unavailable: ${p.workspacesError}`}</Text>
+      ) : null}
       <Field label="Project">
         <Select
           label="Project"

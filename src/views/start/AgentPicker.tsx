@@ -1,4 +1,4 @@
-import { Field, Input, Select, Stack, read, set } from 'orca'
+import { Field, Input, Select, Stack, Text, read, set } from 'orca'
 import { agentChoice, NONE, OTHER, otherAgent, prep } from '../../startState'
 
 const title = (id: string) => id.charAt(0).toUpperCase() + id.slice(1)
@@ -21,6 +21,11 @@ export function AgentPicker() {
       <Field label="Agent">
         <Select label="Agent" labelHidden value={choice} options={options} onChange={(value) => set(agentChoice, value)} />
       </Field>
+      {p.agentsError ? (
+        <Text muted size="sm">
+          Installed agents could not be detected. Every agent is listed under Other.
+        </Text>
+      ) : null}
       {choice === OTHER ? (
         <Field label="Agent id">
           <Input label="Agent id" labelHidden value={read(otherAgent)} placeholder="e.g. claude" onChange={(value) => set(otherAgent, value)} />

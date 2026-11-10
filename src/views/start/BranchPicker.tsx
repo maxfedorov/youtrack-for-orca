@@ -17,8 +17,8 @@ export function BranchPicker({ enabled }: { enabled: boolean }) {
         <Input type="search" label="Filter branches" labelHidden value={read(filter)} placeholder="Filter branches" disabled={!enabled} onChange={setFilter} />
         <Select label="Create from" labelHidden value={chosen || PROJECT_DEFAULT} options={options} disabled={!enabled} onChange={(value) => chooseRef(value === PROJECT_DEFAULT ? '' : value)} />
         {read(refsError) ? (
-          <Text tone="danger" size="sm">
-            {read(refsError)}
+          <Text muted size="sm">
+            {`Branches could not be loaded, so only the project default is offered. ${read(refsError)}`}
           </Text>
         ) : null}
       </Stack>

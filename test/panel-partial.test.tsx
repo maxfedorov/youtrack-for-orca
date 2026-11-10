@@ -209,3 +209,90 @@ test('a search without a count shows the rows and a plus count', async () => {
   assert.ok(view.find({ text: '2+ issues' }))
   await view.unmount()
 })
+
+const openStart = async (host: any) => {
+  const view = await openIssue(host)
+  await view.press({ role: 'button', text: 'Start →' })
+  return view
+}
+const startButton = { role: 'button', text: 'Start' }
+const option = (view: any, value: string) => view.find({ type: 'RadioGroup', label: 'Run in' }).props.options.find((o: any) => o.value === value)
+
+test('start without repositories: new worktree is off with a reason and the current workspace still starts', async () => {
+  const host = mockHost({ requests: requests({ 'yt.start.prepare': ok(prepare({ repos: [], defaultRepoId: null, reposError: 'repo list failed' })) }) })
+  const view = await openStart(host)
+  clean(view)
+  assert.equal(danger(view).length, 0)
+  assert.equal(option(view, 'worktree').disabled, true)
+  assert.equal(view.find({ type: 'RadioGroup', label: 'Run in' }).props.value, 'current')
+  assert.ok(view.find({ text: 'Projects could not be loaded, so new worktrees are unavailable: repo list failed' }))
+  assert.equal(Boolean(view.find(startButton).props.disabled), false)
+  await view.press(startButton)
+  assert.equal(calls(host, 'yt.runInExisting')[0].input.workspaceId, 'w1')
+  await view.unmount()
+})
+
+test('start without workspaces: current workspace is off with a reason and a new worktree still starts', async () => {
+  const host = mockHost({
+    requests: requests({ 'yt.start.prepare': ok(prepare({ launchMode: 'current', workspaces: [], defaultWorkspaceId: null, workspacesError: 'host down' })) })
+  })
+  const view = await openStart(host)
+  clean(view)
+  assert.equal(option(view, 'current').disabled, true)
+  assert.equal(view.find({ type: 'RadioGroup', label: 'Run in' }).props.value, 'worktree')
+  assert.ok(view.find({ text: 'Workspaces could not be loaded, so the current workspace is unavailable: host down' }))
+  await view.press(startButton)
+  assert.equal(calls(host, 'yt.start.run')[0].input.repoId, 'r1')
+  await view.unmount()
+})
+
+test('start without agent detection lists every agent under other, with a manual id', async () => {
+  const host = mockHost({
+    requests: requests({
+      'yt.start.prepare': ok(prepare({ agents: { installed: [], other: ['claude', 'codex'] }, agentsError: 'Installed agents could not be detected.' }))
+    })
+  })
+  const view = await openStart(host)
+  clean(view)
+  assert.ok(view.find({ text: 'Installed agents could not be detected. Every agent is listed under Other.' }))
+  const labels = view.find({ type: 'Select', label: 'Agent' }).props.options.map((o: any) => o.label)
+  assert.deepEqual(labels, ['Other — Claude', 'Other — Codex', 'Other…', 'None (terminal only)'])
+  assert.equal(view.find({ type: 'Select', label: 'Agent' }).props.value, 'claude')
+  await view.unmount()
+})
+
+test('start with branches that fail offers only the project default with a note', async () => {
+  const host = mockHost({ requests: requests({ 'yt.refs.search': fail('ORCA_CLI_FAILED', 'git failed') }) })
+  const view = await openStart(host)
+  clean(view)
+  assert.equal(danger(view).length, 0)
+  assert.deepEqual(view.find({ type: 'Select', label: 'Create from' }).props.options.map((o: any) => o.label), ['Project default'])
+  assert.ok(view.find({ text: 'Branches could not be loaded, so only the project default is offered. git failed' }))
+  await view.press(startButton)
+  assert.equal('baseBranch' in calls(host, 'yt.start.run')[0].input, false)
+  await view.unmount()
+})
+
+test('start with neither repositories nor workspaces shows both reasons and offers no start', async () => {
+  const host = mockHost({
+    requests: requests({
+      'yt.start.prepare': ok(prepare({ repos: [], defaultRepoId: null, reposError: 'a', workspaces: [], defaultWorkspaceId: null, workspacesError: 'b' }))
+    })
+  })
+  const view = await openStart(host)
+  clean(view)
+  assert.equal(option(view, 'worktree').disabled, true)
+  assert.equal(option(view, 'current').disabled, true)
+  assert.equal(Boolean(view.find(startButton).props.disabled), true)
+  await view.unmount()
+})
+
+test('start with issue variables left out builds the prompt with empty text for them', async () => {
+  const host = mockHost({
+    requests: requests({ 'yt.start.prepare': ok(prepare({ promptTemplate: 'Do {{id}} [{{state}}] [{{assignee}}]', vars: { id: 'DEMO-1' } })) })
+  })
+  const view = await openStart(host)
+  clean(view)
+  assert.equal(view.find({ type: 'Textarea', label: 'Prompt' }).props.value, 'Do DEMO-1 [] []')
+  await view.unmount()
+})

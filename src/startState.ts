@@ -1,5 +1,5 @@
 import { atom, read, set } from 'orca'
-import { buildPrompt, PROMPT_LIMIT } from '../worker/prompt.mjs'
+import { buildPrompt, issueVars, PROMPT_LIMIT } from '../worker/prompt.mjs'
 import { loadLinks } from './listState'
 import { call, notice, server, view } from './state'
 import type { Repo, StartPrepare } from './protocol'
@@ -48,8 +48,12 @@ let queued: string | null = null
 
 export const repoOf = (list: Repo[], id: string | null) => list.find((repo) => repo.id === id)
 
+/** Every issue variable the templates know; one the answer left out is empty text. */
+const EMPTY_VARS: Record<string, string> = issueVars({ issue: null, server: '' })
+
 export function templatePrompt(p: StartPrepare, include: boolean): string {
-  return buildPrompt({ template: p.promptTemplate, vars: p.vars, includeDescription: include, description: p.vars.description ?? '' })
+  const vars = { ...EMPTY_VARS, ...p.vars }
+  return buildPrompt({ template: p.promptTemplate, vars, includeDescription: include, description: vars.description })
 }
 
 /** The agent id to send, or undefined for terminal only or an empty custom id. */
@@ -64,6 +68,8 @@ export function canStart(): { ok: boolean; hint: string } {
   const agent = chosenAgent()
   const wantsOther = read(agentChoice) === OTHER && !agent
   if (read(running) || read(startPending)) return { ok: false, hint: '' }
+  const p = read(prep)
+  if (p && !(read(mode) === 'worktree' ? worktreeAvailable(p) : currentAvailable(p))) return { ok: false, hint: '' }
   if (read(mode) === 'worktree') {
     if (!read(repoId) || !read(name).trim()) return { ok: false, hint: '' }
   } else if (!read(workspaceId)) {
@@ -140,10 +146,21 @@ export function resetPrompt(): void {
   set(prompt, templatePrompt(p, read(includeDescription)))
 }
 
+/** New worktrees need the Orca CLI and the project list; the current workspace needs the workspace list. */
+export const worktreeAvailable = (p: StartPrepare) => p.orcaCli && !p.reposError
+export const currentAvailable = (p: StartPrepare) => !p.workspacesError
+
+/** The preferred mode, unless only the other one can be used. */
+export function usableMode(p: StartPrepare, wanted: Mode): Mode {
+  if (wanted === 'worktree' && !worktreeAvailable(p) && currentAvailable(p)) return 'current'
+  if (wanted === 'current' && !currentAvailable(p) && worktreeAvailable(p)) return 'worktree'
+  return wanted
+}
+
 function init(p: StartPrepare): void {
   const known = p.agents.installed.includes(p.defaultAgent) || p.agents.other.includes(p.defaultAgent)
   set(prep, p)
-  set(mode, p.orcaCli ? p.launchMode : 'current')
+  set(mode, usableMode(p, p.orcaCli ? p.launchMode : 'current'))
   set(repoId, p.defaultRepoId)
   set(name, p.name)
   resetBranch()

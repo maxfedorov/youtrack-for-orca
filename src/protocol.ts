@@ -33,8 +33,12 @@ export type Repo = { id: string; name: string; path?: string; worktreeBaseRef?: 
 export type WorkspaceItem = { id: string; name: string; project?: string; branch?: string }
 export type StartPrepare = {
   repos: Repo[]
-  /** Set when the repository list could not be read. */
+  /** Set when the repository list could not be read; new worktrees are then unavailable. */
   reposError?: string
+  /** Set when the workspace list could not be read; the current workspace is then unavailable. */
+  workspacesError?: string
+  /** Set when installed agents could not be detected; every agent is then in `other`. */
+  agentsError?: string
   orcaCli: boolean
   defaultRepoId: string | null
   /** Suggested workspace name from the branch template. */
