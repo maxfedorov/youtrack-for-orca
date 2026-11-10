@@ -49,7 +49,17 @@ test('auth error shows YT: !', async () => {
     const u = updates().at(-1)
     assert.equal(u.text, 'YT: !')
     assert.equal(u.tone, 'warning')
+    assert.equal(u.tooltip, code === 'AUTH_FAILED' ? 'Signed out of two. Open the panel to sign in again.' : 'No YouTrack server. Open the panel to add one.')
   }
+})
+
+test('an invalid default query shows YT: ? and says why', async () => {
+  const { bar, updates } = setup({ count: fail('QUERY_INVALID', "HTTP 400: Can't parse search query\nmore") })
+  await bar.refresh()
+  assert.deepEqual(updates().at(-1), {
+    id: 'count', text: 'YT: ?', tone: 'warning', visible: true,
+    tooltip: "The Default query in the plugin settings is not valid: HTTP 400: Can't parse search query"
+  })
 })
 
 test('network error keeps the last text', async () => {
@@ -60,6 +70,7 @@ test('network error keeps the last text', async () => {
   await s2.bar.refresh()
   assert.equal('text' in s2.updates().at(-1), false)
   assert.equal(s2.updates().at(-1).tone, 'warning')
+  assert.equal(s2.updates().at(-1).tooltip, 'The count could not be updated (two: for: me): down')
   let n = 0
   const flaky = setup({ youtrack: { instances: async () => ok(SERVERS), countIssues: async () => (n++ ? fail('TIMEOUT', 'slow') : ok(3)) } })
   await flaky.bar.refresh()

@@ -5,6 +5,11 @@ import { toServers } from './mapping.mjs'
 const ITEM = 'count'
 const DEFAULT_INTERVAL_MS = 300_000
 const SIGN_IN_CODES = new Set([CODES.AUTH_FAILED, CODES.NO_SERVERS])
+/** Tooltips stay one short line. */
+const short = (text) => {
+  const line = String(text ?? '').split(/\r?\n/)[0].trim()
+  return line.length > 160 ? `${line.slice(0, 159)}…` : line
+}
 
 /**
  * @param {{
@@ -28,17 +33,30 @@ export function createStatusBar({
   let timer = null
   const update = (patch) => host.call('statusBar.update', { id: ITEM, ...patch })
 
+  /** `where` names the server and query of a failed count, when it got that far. */
   async function compute(youtrack) {
     const inst = await youtrack.instances()
     if (!inst.ok) return inst
     const servers = toServers(inst.data)
     const stored = await state.getServer()
     const chosen = servers.find((s) => s.alias === stored) ?? servers.find((s) => s.active) ?? servers[0]
-    if (!chosen) return { ok: false, error: { code: CODES.NO_SERVERS } }
+    if (!chosen) return { ok: false, error: { code: CODES.NO_SERVERS, message: '' } }
     const raw = await settings.get('defaultQuery')
     const query = typeof raw === 'string' ? raw : ''
+    const where = `${chosen.alias}: ${query}`
     const count = await youtrack.countIssues(chosen.alias, query)
-    return count.ok ? { ok: true, data: { count: count.data, tooltip: `${chosen.alias}: ${query}` } } : count
+    return count.ok ? { ok: true, data: { count: count.data, tooltip: where } } : { ...count, where, alias: chosen.alias }
+  }
+
+  /** The tooltip of a failed count: what went wrong, in a line. */
+  function failureTooltip(r) {
+    const message = short(r.error?.message)
+    if (r.error?.code === CODES.NO_SERVERS) return 'No YouTrack server. Open the panel to add one.'
+    if (r.error?.code === CODES.AUTH_FAILED) return `Signed out of ${r.alias ?? 'the server'}. Open the panel to sign in again.`
+    if (r.error?.code === CODES.QUERY_INVALID) {
+      return `The Default query in the plugin settings is not valid${message ? `: ${message}` : ''}`
+    }
+    return `The count could not be updated${r.where ? ` (${r.where})` : ''}${message ? `: ${message}` : ''}`
   }
 
   async function refresh() {
@@ -50,12 +68,18 @@ export function createStatusBar({
         lastText = `YT: ${r.data.count}`
         return await update({ text: lastText, tooltip: r.data.tooltip, tone: 'neutral', visible: true })
       }
+      const tooltip = failureTooltip(r)
       if (SIGN_IN_CODES.has(r.error.code)) {
         lastText = 'YT: !'
-        return await update({ text: lastText, tone: 'warning', visible: true })
+        return await update({ text: lastText, tooltip, tone: 'warning', visible: true })
+      }
+      if (r.error.code === CODES.QUERY_INVALID) {
+        // No count can be shown for a query that never works, so none is kept either.
+        lastText = 'YT: ?'
+        return await update({ text: lastText, tooltip, tone: 'warning', visible: true })
       }
       // Network trouble or anything else: keep what is shown, only flag it.
-      const patch = { tone: 'warning', visible: true }
+      const patch = { tooltip, tone: 'warning', visible: true }
       if (lastText) patch.text = lastText
       await update(patch)
     } catch {
