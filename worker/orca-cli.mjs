@@ -29,6 +29,12 @@ export function resolveOrcaCli({ resourcesPath, platform, env, exists }) {
 /**
  * @param {{ bin?: string, run?: (args: string[], opts: { timeoutMs: number }) => Promise<import('./exec.mjs').ProcResult> }} o
  */
+/**
+ * A flag and its free-text value as one `--flag=value` argument: the Orca CLI reads a separate value
+ * that starts with `--` as the next flag, which would fail on a prompt opening with `---`.
+ */
+const value = (flag, text) => `--${flag}=${text}`
+
 export function createOrcaCli({ bin, run = (args, opts) => runProcess(bin, args, opts) }) {
   /** Run a command and unwrap the `{ ok, result }` envelope printed on stdout. */
   async function exec(args, timeoutMs) {
@@ -65,17 +71,17 @@ export function createOrcaCli({ bin, run = (args, opts) => runProcess(bin, args,
 
     searchRefs: async (repoId, query) =>
       mapOk(
-        await exec(['repo', 'search-refs', '--repo', `id:${repoId}`, '--query', query || ' ', '--limit', REFS_LIMIT, '--json'], READ_MS),
+        await exec(['repo', 'search-refs', '--repo', `id:${repoId}`, value('query', query || ' '), '--limit', REFS_LIMIT, '--json'], READ_MS),
         (d) => arrayOf(d?.refs).filter((ref) => typeof ref === 'string' && ref !== '')
       ),
 
     createWorktree: async ({ repoId, name, baseBranch, agent, prompt, issueId, issueUrl }) => {
-      const args = ['worktree', 'create', '--repo', `id:${repoId}`, '--name', name]
-      if (baseBranch) args.push('--base-branch', baseBranch)
-      args.push('--no-parent', '--activate', '--comment', `${issueId} ${issueUrl}`)
+      const args = ['worktree', 'create', '--repo', `id:${repoId}`, value('name', name)]
+      if (baseBranch) args.push(value('base-branch', baseBranch))
+      args.push('--no-parent', '--activate', value('comment', `${issueId} ${issueUrl}`))
       if (agent) {
         args.push('--agent', agent)
-        if (typeof prompt === 'string' && prompt.trim()) args.push('--prompt', prompt)
+        if (typeof prompt === 'string' && prompt.trim()) args.push(value('prompt', prompt))
       }
       args.push('--json')
       const res = await exec(args, CREATE_MS)
@@ -100,7 +106,7 @@ export function createOrcaCli({ bin, run = (args, opts) => runProcess(bin, args,
      */
     launchAgent: async ({ workspaceId, agent, prompt }) => {
       const args = ['agent', 'launch', '--agent', agent, '--worktree', workspaceId, '--surface', 'terminal']
-      if (typeof prompt === 'string' && prompt.trim()) args.push('--prompt', prompt)
+      if (typeof prompt === 'string' && prompt.trim()) args.push(value('prompt', prompt))
       args.push('--json')
       const res = await exec(args, LAUNCH_MS)
       if (!res.ok) return res

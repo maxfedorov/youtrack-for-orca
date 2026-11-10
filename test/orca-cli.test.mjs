@@ -62,9 +62,9 @@ test('createWorktree argv', async () => {
   const run = fakeRun(created)
   await createOrcaCli({ run }).createWorktree(input)
   assert.deepEqual(run.calls[0].args, [
-    'worktree', 'create', '--repo', 'id:r1', '--name', 'demo-1-x', '--no-parent', '--activate',
-    '--comment', 'DEMO-1 https://example.youtrack.cloud/issue/DEMO-1',
-    '--agent', 'claude', '--prompt', 'P', '--json'
+    'worktree', 'create', '--repo', 'id:r1', '--name=demo-1-x', '--no-parent', '--activate',
+    '--comment=DEMO-1 https://example.youtrack.cloud/issue/DEMO-1',
+    '--agent', 'claude', '--prompt=P', '--json'
   ])
   assert.equal(run.calls[0].opts.timeoutMs, 60_000)
 })
@@ -73,8 +73,7 @@ test('createWorktree adds --base-branch after --name; never --branch or --refere
   const run = fakeRun(created)
   await createOrcaCli({ run }).createWorktree({ ...input, baseBranch: 'origin/release' })
   const a = run.calls[0].args
-  assert.equal(a[a.indexOf('--name') + 2], '--base-branch')
-  assert.equal(a[a.indexOf('--base-branch') + 1], 'origin/release')
+  assert.equal(a[a.indexOf('--name=demo-1-x') + 1], '--base-branch=origin/release')
   assert.ok(!a.includes('--branch'))
   assert.ok(!a.includes('--reference'))
 })
@@ -84,7 +83,7 @@ test('createWorktree without agent sends neither --agent nor --prompt', async ()
   await createOrcaCli({ run }).createWorktree({ ...input, agent: undefined })
   const a = run.calls[0].args
   assert.ok(!a.includes('--agent'))
-  assert.ok(!a.includes('--prompt'))
+  assert.ok(!a.some((x) => x.startsWith('--prompt')))
 })
 
 test('createWorktree parses workspace id from fixture', async () => {
@@ -132,10 +131,12 @@ test('searchRefs sends a space for an empty query and returns refs', async () =>
   const run = fakeRun({ 'repo search-refs': { stdout: fixture('orca-repo-search-refs.json') } })
   const cli = createOrcaCli({ run })
   const r = await cli.searchRefs('r1', '')
-  assert.deepEqual(run.calls[0].args, ['repo', 'search-refs', '--repo', 'id:r1', '--query', ' ', '--limit', '200', '--json'])
+  assert.deepEqual(run.calls[0].args, ['repo', 'search-refs', '--repo', 'id:r1', '--query= ', '--limit', '200', '--json'])
   assert.deepEqual(r.data, ['main', 'origin/main'])
   await cli.searchRefs('r1', 'rel')
-  assert.equal(run.calls[1].args[run.calls[1].args.indexOf('--query') + 1], 'rel')
+  assert.ok(run.calls[1].args.includes('--query=rel'))
+  await cli.searchRefs('r1', '--x')
+  assert.ok(run.calls[2].args.includes('--query=--x'))
 })
 
 test('openPanel finds the plugin key and opens the panel', async () => {
@@ -159,7 +160,7 @@ test('createWorktree treats a blank prompt as no prompt', async () => {
   await createOrcaCli({ run }).createWorktree({ ...input, prompt: '  \n' })
   const a = run.calls[0].args
   assert.ok(a.includes('--agent'))
-  assert.ok(!a.includes('--prompt'))
+  assert.ok(!a.some((x) => x.startsWith('--prompt')))
 })
 
 test('results never carry undefined values', async () => {
@@ -194,7 +195,7 @@ test('launchAgent starts the agent with its prompt in one launch', async () => {
   const r = await createOrcaCli({ run }).launchAgent({ workspaceId: 'identity:wt2:local:w1', agent: 'claude', prompt: 'Line 1\nLine 2' })
   assert.deepEqual(run.calls[0].args, [
     'agent', 'launch', '--agent', 'claude', '--worktree', 'identity:wt2:local:w1', '--surface', 'terminal',
-    '--prompt', 'Line 1\nLine 2', '--json'
+    '--prompt=Line 1\nLine 2', '--json'
   ])
   assert.equal(run.calls[0].opts.timeoutMs, 90_000)
   assert.deepEqual(r, {
@@ -209,7 +210,7 @@ test('launchAgent starts the agent with its prompt in one launch', async () => {
 test('launchAgent without a prompt sends no --prompt and tolerates an answer without a terminal', async () => {
   const run = fakeRun({ 'agent launch': { stdout: JSON.stringify({ ok: true, result: { outcome: { kind: 'chat' } } }) } })
   const r = await createOrcaCli({ run }).launchAgent({ workspaceId: 'identity:w1', agent: 'codex', prompt: ' ' })
-  assert.equal(run.calls[0].args.includes('--prompt'), false)
+  assert.equal(run.calls[0].args.some((x) => x.startsWith('--prompt')), false)
   assert.deepEqual(r, { ok: true, data: {} })
 })
 
@@ -217,4 +218,16 @@ test('launchAgent maps an error envelope to ORCA_CLI_FAILED', async () => {
   const run = fakeRun({ 'agent launch': { exitCode: 1, stdout: JSON.stringify({ ok: false, error: { message: 'no such worktree' } }) } })
   const r = await createOrcaCli({ run }).launchAgent({ workspaceId: 'identity:w1', agent: 'claude', prompt: 'P' })
   assert.deepEqual(r, { ok: false, error: { code: 'ORCA_CLI_FAILED', message: 'no such worktree' } })
+})
+
+test('values that start with dashes stay one argument, so the Orca CLI does not read them as flags', async () => {
+  const prompt = '--- BEGIN YOUTRACK ISSUE ---\nText'
+  const run = fakeRun({ ...created, ...launched })
+  const cli = createOrcaCli({ run })
+  await cli.createWorktree({ ...input, name: '-x', baseBranch: '--weird', prompt })
+  await cli.launchAgent({ workspaceId: 'identity:w1', agent: 'claude', prompt })
+  const [create, launch] = run.calls.map((c) => c.args)
+  for (const arg of ['--name=-x', '--base-branch=--weird', `--prompt=${prompt}`]) assert.ok(create.includes(arg), arg)
+  assert.ok(launch.includes(`--prompt=${prompt}`))
+  for (const args of [create, launch]) assert.ok(!args.includes('--prompt') && !args.includes('--name') && !args.includes(prompt))
 })
