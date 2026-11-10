@@ -1,6 +1,6 @@
-import { Box, Button, Callout, EmptyState, Skeleton, Stack, Table, Text, read, set } from 'orca'
+import { Box, Button, Callout, EmptyState, IconButton, Row, Skeleton, Stack, Table, Text, read, set } from 'orca'
 import {
-  MAX_ISSUES, appliedQuery, defaultQuery, hasMore, issues, lastPageFull, links, listError, listStatus, loadMore, moreError, refreshList,
+  MAX_ISSUES, appliedQuery, defaultQuery, hasMore, issues, lastPageFull, links, linksFailed, listError, loadLinks, listStatus, loadMore, moreError, refreshList,
   runSearch, selectedIssue, syncList, total, totalKnown
 } from '../listState'
 import { query, view } from '../state'
@@ -112,6 +112,14 @@ function Results() {
         <Text muted size="sm">
           Showing the first 500 issues. Refine the query.
         </Text>
+      ) : null}
+      {read(linksFailed) ? (
+        <Row gap="xs" align="center">
+          <Text muted size="sm">
+            Workspace links could not be loaded.
+          </Text>
+          <IconButton icon="refresh" label="Reload workspace links" variant="ghost" onPress={() => void loadLinks()} />
+        </Row>
       ) : null}
       {read(moreError) ? (
         <Text tone="danger" size="sm">

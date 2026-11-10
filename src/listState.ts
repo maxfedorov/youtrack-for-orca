@@ -24,8 +24,12 @@ export const listError = atom('')
 /** The query the rows belong to; `query` is the text being edited. */
 export const appliedQuery = atom('')
 export const savedQueries = atom<SavedQuery[]>([])
+/** The saved searches could not be loaded; searching still works. */
+export const savedQueriesFailed = atom(false)
 /** Issue id -> workspace id. */
 export const links = atom<Record<string, string>>({})
+/** The workspace links could not be loaded; rows then offer no Open. */
+export const linksFailed = atom(false)
 export const selectedIssue = atom<string | null>(null)
 export const loadingMore = atom(false)
 export const moreError = atom('')
@@ -101,14 +105,18 @@ export async function loadLinks(): Promise<void> {
   const current = read(server)
   if (!current) return
   const answer = await call('yt.links', { server: current })
-  if (answer.ok && read(server) === current) set(links, answer.data)
+  if (read(server) !== current) return
+  set(linksFailed, !answer.ok)
+  if (answer.ok) set(links, answer.data)
 }
 
 export async function loadSavedQueries(): Promise<void> {
   const current = read(server)
   if (!current) return
   const answer = await call('yt.savedQueries', { server: current })
-  if (answer.ok && read(server) === current) set(savedQueries, answer.data.filter((item) => item.id && item.name))
+  if (read(server) !== current) return
+  set(savedQueriesFailed, !answer.ok)
+  if (answer.ok) set(savedQueries, answer.data.filter((item) => item.id && item.name))
 }
 
 /** First load of the list for the selected server: search with its stored query, saved searches, links. */
@@ -147,7 +155,9 @@ export async function onServerChanged(): Promise<void> {
   set(hasMore, false)
   set(lastPageFull, false)
   set(savedQueries, [])
+  set(savedQueriesFailed, false)
   set(links, {})
+  set(linksFailed, false)
   set(selectedIssue, null)
   set(listError, '')
   set(listStatus, 'loading')

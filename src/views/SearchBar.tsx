@@ -1,5 +1,5 @@
 import { Button, IconButton, Input, Row, Select, Stack, Text, atom, read, set, update } from 'orca'
-import { appliedQuery, listError, listStatus, loadSavedQueries, runSearch, savedQueries } from '../listState'
+import { appliedQuery, listError, listStatus, loadSavedQueries, runSearch, savedQueries, savedQueriesFailed } from '../listState'
 import { call, query, server } from '../state'
 
 const naming = atom(false)
@@ -32,6 +32,7 @@ export function SearchBar() {
   const saved = read(savedQueries)
   const invalid = read(listStatus) === 'invalid' && text === read(appliedQuery)
   const match = saved.find((item) => item.query === text.trim())
+  const unavailable = read(savedQueriesFailed)
   return (
     <Stack gap="xs">
       <Input
@@ -52,7 +53,8 @@ export function SearchBar() {
         <Select
           label="Saved searches"
           value={match?.id}
-          placeholder="Saved searches"
+          placeholder={unavailable ? 'Saved searches unavailable' : 'Saved searches'}
+          disabled={unavailable && saved.length === 0}
           options={saved.map((item) => ({ value: item.id, label: item.name }))}
           onChange={(id) => {
             const chosen = read(savedQueries).find((item) => item.id === id)
@@ -65,7 +67,14 @@ export function SearchBar() {
           <IconButton icon="star" label="Save search" variant="outline" disabled={invalid || !text.trim()} onPress={startNaming} />
         )}
       </Row>
-      {saved.length === 0 ? (
+      {unavailable ? (
+        <Row gap="xs" align="center">
+          <Text muted size="sm">
+            Saved searches could not be loaded.
+          </Text>
+          <IconButton icon="refresh" label="Reload saved searches" variant="ghost" onPress={() => void loadSavedQueries()} />
+        </Row>
+      ) : saved.length === 0 ? (
         <Text muted size="sm">
           Save the current query with ☆
         </Text>

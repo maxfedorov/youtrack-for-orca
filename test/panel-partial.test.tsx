@@ -162,3 +162,50 @@ test('a malformed issue row is skipped or shown with n/a cells, the rest of the 
   assert.ok(view.find({ type: 'Heading', text: 'Issue 4' }))
   await view.unmount()
 })
+
+test('saved searches that fail show a note and a reload, and search still works', async () => {
+  let n = 0
+  const host = mockHost({
+    requests: requests({ 'yt.savedQueries': () => (n++ === 0 ? fail('NETWORK', 'down') : ok([{ id: 's1', name: 'Mine', query: 'for: me' }])) })
+  })
+  const view = await mount(panel, { host })
+  clean(view)
+  assert.equal(danger(view).length, 0)
+  assert.deepEqual(view.rowsOf(view.find(table)), ['DEMO-1', 'DEMO-2'])
+  const select = view.find({ type: 'Select', label: 'Saved searches' })
+  assert.equal(select.props.placeholder, 'Saved searches unavailable')
+  assert.ok(view.find({ text: 'Saved searches could not be loaded.' }))
+  assert.equal(view.find({ text: 'Save the current query with ☆' }), null)
+  await view.type({ label: 'Query' }, 'state: Open', { replace: true, submit: true })
+  assert.equal(calls(host, 'yt.issues.search').at(-1).input.query, 'state: Open')
+  await view.press({ role: 'button', label: 'Reload saved searches' })
+  assert.equal(view.find({ text: 'Saved searches could not be loaded.' }), null)
+  assert.deepEqual(view.find({ type: 'Select', label: 'Saved searches' }).props.options, [{ value: 's1', label: 'Mine' }])
+  clean(view)
+  await view.unmount()
+})
+
+test('workspace links that fail leave out Open buttons with a small note and a reload', async () => {
+  let n = 0
+  const host = mockHost({ requests: requests({ 'yt.links': () => (n++ === 0 ? fail('UNKNOWN', 'host down') : ok({ 'DEMO-1': 'ws-1' })) }) })
+  const view = await mount(panel, { host })
+  clean(view)
+  assert.equal(danger(view).length, 0)
+  assert.deepEqual(view.rowsOf(view.find(table)), ['DEMO-1', 'DEMO-2'])
+  assert.ok(view.find({ text: 'Workspace links could not be loaded.' }))
+  await view.selectRows(view.find(table), ['DEMO-1'])
+  assert.equal(view.find({ role: 'button', text: 'Open →' }), null)
+  await view.press({ role: 'button', label: 'Reload workspace links' })
+  assert.equal(view.find({ text: 'Workspace links could not be loaded.' }), null)
+  assert.ok(view.find({ role: 'button', text: 'Open →' }))
+  await view.unmount()
+})
+
+test('a search without a count shows the rows and a plus count', async () => {
+  const host = mockHost({ requests: requests({ 'yt.issues.search': ok({ issues: [issue(1), issue(2)], hasMore: true }) }) })
+  const view = await mount(panel, { host })
+  clean(view)
+  assert.deepEqual(view.rowsOf(view.find(table)), ['DEMO-1', 'DEMO-2'])
+  assert.ok(view.find({ text: '2+ issues' }))
+  await view.unmount()
+})
