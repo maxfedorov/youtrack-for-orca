@@ -45,7 +45,7 @@
       {
         "key": "defaultQuery",
         "title": "Default query",
-        "description": "YouTrack search query used on first open and for the status bar count.",
+        "description": "YouTrack search query used when a server is first opened, before any search there.",
         "type": "string",
         "default": "for: me #Unresolved"
       },
