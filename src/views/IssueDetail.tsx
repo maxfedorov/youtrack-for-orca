@@ -2,7 +2,7 @@ import {
   Badge, Button, Callout, Heading, IconButton, KeyValue, List, ListItem, Markdown, Row, Separator, Skeleton, Stack, Text, atom, read, set
 } from 'orca'
 import { links, loadLinks } from '../listState'
-import { call, goBack, refreshTick, server } from '../state'
+import { call, goBack, refreshTick, server, view } from '../state'
 import { openInBrowser, openLinked, openWorkspace, start } from './IssueRowActions'
 import { CommandBar, onCommandApplied } from './CommandBar'
 import { CommentBox } from './CommentBox'
@@ -107,17 +107,26 @@ function sync(id: string): void {
 }
 
 /** Back to the screen the issue was opened from (another issue, or the list, whose rows, query and selection stay). */
-function back(): void {
+function back(toList = false): void {
   seq++
   set(loadedFor, null)
   set(detail, null)
-  goBack()
+  if (toList) set(view, { kind: 'list' })
+  else goBack()
 }
 
+/** Back one screen; when that is not the list (an issue opened from links), also straight to the list. */
 const BackButton = () => (
-  <Button variant="ghost" size="sm" onPress={back}>
-    ← Back
-  </Button>
+  <Row gap="xs" align="center">
+    <Button variant="ghost" size="sm" onPress={() => back()}>
+      ← Back
+    </Button>
+    {read(view).back ? (
+      <Button variant="ghost" size="sm" onPress={() => back(true)}>
+        Issue list
+      </Button>
+    ) : null}
+  </Row>
 )
 
 function OpenInBrowser({ url }: { url: string }) {

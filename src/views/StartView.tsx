@@ -7,13 +7,21 @@ import {
 import { AgentPicker } from './start/AgentPicker'
 import { BranchPicker } from './start/BranchPicker'
 import { Combobox } from './Combobox'
-import { server } from '../state'
+import { server, view } from '../state'
 import type { StartPrepare } from '../protocol'
 
+/** Back one screen (the issue Start was opened from, if any), or straight to the list. */
 const BackButton = () => (
-  <Button variant="ghost" size="sm" disabled={read(running)} onPress={() => back()}>
-    ← Back
-  </Button>
+  <Row gap="xs" align="center">
+    <Button variant="ghost" size="sm" disabled={read(running)} onPress={() => back()}>
+      ← Back
+    </Button>
+    {read(view).back ? (
+      <Button variant="ghost" size="sm" disabled={read(running)} onPress={() => back(true)}>
+        Issue list
+      </Button>
+    ) : null}
+  </Row>
 )
 
 function Form({ id, p }: { id: string; p: StartPrepare }) {

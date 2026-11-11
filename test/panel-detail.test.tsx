@@ -288,3 +288,18 @@ test('linked issues that cannot be loaded leave a note and the rest of the issue
   assert.ok(view.find({ type: 'Heading', text: 'Issue 1' }))
   await view.unmount()
 })
+
+test('Issue list returns straight to the list from an issue opened through links', async () => {
+  const links = [{ type: 'depends on', issues: [{ id: 'DEMO-2', summary: 'Issue 2', resolved: false }] }]
+  const host = mockHost({ requests: requests({ 'yt.issue.get': (i: any) => ok(detail(Number(i.id.split('-')[1]), { links })) }) })
+  const view = await open(host)
+  // opened from the list: Back is enough
+  assert.equal(view.find({ role: 'button', text: 'Issue list' }), null)
+  await view.press({ type: 'ListItem', testId: 'DEMO-2' })
+  await view.press({ type: 'ListItem', testId: 'DEMO-2' })
+  assert.ok(view.find({ role: 'button', text: 'Issue list' }))
+  await view.press({ role: 'button', text: 'Issue list' })
+  assert.ok(view.find(table))
+  clean(view)
+  await view.unmount()
+})
