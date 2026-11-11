@@ -2,7 +2,7 @@
   "manifestVersion": 2,
   "id": "youtrack-for-orca",
   "name": "YouTrack for Orca",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Browse YouTrack issues in the right sidebar and start coding agents on them.",
   "author": {
     "name": "maxfedorov",
@@ -140,8 +140,8 @@
     }
   ],
   "cover": {
-    "path": "images/issues.png",
-    "alt": "The issue list for a YouTrack query, with saved searches, sortable columns and the actions of the selected issue"
+    "path": "images/cover.png",
+    "alt": "YouTrack for Orca: the plugin's issue list and its Start view for an issue, next to the plugin name and a list of its features"
   },
   "screenshots": [
     {
