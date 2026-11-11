@@ -456,3 +456,18 @@ test('columns no loaded issue has a value for are left out, unless the list is s
   assert.ok(view.find(table).props.columns.some((c: any) => c.key === 'state'))
   await view.unmount()
 })
+
+test('a query left empty runs by itself; emptied and typed anew it does not', async () => {
+  const host = mockHost({ requests: requests() })
+  const view = await mount(panel, { host })
+  const before = calls(host, 'yt.issues.search').length
+  await view.type({ label: 'Query' }, 'state: Open', { replace: true })
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  assert.equal(calls(host, 'yt.issues.search').length, before)
+  await view.type({ label: 'Query' }, '', { replace: true })
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  await view.settled()
+  assert.equal(calls(host, 'yt.issues.search').length, before + 1)
+  assert.equal(calls(host, 'yt.issues.search').at(-1).input.query, '')
+  await view.unmount()
+})

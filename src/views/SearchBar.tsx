@@ -3,6 +3,21 @@ import { appliedQuery, listError, listStatus, loadSavedQueries, runSearch, saved
 import { call, query, server } from '../state'
 import { Combobox } from './Combobox'
 
+/** How long an emptied query waits before it runs: clearing the field and typing anew runs nothing. */
+const CLEARED_MS = 400
+let clearTimer: ReturnType<typeof setTimeout> | null = null
+
+/** The search field's clear button empties it without Enter, so a query left empty runs by itself. */
+function emptied(value: string): void {
+  if (clearTimer) clearTimeout(clearTimer)
+  clearTimer = null
+  if (value !== '') return
+  clearTimer = setTimeout(() => {
+    clearTimer = null
+    if (read(query) === '' && read(appliedQuery) !== '') void runSearch('')
+  }, CLEARED_MS)
+}
+
 const naming = atom(false)
 const draftName = atom('')
 const saveError = atom('')
@@ -42,7 +57,10 @@ export function SearchBar() {
         value={text}
         invalid={invalid}
         placeholder="Search issues"
-        onChange={(value) => set(query, value)}
+        onChange={(value) => {
+          set(query, value)
+          emptied(value)
+        }}
         onSubmit={(value) => void runSearch(value)}
       />
       {invalid ? (
