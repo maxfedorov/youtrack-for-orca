@@ -4,15 +4,15 @@ import {
   runSearch, selectedIssue, syncList, total, totalKnown
 } from '../listState'
 import { query } from '../state'
-import { applySort, columnKey, parseSort } from '../../worker/query.mjs'
+import { applySort, columnOf, parseSort } from '../../worker/query.mjs'
 import { IssueRowActions, openDetail } from './IssueRowActions'
 import { SearchBar } from './SearchBar'
 import { NOT_AVAILABLE } from '../shapes'
 import type { IssueRow } from '../protocol'
 
-// ID and Summary come first and Created and Updated last; between them the custom fields the columns
-// setting names. A custom field no loaded issue has a value for is left out (a project without it),
-// unless the list is sorted by it. A narrow sidebar scrolls the table sideways (see minWidth).
+// ID and Summary come first; then the columns setting's choice, in its order: custom fields and the
+// Created and Updated dates. A custom field no loaded issue has a value for is left out (a project
+// without it), unless the list is sorted by it. A narrow sidebar scrolls the table sideways (see minWidth).
 // Widths: sm is 6rem (96px), md 9rem (144px); Summary needs 9rem at least, and 24px covers row borders.
 const WIDTH = { sm: 96, md: 144 } as const
 const SUMMARY_MIN = 144
@@ -21,16 +21,22 @@ const BORDERS = 24
 type Column = { key: string; label: string; sortable: true; width?: 'sm' | 'md'; minWidth?: 'md' }
 
 /** The columns to draw for these rows, and the width the table needs for them. */
-export function visibleColumns(rows: IssueRow[], fields: string[], sortColumn: string | null) {
-  const custom: Column[] = fields
-    .map((name) => ({ key: columnKey(name), label: name, sortable: true as const, width: 'md' as const }))
-    .filter((column) => rows.length === 0 || column.key === sortColumn || rows.some((row) => Boolean(row.fields?.[column.key])))
+export function visibleColumns(rows: IssueRow[], names: string[], sortColumn: string | null) {
+  const chosen: Column[] = names
+    .map((name): Column => {
+      const key = columnOf(name)
+      return key === 'created' || key === 'updated'
+        ? { key, label: key === 'created' ? 'Created' : 'Updated', sortable: true, width: 'sm' }
+        : { key, label: name, sortable: true, width: 'md' }
+    })
+    .filter(
+      (column) =>
+        !column.key.startsWith('field:') || rows.length === 0 || column.key === sortColumn || rows.some((row) => Boolean(row.fields?.[column.key]))
+    )
   const columns: Column[] = [
     { key: 'id', label: 'ID', sortable: true, width: 'sm' },
     { key: 'summary', label: 'Summary', sortable: true, minWidth: 'md' },
-    ...custom,
-    { key: 'created', label: 'Created', sortable: true, width: 'sm' },
-    { key: 'updated', label: 'Updated', sortable: true, width: 'sm' }
+    ...chosen
   ]
   const minWidth = columns.reduce((sum, column) => sum + (column.width ? WIDTH[column.width] : SUMMARY_MIN), BORDERS)
   return { columns, minWidth }
@@ -39,12 +45,12 @@ export function visibleColumns(rows: IssueRow[], fields: string[], sortColumn: s
 /** A time cell; a row without a readable time shows n/a. */
 const time = (at: number) => (at > 0 ? { type: 'relative', at, format: 'short' } : NOT_AVAILABLE)
 
-const toRow = (row: IssueRow, fields: string[]) => ({
+const toRow = (row: IssueRow, names: string[]) => ({
   key: row.id,
   cells: {
     id: row.id,
     summary: row.summary,
-    ...Object.fromEntries(fields.map((name) => [columnKey(name), row.fields?.[columnKey(name)] ?? null])),
+    ...Object.fromEntries(names.map((name) => [columnOf(name), row.fields?.[columnOf(name)] ?? null])),
     created: time(row.created),
     updated: time(row.updated)
   }
@@ -110,7 +116,7 @@ function Results() {
           selected={selected ? [selected.id] : []}
           hasMore={read(hasMore) && rows.length < MAX_ISSUES}
           loading={status === 'loading' || undefined}
-          onSortChange={({ column }) => void runSearch(applySort(read(query), column, fields.find((name) => columnKey(name) === column)))}
+          onSortChange={({ column }) => void runSearch(applySort(read(query), column, fields.find((name) => columnOf(name) === column)))}
           onSelectionChange={({ keys }) => set(selectedIssue, Array.from(keys as Iterable<string>)[0] ?? null)}
           onRowAction={({ key }) => openDetail(String(key))}
           onLoadMore={() => void loadMore()}

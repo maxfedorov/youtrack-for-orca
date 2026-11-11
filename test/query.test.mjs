@@ -1,5 +1,5 @@
 import { test, assert } from 'orca/testing'
-import { SORT_FIELDS, parseSort, applySort, parseColumns, columnKey } from '../worker/query.mjs'
+import { SORT_FIELDS, parseSort, applySort, parseColumns, columnKey, columnOf, customFields } from '../worker/query.mjs'
 
 test('applySort appends a clause and toggles direction on the same column', () => {
   const a = applySort('for: me', 'updated')
@@ -53,11 +53,18 @@ test('a custom column sorts by its field, in braces when the name has a space', 
   assert.equal(applySort('', 'field:state'), 'sort by: state asc')
 })
 
-test('parseColumns keeps each named field once, in order, without the fixed columns, at most 8', () => {
-  assert.deepEqual(parseColumns('State, , priority,Fix  versions,state,Created,{x},Assignee'), ['State', 'priority', 'Fix versions', 'Assignee'])
-  assert.deepEqual(parseColumns(undefined), ['State', 'Priority', 'Assignee'])
+test('parseColumns keeps each named column once, in order, without ID and Summary, at most 10', () => {
+  assert.deepEqual(parseColumns('State, , priority,Fix  versions,state,Created,{x},Summary,Assignee'), ['State', 'priority', 'Fix versions', 'Created', 'Assignee'])
+  assert.deepEqual(parseColumns(undefined), ['State', 'Priority', 'Assignee', 'Created', 'Updated'])
   assert.deepEqual(parseColumns(''), [])
-  assert.equal(parseColumns(Array.from({ length: 12 }, (_, i) => `F${i}`).join(',')).length, 8)
+  assert.equal(parseColumns(Array.from({ length: 12 }, (_, i) => `F${i}`).join(',')).length, 10)
   assert.equal(parseColumns('x'.repeat(61)).length, 0)
   assert.equal(columnKey('Fix  Versions'), 'field:fix versions')
+})
+
+test('Created and Updated are date columns, the other names custom fields', () => {
+  assert.equal(columnOf('created'), 'created')
+  assert.equal(columnOf(' Updated '), 'updated')
+  assert.equal(columnOf('Fix versions'), 'field:fix versions')
+  assert.deepEqual(customFields(['State', 'Created', 'Fix versions', 'updated']), ['State', 'Fix versions'])
 })

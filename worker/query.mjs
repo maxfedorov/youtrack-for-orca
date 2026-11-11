@@ -8,24 +8,33 @@ export const SORT_FIELDS = {
   updated: 'updated',
 }
 
-/** The fields shown as columns when the setting names none. */
-export const DEFAULT_COLUMNS = 'State, Priority, Assignee'
+/** The columns shown after ID and Summary when the setting names none. */
+export const DEFAULT_COLUMNS = 'State, Priority, Assignee, Created, Updated'
+/** Columns the setting may name that are issue dates, not custom fields. */
+const TIME_COLUMNS = new Set(['created', 'updated'])
 /** Columns of custom fields at most, and the longest field name. */
-export const MAX_COLUMNS = 8
+export const MAX_COLUMNS = 10
 const MAX_COLUMN_NAME = 60
 
 /** The column key of a custom field: `field:` and its name in lower case. */
 export const columnKey = (name) => `field:${norm(name)}`
 
+/** The column a name of the setting stands for: `created`, `updated`, or a custom field's key. */
+export const columnOf = (name) => (TIME_COLUMNS.has(norm(name)) ? norm(name) : columnKey(name))
+
+/** The names of the setting that are custom fields, to read with the issues. */
+export const customFields = (names) => names.filter((name) => !TIME_COLUMNS.has(norm(name)))
+
 /**
- * The custom fields the columns setting names, in its order: trimmed, each once, without the columns
- * every list has, at most MAX_COLUMNS. Names a project lacks stay; their columns are left out when empty.
+ * The columns the setting names after ID and Summary, in its order: custom fields and Created or
+ * Updated; trimmed, each once, at most MAX_COLUMNS. Names a project lacks stay; their columns are left
+ * out when empty.
  * @param {unknown} setting comma-separated field names
  * @returns {string[]}
  */
 export function parseColumns(setting) {
   const raw = typeof setting === 'string' ? setting : DEFAULT_COLUMNS
-  const fixed = new Set(['id', 'issue id', 'summary', 'created', 'updated'])
+  const fixed = new Set(['id', 'issue id', 'summary'])
   const seen = new Set()
   const out = []
   for (const part of raw.split(',')) {

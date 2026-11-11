@@ -876,3 +876,14 @@ test('issues.search reads the fields the columns setting names and answers them 
   assert.deepEqual(r.data.issues[0].fields, { 'field:fix versions': '1.0, 2.0' })
   assert.deepEqual(seen[0][4], ['Fix versions', 'Nope'])
 })
+
+test('issues.search reads only the custom fields of the columns setting, not the dates', async () => {
+  const seen = []
+  const yt = fakeYt()
+  const listIssues = yt.listIssues
+  yt.listIssues = async (...a) => (seen.push(a), listIssues(...a))
+  const { call } = setup({ settings: { columns: 'Created, State, Updated' }, yt })
+  const r = await call('yt.issues.search', { server: 'one', query: 'q', offset: 0, limit: 5 })
+  assert.deepEqual(r.data.columns, ['Created', 'State', 'Updated'])
+  assert.deepEqual(seen[0][4], ['State'])
+})

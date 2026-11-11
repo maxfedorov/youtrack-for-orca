@@ -474,10 +474,12 @@ test('a query left empty runs by itself; emptied and typed anew it does not', as
 
 test('the columns follow the answer: the fields the setting names, in its order, sorted by their field', async () => {
   const rows = [issue(1, { fields: { 'field:fix versions': '2.0', 'field:state': 'Open' } })]
-  const host = mockHost({ requests: requests({ 'yt.issues.search': ok({ issues: rows, hasMore: false, total: 1, columns: ['Fix versions', 'State'] }) }) })
+  const host = mockHost({ requests: requests({ 'yt.issues.search': ok({ issues: rows, hasMore: false, total: 1, columns: ['Updated', 'Fix versions', 'State'] }) }) })
   const view = await mount(panel, { host })
   const grid = view.find(table)
-  assert.deepEqual(grid.props.columns.map((c: any) => c.label), ['ID', 'Summary', 'Fix versions', 'State', 'Created', 'Updated'])
+  assert.deepEqual(grid.props.columns.map((c: any) => c.label), ['ID', 'Summary', 'Updated', 'Fix versions', 'State'])
+  // Created is not chosen, so it is not shown
+  assert.equal(grid.props.columns.some((c: any) => c.key === 'created'), false)
   assert.equal(grid.props.rows[0].cells['field:fix versions'], '2.0')
   await view.sort(grid, 'field:fix versions')
   await view.settled()

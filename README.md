@@ -74,9 +74,10 @@ seen less use.
 
 - Issue list for a YouTrack search query, with your saved searches in a drop-down.
 - Star button (☆) to save the current query as a saved search.
-- Columns sort when you press their header. Between Summary and Created come the fields of the
-  *Issue list columns* setting (State, Priority and Assignee unless you change it); a field no issue in
-  the list has is left out. Refresh, or changing the server, reloads the list.
+- Columns sort when you press their header. After ID and Summary come the columns of the *Issue list
+  columns* setting, in its order: custom fields and the Created and Updated dates (State, Priority,
+  Assignee, Created, Updated unless you change it); a field no issue in the list has is left out.
+  Refresh, or changing the server, reloads the list.
 - Issue details: who created the issue and when, tags, fields, description and comments.
 - **Apply command**: run a YouTrack command such as `State Done` on the selected issue or the open
   detail. It runs only when you press Apply or Enter.
@@ -145,7 +146,7 @@ everything that talks to YouTrack goes through the CLI.
 | Setting                 | Default                                | Meaning                                                                 |
 | ----------------------- | -------------------------------------- | ----------------------------------------------------------------------- |
 | Default query           | `for: me #Unresolved`                  | Query used on first open of each server.                                 |
-| Issue list columns      | `State, Priority, Assignee`            | Custom fields shown as columns, separated by commas (at most 8), such as `State, Priority, Fix versions`. |
+| Issue list columns      | `State, Priority, Assignee, Created, Updated` | Columns after ID and Summary, separated by commas (at most 10): custom fields such as `Fix versions`, and `Created` or `Updated`. |
 | Branch name template    | `{{id_lower}}-{{summary_slug}}`        | Name of the new workspace and branch.                                   |
 | Default agent           | `claude`                               | Agent id (for example `claude`, `codex`) preselected in the Start view; empty means no agent, terminal only. |
 | Default launch mode     | New worktree                           | "Run in" choice preselected in the Start view: `New worktree` or `Current workspace`. |

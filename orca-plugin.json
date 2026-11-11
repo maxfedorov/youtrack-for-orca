@@ -60,9 +60,9 @@
       {
         "key": "columns",
         "title": "Issue list columns",
-        "description": "Fields shown as columns between Summary and Created, separated by commas, such as \"State, Priority, Assignee, Fix versions\" (at most 8). A field no listed issue has a value for is left out.",
+        "description": "Columns after ID and Summary, in order, separated by commas: custom fields such as State or Fix versions, and Created or Updated (at most 10). A field no listed issue has a value for is left out.",
         "type": "string",
-        "default": "State, Priority, Assignee"
+        "default": "State, Priority, Assignee, Created, Updated"
       },
       {
         "key": "branchTemplate",
