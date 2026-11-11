@@ -11,6 +11,7 @@
   "repository": "https://github.com/maxfedorov/youtrack-for-orca",
   "homepage": "https://github.com/maxfedorov/youtrack-for-orca#readme",
   "license": "MIT",
+  "icon": "images/icon.png",
   "engines": {
     "orca": ">=1.4.248"
   },
