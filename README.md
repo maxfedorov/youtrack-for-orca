@@ -13,19 +13,41 @@ This is an unofficial plugin.
 
 ## Install
 
-[Open in Orca](https://onorca.dev/plugins/maxfedorov.youtrack-for-orca?catalog=community) from the
-[Orca plugin directory](https://onorca.dev/plugins) and approve the access it asks for (see
-[Permissions](#permissions)). From a terminal (Orca 1.4.252 or newer):
+Any of these, then approve the access the plugin asks for (see [Permissions](#permissions)):
 
-    orca plugin install maxfedorov.youtrack-for-orca --catalog community
+- **From the plugin directory:** [Open in Orca](https://onorca.dev/plugins/maxfedorov.youtrack-for-orca?catalog=community)
+  from the [Orca plugin directory](https://onorca.dev/plugins).
+- **In Orca:** Settings → Plugins → **Add plugin** → **From a Git URL…** with
+  `https://github.com/maxfedorov/youtrack-for-orca`, or **From a folder…** with a local clone of it.
+- **From a terminal** (Orca 1.4.252 or newer):
 
-Orca lists the access the plugin asks for and prints a fingerprint; run the command again with
-`--approve <fingerprint>` to install. Then open the panel from the right sidebar, the `YT` item in the
-status bar, or the command palette ("YouTrack: Open panel").
+      orca plugin install maxfedorov.youtrack-for-orca --catalog community
+
+  Orca lists the access the plugin asks for and prints a fingerprint; run the command again with
+  `--approve <fingerprint>` to install.
 
 **Update:** updates from the catalog install by themselves unless they ask for new access; to update
 now, run `orca plugin update maxfedorov.youtrack-for-orca`. **Remove:** Settings → Plugins, or
 `orca plugin uninstall maxfedorov.youtrack-for-orca`, which also deletes what the plugin saved.
+
+## Quick start
+
+1. **Open the panel:** the YouTrack tab in Orca's right sidebar, the `YT` item in the status bar, or
+   "YouTrack: Open panel" in the command palette. If the YouTrack CLI is missing, the panel shows the
+   command that installs it.
+2. **Add your server:** enter its address (such as `https://youtrack.example.com`) and press
+   **Add server**, then sign in in the browser. If that does not work, use the terminal command the
+   panel shows. More servers: the **+** next to the server choice.
+3. **Find issues:** type a YouTrack query (`for: me #Unresolved`, `project: ABC State: Open`) and press
+   Enter, or choose a saved search. Press a column header to sort. Double-click a row, or press the
+   details button, to see the issue with its fields, links and comments.
+4. **Start work:** select an issue and press **Start →**. Choose a new worktree (project, name, base
+   branch) or the current workspace, the agent and the prompt template, check the prompt, and press
+   **Start**. Orca creates the worktree and starts the agent there; the issue then offers **Open →**,
+   and you get a notification when the agent finishes.
+5. **Tune it:** Orca's Settings → Plugins → YouTrack for Orca holds the defaults (query, columns,
+   branch name, agent, where to run, prompt options). The gear in the panel manages prompt templates
+   and each server's default Orca project.
 
 ## Requirements
 
