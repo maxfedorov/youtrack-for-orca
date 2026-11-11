@@ -93,6 +93,8 @@ test('the worker going away after the list loaded: each screen shows an error wi
   await view.press({ role: 'button', text: 'Start →' })
   clean(view)
   assert.ok(view.find({ role: 'button', text: 'Retry' }))
+  // Back returns to the issue Start was opened from, then to the list.
+  await view.press({ role: 'button', text: '← Back' })
   await view.press({ role: 'button', text: '← Back' })
   clean(view)
   assert.ok(view.find(table))

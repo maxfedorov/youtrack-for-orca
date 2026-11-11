@@ -243,7 +243,7 @@ test('the detail shows who created the issue, when, and its tags', async () => {
     requests: requests({ 'yt.issue.get': ok(detail(1, { reporter: { login: 'jo', fullName: 'Jo Demo' }, tags: ['regression', 'ui'] })) })
   })
   const view = await open(host)
-  assert.ok(view.find({ text: `Created by jo · ${when(issue(1).created)}` }))
+  assert.ok(view.find({ text: `Created by Jo Demo · ${when(issue(1).created)}` }))
   assert.deepEqual(view.findAll({ type: 'Badge' }).map((b: any) => b.text), ['regression', 'ui'])
   clean(view)
   await view.unmount()
@@ -254,5 +254,37 @@ test('without a reporter or tags the detail shows only the creation time', async
   const view = await open(host)
   assert.ok(view.find({ text: `Created · ${when(issue(1).created)}` }))
   assert.equal(view.findAll({ type: 'Badge' }).length, 0)
+  await view.unmount()
+})
+
+test('linked issues open their own detail, and Back steps back through them to the list', async () => {
+  const links = [
+    { type: 'depends on', issues: [{ id: 'DEMO-2', summary: 'Issue 2', resolved: false }] },
+    { type: 'relates to', issues: [{ id: 'DEMO-3', summary: 'Issue 3', resolved: true }] }
+  ]
+  const host = mockHost({
+    requests: requests({ 'yt.issue.get': (i: any) => ok(detail(Number(i.id.split('-')[1]), i.id === 'DEMO-1' ? { links } : {})) })
+  })
+  const view = await open(host)
+  assert.ok(view.find({ type: 'Heading', text: 'Linked issues' }))
+  assert.ok(view.find({ text: 'depends on' }))
+  assert.equal(view.find({ type: 'ListItem', testId: 'DEMO-3' }).props.description, 'Resolved')
+  assert.equal(view.find({ type: 'ListItem', testId: 'DEMO-2' }).props.title, 'DEMO-2 Issue 2')
+  await view.press({ type: 'ListItem', testId: 'DEMO-2' })
+  assert.ok(view.find({ type: 'Heading', text: 'Issue 2' }))
+  assert.equal(calls(host, 'yt.issue.get').at(-1).input.id, 'DEMO-2')
+  await view.press({ role: 'button', text: '← Back' })
+  assert.ok(view.find({ type: 'Heading', text: 'Issue 1' }))
+  await view.press({ role: 'button', text: '← Back' })
+  assert.ok(view.find(table))
+  clean(view)
+  await view.unmount()
+})
+
+test('linked issues that cannot be loaded leave a note and the rest of the issue', async () => {
+  const host = mockHost({ requests: requests({ 'yt.issue.get': ok(detail(1, { linksError: 'Linked issues could not be loaded.' })) }) })
+  const view = await open(host)
+  assert.ok(view.find({ text: 'Linked issues could not be loaded.' }))
+  assert.ok(view.find({ type: 'Heading', text: 'Issue 1' }))
   await view.unmount()
 })

@@ -1,9 +1,9 @@
 import {
-  Badge, Button, Callout, Heading, IconButton, KeyValue, Markdown, Row, Separator, Skeleton, Stack, Text, atom, read, set
+  Badge, Button, Callout, Heading, IconButton, KeyValue, List, ListItem, Markdown, Row, Separator, Skeleton, Stack, Text, atom, read, set
 } from 'orca'
 import { links, loadLinks } from '../listState'
-import { call, refreshTick, server, view } from '../state'
-import { openInBrowser, openWorkspace, start } from './IssueRowActions'
+import { call, goBack, refreshTick, server } from '../state'
+import { openInBrowser, openLinked, openWorkspace, start } from './IssueRowActions'
 import { CommandBar, onCommandApplied } from './CommandBar'
 import { CommentBox } from './CommentBox'
 import type { IssueComments, IssueDetail as Detail } from '../protocol'
@@ -106,12 +106,12 @@ function sync(id: string): void {
   })
 }
 
-/** Back to the list: rows, query and selection live in the list atoms and stay. */
+/** Back to the screen the issue was opened from (another issue, or the list, whose rows, query and selection stay). */
 function back(): void {
   seq++
   set(loadedFor, null)
   set(detail, null)
-  set(view, { kind: 'list' })
+  goBack()
 }
 
 const BackButton = () => (
@@ -146,6 +146,42 @@ function commentKeys(issue: Detail): string[] {
   })
 }
 
+/** Linked issues by how they relate; pressing one opens it, and Back returns here. */
+function LinkedIssues({ issue }: { issue: Detail }) {
+  if (issue.linksError) {
+    return (
+      <Text muted size="sm">
+        {issue.linksError}
+      </Text>
+    )
+  }
+  const links = issue.links ?? []
+  if (links.length === 0) return null
+  return (
+    <Stack gap="xs">
+      <Separator />
+      <Heading level={3}>Linked issues</Heading>
+      {links.map((link, index) => (
+        <Stack key={`${link.type}#${index}`} gap="none">
+          <Text muted size="xs" weight="medium">
+            {link.type}
+          </Text>
+          <List label={`Issues that ${issue.id} ${link.type}`}>
+            {link.issues.map((linked) => (
+              <ListItem
+                key={linked.id}
+                title={`${linked.id} ${linked.summary}`}
+                description={linked.resolved ? 'Resolved' : undefined}
+                onPress={() => openLinked(linked.id)}
+              />
+            ))}
+          </List>
+        </Stack>
+      ))}
+    </Stack>
+  )
+}
+
 function Body({ issue }: { issue: Detail }) {
   const workspaceId = read(links)[issue.id]
   const items = issue.fields.map((field) => ({ label: field.name, value: field.value }))
@@ -170,7 +206,7 @@ function Body({ issue }: { issue: Detail }) {
       <Heading level={2}>{issue.summary}</Heading>
       {issue.reporter || issue.created > 0 ? (
         <Text muted size="sm">
-          {[issue.reporter ? `Created by ${issue.reporter.login}` : 'Created', issue.created > 0 ? when(issue.created) : ''].filter(Boolean).join(' · ')}
+          {[issue.reporter ? `Created by ${issue.reporter.fullName || issue.reporter.login}` : 'Created', issue.created > 0 ? when(issue.created) : ''].filter(Boolean).join(' · ')}
         </Text>
       ) : null}
       {issue.tags.length > 0 ? (
@@ -193,6 +229,7 @@ function Body({ issue }: { issue: Detail }) {
       ) : null}
       {items.length > 0 ? <KeyValue label="Fields" items={items} /> : null}
       {issue.descriptionMd ? <Markdown content={issue.descriptionMd} /> : <Text muted>No description</Text>}
+      <LinkedIssues issue={issue} />
       <Separator />
       <Heading level={3}>Comments</Heading>
       {issue.commentsError ? (

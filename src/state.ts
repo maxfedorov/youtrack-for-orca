@@ -1,4 +1,4 @@
-import { atom, plugin, set } from 'orca'
+import { atom, plugin, read, set } from 'orca'
 import type { ErrorCode, Result, Server } from './protocol'
 import { fitAnswer } from './shapes'
 
@@ -12,7 +12,9 @@ export type Env = {
   /** The instance list failed; shown with Retry. */
   error?: string
 }
-export type View = { kind: 'setup' | 'list' | 'detail' | 'start' | 'add' | 'settings'; issueId?: string }
+/** `back`: the screen Back returns to (an issue opened from another issue's links, say); the list without one. */
+export type View = { kind: 'setup' | 'list' | 'detail' | 'start' | 'add' | 'settings'; issueId?: string; back?: View }
+
 export type Unwrapped<T> = { ok: true; data: T } | { ok: false; code: ErrorCode; message: string }
 
 export const env = atom<Env | null>(null)
@@ -20,6 +22,21 @@ export const env = atom<Env | null>(null)
 export const server = atom<string | null>(null)
 export const query = atom('')
 export const view = atom<View>({ kind: 'setup' })
+
+/** Screens Back can step through; older ones are dropped, so Back from them returns to the list. */
+const MAX_BACK = 20
+
+/** The current screen, to come back to from the next one; the chain is cut at MAX_BACK screens. */
+export function here(): View {
+  const cut = (v: View, depth: number): View => {
+    const { back, ...rest } = v
+    return back && depth < MAX_BACK ? { ...rest, back: cut(back, depth + 1) } : rest
+  }
+  return cut(read(view), 1)
+}
+
+/** Back: the screen this one was opened from, else the list. */
+export const goBack = () => set(view, read(view).back ?? { kind: 'list' })
 /** Bumped by the header's refresh button; list and detail views reload when it changes. */
 export const refreshTick = atom(0)
 /** Message of the last failed request, shown by the panel; null when none. */

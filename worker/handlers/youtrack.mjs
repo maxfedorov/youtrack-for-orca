@@ -1,6 +1,6 @@
 /** Requests about servers, issues and saved queries (everything answered by the YouTrack CLI). */
 import { ok, fail, CODES } from '../result.mjs'
-import { toIssueRow, toIssueDetail, toComments, toSavedQuery, toSavedQueries, toServers } from '../mapping.mjs'
+import { toIssueRow, toIssueDetail, toComments, toLinks, toSavedQuery, toSavedQueries, toServers } from '../mapping.mjs'
 import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, MAX_COMMAND, MAX_NEW_COMMENT, isPlainUrl, normalizeUrl, settingString, capDetail, attempt, fallback, readSetting, INSTALL } from './common.mjs'
 
 const MAX_LIMIT = 50
@@ -10,6 +10,23 @@ const TOKEN_KEPT = 'The server was removed, but its sign-in token may still be s
 const NOT_FORGOTTEN = 'The server was removed, but the plugin could not forget all of its saved searches, links and projects.'
 /** Table rows need unique keys; the first row of an id wins. */
 const unique = (rows) => rows.filter((r, i) => rows.findIndex((o) => o.idReadable === r.idReadable) === i)
+
+const LINKS_FAILED = 'Linked issues could not be loaded.'
+/** Linked issues shown at most; a summary is cut to a line. */
+const MAX_LINKED = 100
+const MAX_LINKED_SUMMARY = 200
+
+function capLinks(links) {
+  let room = MAX_LINKED
+  const out = []
+  for (const link of links) {
+    if (room <= 0) break
+    const issues = link.issues.slice(0, room).map((i) => ({ ...i, summary: i.summary.slice(0, MAX_LINKED_SUMMARY) }))
+    room -= issues.length
+    out.push({ ...link, issues })
+  }
+  return out
+}
 
 export function registerYoutrackHandlers(ctx) {
   const { orca, orcaCli, state, links, launches, resolveServer } = ctx
@@ -84,15 +101,19 @@ export function registerYoutrackHandlers(ctx) {
     if (typeof id !== 'string' || !ISSUE_ID.test(id)) return invalid('Invalid issue id')
     const s = await resolveServer(server)
     if (!s.ok) return s
-    const [view, comments] = await Promise.all([
+    const [view, comments, links] = await Promise.all([
       attempt(() => ctx.youtrack.viewIssue(s.data.alias, id)),
-      attempt(() => ctx.youtrack.listComments(s.data.alias, id))
+      attempt(() => ctx.youtrack.listComments(s.data.alias, id)),
+      attempt(() => ctx.youtrack.listLinks(s.data.alias, id))
     ])
     if (!view.ok) return view
     if (!hasId(view.data)) return unexpected()
-    // The issue is shown without its comments when only they fail; the panel can load them again.
+    // The issue is shown without its comments or links when only they fail; the panel can load comments again.
     const loaded = comments.ok && Array.isArray(comments.data)
-    const detail = capDetail(toIssueDetail(view.data, loaded ? comments.data : null, s.data.url))
+    const issue = toIssueDetail(view.data, loaded ? comments.data : null, s.data.url)
+    if (links.ok && Array.isArray(links.data)) issue.links = capLinks(toLinks(links.data))
+    else issue.linksError = LINKS_FAILED
+    const detail = capDetail(issue)
     return ok(loaded ? detail : { ...detail, commentsError: COMMENTS_FAILED })
   })
 

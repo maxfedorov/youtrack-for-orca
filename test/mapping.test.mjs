@@ -251,3 +251,18 @@ test('toIssueDetail maps the reporter and tag names', async () => {
   assert.equal('reporter' in bare, false)
   assert.deepEqual(bare.tags, [])
 })
+
+test('toLinks names each group from this issue side and leaves out empty link types', async () => {
+  const { toLinks } = await import('../worker/mapping.mjs')
+  const raw = [
+    { direction: 'BOTH', linkType: { name: 'Relates', sourceToTarget: 'relates to' } },
+    { direction: 'OUTWARD', linkType: { name: 'Depend', sourceToTarget: 'is required for', targetToSource: 'depends on' }, issues: [{ idReadable: 'DEMO-10', summary: 'A', resolved: null }] },
+    { direction: 'INWARD', linkType: { name: 'Depend', sourceToTarget: 'is required for', targetToSource: 'depends on' }, issues: [{ idReadable: 'DEMO-8', summary: 'B', resolved: 1700 }, { summary: 'no id' }] },
+    null
+  ]
+  assert.deepEqual(toLinks(raw), [
+    { type: 'is required for', issues: [{ id: 'DEMO-10', summary: 'A', resolved: false }] },
+    { type: 'depends on', issues: [{ id: 'DEMO-8', summary: 'B', resolved: true }] }
+  ])
+  assert.deepEqual(toLinks(null), [])
+})

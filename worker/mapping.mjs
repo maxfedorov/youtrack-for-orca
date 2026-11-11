@@ -165,6 +165,25 @@ export function toIssueDetail(rawView, rawComments, baseUrl) {
   return detail
 }
 
+/**
+ * Linked issues grouped by how they relate, as YouTrack words it from this issue's side ("depends on",
+ * "is required for"); link types without issues are left out.
+ * @param {any} rawLinks `issue link list --json`
+ * @returns {{ type: string, issues: { id: string, summary: string, resolved: boolean }[] }[]}
+ */
+export function toLinks(rawLinks) {
+  return (Array.isArray(rawLinks) ? rawLinks : [])
+    .map((link) => {
+      const t = link?.linkType ?? {}
+      const type = text(link?.direction === 'INWARD' ? t.targetToSource || t.sourceToTarget : t.sourceToTarget) || text(t.name)
+      const issues = (Array.isArray(link?.issues) ? link.issues : [])
+        .filter((i) => typeof i?.idReadable === 'string' && i.idReadable)
+        .map((i) => ({ id: i.idReadable, summary: text(i.summary), resolved: i.resolved != null && i.resolved !== false }))
+      return { type, issues }
+    })
+    .filter((link) => link.issues.length > 0)
+}
+
 /** @param {any} raw @returns {{ id: string, name: string, query: string } | null} null when there is no query */
 export function toSavedQuery(raw) {
   if (typeof raw?.query !== 'string') return null

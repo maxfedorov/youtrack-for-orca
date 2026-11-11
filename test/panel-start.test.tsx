@@ -284,6 +284,9 @@ test('prepare error offers retry and back', async () => {
   assert.ok(view.find({ text: 'Issue not found' }))
   await view.press({ role: 'button', text: 'Retry' })
   assert.ok(view.find({ type: 'Input', label: 'Name' }))
+  // Start was opened from the issue's detail: Back returns there, then to the list.
+  await view.press({ role: 'button', text: '← Back' })
+  assert.ok(view.find({ role: 'button', text: 'Start →' }))
   await view.press({ role: 'button', text: '← Back' })
   assert.ok(view.find(table))
   await view.unmount()
@@ -354,7 +357,6 @@ test('a start that times out is not offered again until the form is reloaded', a
   assert.ok(view.find({ text: 'Still starting — check the Orca sidebar before trying again.' }))
   assert.equal(disabled(view, startButton), true)
   await view.press({ role: 'button', text: '← Back' })
-  await view.activateRow(view.find(table), 'DEMO-1')
   await view.press({ role: 'button', text: 'Start →' })
   assert.equal(disabled(view, startButton), false)
   await view.unmount()

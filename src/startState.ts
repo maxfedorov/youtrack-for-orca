@@ -1,7 +1,7 @@
 import { atom, read, set } from 'orca'
 import { buildPrompt, issueVars, PROMPT_LIMIT } from '../worker/prompt.mjs'
 import { loadLinks } from './listState'
-import { call, notice, server, view } from './state'
+import { call, goBack, notice, server, view } from './state'
 import { closeComboboxes } from './views/Combobox'
 import type { Repo, StartPrepare, WorkspaceItem } from './protocol'
 
@@ -252,8 +252,8 @@ export function sync(id: string): void {
   })
 }
 
-/** Back to the list. */
-export function back(): void {
+/** Back to the screen Start was opened from; after a start, to the list (`toList`), where Open shows. */
+export function back(toList = false): void {
   if (read(running)) return
   seq++
   cancelRefs()
@@ -261,7 +261,8 @@ export function back(): void {
   set(loadedFor, null)
   set(prep, null)
   set(status, 'idle')
-  set(view, { kind: 'list' })
+  if (toList) set(view, { kind: 'list' })
+  else goBack()
 }
 
 export async function submit(id: string): Promise<void> {
@@ -292,7 +293,7 @@ export async function submit(id: string): Promise<void> {
     set(runError, answer.code === 'TIMEOUT' ? STILL_STARTING : answer.message)
     return
   }
-  back()
+  back(true)
   if (answer.data.warning) set(notice, answer.data.warning)
   void loadLinks()
 }

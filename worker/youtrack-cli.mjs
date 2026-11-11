@@ -120,6 +120,7 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
       }),
     viewIssue: (server, id) => read(server, ['issue', 'view', id, '-f', VIEW_FIELDS]),
     listComments: (server, id) => read(server, ['issue', 'comment', 'list', id], list),
+    listLinks: (server, id) => read(server, ['issue', 'link', 'list', id, '-f', 'issues(idReadable,summary,resolved)'], list),
     savedSearches: (server) => read(server, ['search', 'list'], list),
     createSavedSearch: (server, name, query) =>
       exec(['--server', server, 'search', 'create', '--name', name, '--query', query, ...tail], WRITE_MS, json),

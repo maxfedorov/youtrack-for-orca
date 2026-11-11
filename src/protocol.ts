@@ -24,6 +24,10 @@ export type IssueDetail = IssueRow & {
   reporter?: User
   /** Tag names, in the order YouTrack lists them. */
   tags: string[]
+  /** Linked issues by how they relate ("depends on"); missing when they could not be loaded. */
+  links?: { type: string; issues: { id: string; summary: string; resolved: boolean }[] }[]
+  /** Set when only the linked issues could not be loaded. */
+  linksError?: string
   /** Description or comments were cut (long text, only the newest 200 comments kept). */
   truncated?: true
   /** Number of older comments left out. */

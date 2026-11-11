@@ -66,6 +66,18 @@ function fixDetail(v: Obj): Obj {
     .map((f) => ({ name: f.name, value: str(f.value) ? f.value : NOT_AVAILABLE }))
   out.tags = (Array.isArray(v.tags) ? v.tags : []).filter((t): t is string => id(t))
   if (!user(v.reporter)) delete out.reporter
+  if (Array.isArray(v.links)) {
+    out.links = v.links
+      .filter((l): l is Obj => isObj(l) && str(l.type) && Array.isArray(l.issues))
+      .map((l) => ({
+        type: l.type,
+        issues: (l.issues as unknown[])
+          .filter((i): i is Obj => isObj(i) && id(i.id))
+          .map((i) => ({ id: i.id, summary: or(str, i.summary, ''), resolved: i.resolved === true }))
+      }))
+      .filter((l) => l.issues.length > 0)
+  } else delete out.links
+  if (!str(v.linksError)) delete out.linksError
   out.descriptionMd = or(str, v.descriptionMd, '')
   out.comments = Array.isArray(v.comments) ? fixComments(v.comments) : []
   if (!Array.isArray(v.comments)) out.commentsError = str(v.commentsError) ? v.commentsError : COMMENTS_FAILED

@@ -1,12 +1,17 @@
-import { Button, IconButton, Row, Stack, Text, set, shell } from 'orca'
-import { call, notice, panelError, view } from '../state'
+import { Button, IconButton, Row, Stack, Text, read, set, shell } from 'orca'
+import { call, here, notice, panelError, view } from '../state'
 import { loadLinks } from '../listState'
 import { CommandBar } from './CommandBar'
 import type { IssueRow } from '../protocol'
 
 export const openDetail = (id: string) => set(view, { kind: 'detail', issueId: id })
 
-export const start = (id: string) => set(view, { kind: 'start', issueId: id })
+/** An issue linked from the open one: Back returns to the issue it was opened from. */
+export const openLinked = (id: string) => set(view, { kind: 'detail', issueId: id, back: here() })
+
+/** Start for an issue; from an issue's detail, Back returns to that detail. */
+export const start = (id: string) =>
+  set(view, read(view).kind === 'detail' ? { kind: 'start', issueId: id, back: here() } : { kind: 'start', issueId: id })
 
 /** Opens a link in the browser; a failure is shown in the panel's error callout. */
 export async function openInBrowser(url: string): Promise<void> {

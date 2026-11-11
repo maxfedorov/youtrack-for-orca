@@ -34,6 +34,7 @@ function fakeYt(over = {}) {
     createSavedSearch: rec('createSavedSearch', (s, name, query) => ok({ id: '0-9', name, query })),
     applyCommand: rec('applyCommand', () => ok({})),
     addComment: rec('addComment', () => ok({})),
+    listLinks: rec('listLinks', () => ok([])),
     deleteInstance: rec('deleteInstance', () => ok({})),
     loginWeb: rec('loginWeb', async (url, onAuth) => (onAuth('https://auth.example/x'), ok({}))),
     ...over,
@@ -850,4 +851,16 @@ test('start.prepare passes the start-without-prompt setting', async () => {
   assert.equal((await setup().call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })).data.withoutPrompt, false)
   const on = setup({ settings: { startWithoutPrompt: true } })
   assert.equal((await on.call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })).data.withoutPrompt, true)
+})
+
+test('issue.get adds the linked issues, capped, and still answers when only they fail', async () => {
+  const many = [{ direction: 'OUTWARD', linkType: { sourceToTarget: 'relates to' }, issues: Array.from({ length: 150 }, (_, i) => ({ idReadable: `DEMO-${i}`, summary: 's'.repeat(300) })) }]
+  const { call } = setup({ yt: fakeYt({ listLinks: async () => ok(many) }) })
+  const r = await call('yt.issue.get', { server: 'one', id: 'DEMO-1' })
+  assert.equal(r.data.links[0].issues.length, 100)
+  assert.equal(r.data.links[0].issues[0].summary.length, 200)
+  const broken = setup({ yt: fakeYt({ listLinks: async () => fail('NETWORK', 'down') }) })
+  const b = await broken.call('yt.issue.get', { server: 'one', id: 'DEMO-1' })
+  assert.equal(b.ok, true)
+  assert.equal(b.data.linksError, 'Linked issues could not be loaded.')
 })

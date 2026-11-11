@@ -11,7 +11,7 @@ import { server } from '../state'
 import type { StartPrepare } from '../protocol'
 
 const BackButton = () => (
-  <Button variant="ghost" size="sm" disabled={read(running)} onPress={back}>
+  <Button variant="ghost" size="sm" disabled={read(running)} onPress={() => back()}>
     ← Back
   </Button>
 )
