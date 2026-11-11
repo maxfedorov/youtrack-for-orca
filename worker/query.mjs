@@ -1,14 +1,42 @@
 // Sorting the issue list by rewriting the `sort by:` clause of the query.
 
-/** Column id → YouTrack field name used in `sort by:`. */
+/** Column id → YouTrack field name used in `sort by:`, for the columns every list has. */
 export const SORT_FIELDS = {
   id: '{issue id}',
   summary: 'summary',
-  state: 'State',
-  priority: 'Priority',
-  assignee: 'Assignee',
   created: 'created',
   updated: 'updated',
+}
+
+/** The fields shown as columns when the setting names none. */
+export const DEFAULT_COLUMNS = 'State, Priority, Assignee'
+/** Columns of custom fields at most, and the longest field name. */
+export const MAX_COLUMNS = 8
+const MAX_COLUMN_NAME = 60
+
+/** The column key of a custom field: `field:` and its name in lower case. */
+export const columnKey = (name) => `field:${norm(name)}`
+
+/**
+ * The custom fields the columns setting names, in its order: trimmed, each once, without the columns
+ * every list has, at most MAX_COLUMNS. Names a project lacks stay; their columns are left out when empty.
+ * @param {unknown} setting comma-separated field names
+ * @returns {string[]}
+ */
+export function parseColumns(setting) {
+  const raw = typeof setting === 'string' ? setting : DEFAULT_COLUMNS
+  const fixed = new Set(['id', 'issue id', 'summary', 'created', 'updated'])
+  const seen = new Set()
+  const out = []
+  for (const part of raw.split(',')) {
+    const name = part.trim().replace(/\s+/g, ' ')
+    const key = norm(name)
+    if (!name || name.length > MAX_COLUMN_NAME || /[{}]/.test(name) || fixed.has(key) || seen.has(key)) continue
+    seen.add(key)
+    out.push(name)
+    if (out.length === MAX_COLUMNS) break
+  }
+  return out
 }
 
 const CLAUSE = /\bsort\s+by\s*:.*$/is
@@ -28,18 +56,21 @@ export function parseSort(query) {
   const m = PARSE.exec(clauses[clauses.length - 1])
   if (!m) return null
   const field = norm(m[1])
-  const column = Object.keys(SORT_FIELDS).find((k) => norm(SORT_FIELDS[k]) === field)
-  if (!column) return null
+  if (!field) return null
+  // A field that is not one of the fixed columns is a custom field's column.
+  const column = Object.keys(SORT_FIELDS).find((k) => norm(SORT_FIELDS[k]) === field) ?? columnKey(field)
   return { column, direction: /** @type {'asc' | 'desc'} */ ((m[2] || 'asc').toLowerCase()) }
 }
 
 /**
  * @param {string} query
- * @param {string} column key of SORT_FIELDS
+ * @param {string} column key of SORT_FIELDS, or a custom field's column key
+ * @param {string} [name] the custom field's name as written in the setting
  * @returns {string}
  */
-export function applySort(query, column) {
-  const field = SORT_FIELDS[/** @type {keyof typeof SORT_FIELDS} */ (column)]
+export function applySort(query, column, name) {
+  const custom = column.startsWith('field:') ? (name ?? column.slice('field:'.length)) : null
+  const field = custom ? (/\s/.test(custom) ? `{${custom}}` : custom) : SORT_FIELDS[/** @type {keyof typeof SORT_FIELDS} */ (column)]
   if (!field) throw new Error(`Unknown sort column: ${column}`)
   const current = parseSort(query)
   const direction = current && current.column === column && current.direction === 'asc' ? 'desc' : 'asc'

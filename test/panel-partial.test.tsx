@@ -141,7 +141,7 @@ test('a malformed issue row is skipped or shown with n/a cells, the rest of the 
     issue(1),
     null,
     { summary: 'no id' },
-    { ...issue(3), summary: 7, state: 'Open', assignee: { name: 'x' }, created: 'soon' },
+    { ...issue(3), summary: 7, fields: { 'field:state': 7, 'field:priority': 'Major' }, created: 'soon' },
     issue(4)
   ]
   const host = mockHost({
@@ -154,10 +154,10 @@ test('a malformed issue row is skipped or shown with n/a cells, the rest of the 
   assert.deepEqual(view.rowsOf(grid), ['DEMO-1', 'DEMO-3', 'DEMO-4'])
   const odd = grid.props.rows.find((r: any) => r.key === 'DEMO-3').cells
   assert.equal(odd.summary, 'n/a')
-  assert.equal(odd.state, 'n/a')
-  assert.equal(odd.assignee, 'n/a')
+  // a field value of an unexpected shape is left empty; the others stay
+  assert.equal(odd['field:state'], null)
   assert.equal(odd.created, 'n/a')
-  assert.equal(odd.priority, 'Major')
+  assert.equal(odd['field:priority'], 'Major')
   assert.ok(view.find({ text: '3 issues' }))
   await view.activateRow(grid, 'DEMO-4')
   assert.ok(view.find({ type: 'Heading', text: 'Issue 4' }))

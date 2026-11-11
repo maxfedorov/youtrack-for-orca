@@ -1,4 +1,5 @@
 import { atom, read, set, update } from 'orca'
+import { DEFAULT_COLUMNS, parseColumns } from '../worker/query.mjs'
 import { call, env, loadEnv, query, refreshTick, server, view, type Env } from './state'
 import type { IssueRow, SavedQuery } from './protocol'
 
@@ -9,6 +10,8 @@ export type ListStatus = 'idle' | 'loading' | 'ok' | 'invalid' | 'error'
 
 /** Loaded rows of the current search; kept while the detail view is open. */
 export const issues = atom<IssueRow[]>([])
+/** The custom fields shown as columns, as the last search answered (the columns setting). */
+export const columns = atom<string[]>(parseColumns(DEFAULT_COLUMNS))
 /** Number of issues the query matches (rows.length when the worker could not count). */
 export const total = atom(0)
 /** False when the worker could not count: `total` then only holds the first page's length. */
@@ -57,6 +60,7 @@ export async function runSearch(text: string, { keepDraft = false }: { keepDraft
     set(totalKnown, answer.data.total !== undefined)
     set(lastPageFull, answer.data.issues.length >= PAGE_SIZE)
     set(hasMore, answer.data.hasMore)
+    if (answer.data.columns) set(columns, answer.data.columns)
     set(listError, '')
     set(listStatus, 'ok')
     void call('yt.setQuery', { server: current, query: text })

@@ -7,6 +7,13 @@ const READ_MS = 15_000
 const WRITE_MS = 30_000
 const LOGIN_MS = 10 * 60_000
 const ISSUE_FIELDS = 'idReadable,summary,created,updated,resolved,State,Priority,Assignee'
+/** The list's fields plus the columns' custom fields, each once (names compare without case). */
+const listFields = (columns) => {
+  const names = ISSUE_FIELDS.split(',')
+  const seen = new Set(names.map((n) => n.toLowerCase()))
+  for (const c of columns) if (!seen.has(c.toLowerCase())) seen.add(c.toLowerCase()) && names.push(c)
+  return names.join(',')
+}
 const VIEW_FIELDS = 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText))'
 const CLI_ENV = Object.freeze({ YOUTRACK_NO_UPDATE: '1', NO_COLOR: '1' })
 
@@ -110,8 +117,9 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
   return {
     version: () => exec(['--version'], READ_MS, (s) => s.trim()),
     instances: () => exec(['instance', 'list', ...tail], READ_MS, list),
-    listIssues: (server, query, offset, limit) =>
-      read(server, ['issue', 'list', '--query', query, '--limit', String(limit), '--offset', String(offset), '--fields', ISSUE_FIELDS], list),
+    /** `columns`: custom fields to read for the list's columns; ones a project lacks are skipped by the CLI. */
+    listIssues: (server, query, offset, limit, columns = []) =>
+      read(server, ['issue', 'list', '--query', query, '--limit', String(limit), '--offset', String(offset), '--fields', listFields(columns)], list),
     countIssues: (server, query) =>
       exec(['--server', server, 'issue', 'count', '--query', query, ...tail], READ_MS, (s) => {
         const n = Number(s.trim())

@@ -864,3 +864,15 @@ test('issue.get adds the linked issues, capped, and still answers when only they
   assert.equal(b.ok, true)
   assert.equal(b.data.linksError, 'Linked issues could not be loaded.')
 })
+
+test('issues.search reads the fields the columns setting names and answers them per row', async () => {
+  const raw = { ...rawIssue('DEMO-1'), customFields: [{ name: 'Fix versions', $type: 'MultiVersionIssueCustomField', value: [{ name: '1.0' }, { name: '2.0' }] }] }
+  const { call, yt } = setup({ settings: { columns: 'Fix versions, Nope' }, yt: fakeYt({ listIssues: async () => ok([raw]) }) })
+  const listIssues = yt.listIssues
+  const seen = []
+  yt.listIssues = async (...a) => (seen.push(a), listIssues(...a))
+  const r = await call('yt.issues.search', { server: 'one', query: 'q', offset: 0, limit: 10 })
+  assert.deepEqual(r.data.columns, ['Fix versions', 'Nope'])
+  assert.deepEqual(r.data.issues[0].fields, { 'field:fix versions': '1.0, 2.0' })
+  assert.deepEqual(seen[0][4], ['Fix versions', 'Nope'])
+})

@@ -1,57 +1,50 @@
 import { Box, Button, Callout, EmptyState, IconButton, Row, Skeleton, Stack, Table, Text, read, set } from 'orca'
 import {
-  MAX_ISSUES, appliedQuery, defaultQuery, hasMore, issues, lastPageFull, links, linksFailed, listError, loadLinks, listStatus, loadMore, moreError, refreshList,
+  MAX_ISSUES, appliedQuery, columns, defaultQuery, hasMore, issues, lastPageFull, links, linksFailed, listError, loadLinks, listStatus, loadMore, moreError, refreshList,
   runSearch, selectedIssue, syncList, total, totalKnown
 } from '../listState'
 import { query } from '../state'
-import { applySort, parseSort } from '../../worker/query.mjs'
+import { applySort, columnKey, parseSort } from '../../worker/query.mjs'
 import { IssueRowActions, openDetail } from './IssueRowActions'
 import { SearchBar } from './SearchBar'
 import { NOT_AVAILABLE } from '../shapes'
 import type { IssueRow } from '../protocol'
 
-// The columns a project may not have (or leave empty everywhere): hidden when no loaded issue has a
-// value, unless the list is sorted by it. The others always show; a narrow sidebar scrolls the table
-// sideways (see minWidth).
-const OPTIONAL = new Set(['state', 'priority', 'assignee'])
-const COLUMNS = [
-  { key: 'id', label: 'ID', sortable: true, width: 'sm' },
-  { key: 'summary', label: 'Summary', sortable: true, minWidth: 'md' },
-  { key: 'state', label: 'State', sortable: true, width: 'sm' },
-  { key: 'priority', label: 'Priority', sortable: true, width: 'md' },
-  { key: 'assignee', label: 'Assignee', sortable: true, width: 'md' },
-  { key: 'created', label: 'Created', sortable: true, width: 'sm' },
-  { key: 'updated', label: 'Updated', sortable: true, width: 'sm' }
-] as const
-// Column widths: sm is 6rem (96px), md 9rem (144px); Summary needs 9rem at least, and 24px covers row
-// borders. Below this width the table's own overflow-hidden would clip, so the Box scrolls instead.
+// ID and Summary come first and Created and Updated last; between them the custom fields the columns
+// setting names. A custom field no loaded issue has a value for is left out (a project without it),
+// unless the list is sorted by it. A narrow sidebar scrolls the table sideways (see minWidth).
+// Widths: sm is 6rem (96px), md 9rem (144px); Summary needs 9rem at least, and 24px covers row borders.
 const WIDTH = { sm: 96, md: 144 } as const
 const SUMMARY_MIN = 144
 const BORDERS = 24
 
-const has = (row: IssueRow, key: string) =>
-  key === 'state' ? Boolean(row.state) : key === 'priority' ? Boolean(row.priority) : key === 'assignee' ? Boolean(row.assignee) : true
+type Column = { key: string; label: string; sortable: true; width?: 'sm' | 'md'; minWidth?: 'md' }
 
 /** The columns to draw for these rows, and the width the table needs for them. */
-export function visibleColumns(rows: IssueRow[], sortColumn: string | null) {
-  const columns = COLUMNS.filter(
-    (column) => !OPTIONAL.has(column.key) || rows.length === 0 || column.key === sortColumn || rows.some((row) => has(row, column.key))
-  )
-  const minWidth = columns.reduce((sum, column) => sum + ('width' in column ? WIDTH[column.width] : SUMMARY_MIN), BORDERS)
-  return { columns: columns.map((column) => ({ ...column })), minWidth }
+export function visibleColumns(rows: IssueRow[], fields: string[], sortColumn: string | null) {
+  const custom: Column[] = fields
+    .map((name) => ({ key: columnKey(name), label: name, sortable: true as const, width: 'md' as const }))
+    .filter((column) => rows.length === 0 || column.key === sortColumn || rows.some((row) => Boolean(row.fields?.[column.key])))
+  const columns: Column[] = [
+    { key: 'id', label: 'ID', sortable: true, width: 'sm' },
+    { key: 'summary', label: 'Summary', sortable: true, minWidth: 'md' },
+    ...custom,
+    { key: 'created', label: 'Created', sortable: true, width: 'sm' },
+    { key: 'updated', label: 'Updated', sortable: true, width: 'sm' }
+  ]
+  const minWidth = columns.reduce((sum, column) => sum + (column.width ? WIDTH[column.width] : SUMMARY_MIN), BORDERS)
+  return { columns, minWidth }
 }
 
 /** A time cell; a row without a readable time shows n/a. */
 const time = (at: number) => (at > 0 ? { type: 'relative', at, format: 'short' } : NOT_AVAILABLE)
 
-const toRow = (row: IssueRow) => ({
+const toRow = (row: IssueRow, fields: string[]) => ({
   key: row.id,
   cells: {
     id: row.id,
     summary: row.summary,
-    state: row.state?.name ?? null,
-    priority: row.priority?.name ?? null,
-    assignee: row.assignee?.fullName ?? null,
+    ...Object.fromEntries(fields.map((name) => [columnKey(name), row.fields?.[columnKey(name)] ?? null])),
     created: time(row.created),
     updated: time(row.updated)
   }
@@ -102,7 +95,8 @@ function Results() {
   const selected = rows.find((row) => row.id === read(selectedIssue))
   const known = read(totalKnown)
   const capped = rows.length >= MAX_ISSUES && (known ? read(total) > MAX_ISSUES : read(lastPageFull))
-  const table = visibleColumns(rows, sort?.column ?? null)
+  const fields = read(columns)
+  const table = visibleColumns(rows, fields, sort?.column ?? null)
   return (
     <Stack gap="xs">
       <Box key="table-scroll" scroll="x">
@@ -110,13 +104,13 @@ function Results() {
         <Table
           label="Issues"
           columns={table.columns}
-          rows={rows.map(toRow)}
+          rows={rows.map((row) => toRow(row, fields))}
           sort={sort ?? undefined}
           selectionMode="single"
           selected={selected ? [selected.id] : []}
           hasMore={read(hasMore) && rows.length < MAX_ISSUES}
           loading={status === 'loading' || undefined}
-          onSortChange={({ column }) => void runSearch(applySort(read(query), column))}
+          onSortChange={({ column }) => void runSearch(applySort(read(query), column, fields.find((name) => columnKey(name) === column)))}
           onSelectionChange={({ keys }) => set(selectedIssue, Array.from(keys as Iterable<string>)[0] ?? null)}
           onRowAction={({ key }) => openDetail(String(key))}
           onLoadMore={() => void loadMore()}

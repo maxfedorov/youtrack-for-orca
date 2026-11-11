@@ -48,6 +48,8 @@ function fixRow(v: Obj): Obj {
   }
   if (v.assignee === undefined) delete out.assignee
   else if (!user(v.assignee)) out.assignee = { login: '', fullName: NOT_AVAILABLE }
+  if (v.fields === undefined) delete out.fields
+  else out.fields = strings(v.fields)
   return out
 }
 
@@ -90,6 +92,8 @@ function fixDetail(v: Obj): Obj {
 const fixIssues = (v: Obj): Obj => {
   const out: Obj = { ...v, issues: (v.issues as unknown[]).filter((r): r is Obj => isObj(r) && id(r.id) && str(r.url)).map(fixRow) }
   if (!num(v.total)) delete out.total
+  if (Array.isArray(v.columns)) out.columns = (v.columns as unknown[]).filter((c): c is string => id(c))
+  else delete out.columns
   return out
 }
 

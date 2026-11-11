@@ -15,6 +15,8 @@ export type Server = { alias: string; url: string; active: boolean; status: stri
 export type IssueRow = {
   id: string; summary: string; state?: Value; priority?: Value; assignee?: User
   created: number; updated: number; resolved: boolean; url: string
+  /** Text of the custom fields shown as columns, by column key (`field:` and the name in lower case). */
+  fields?: Record<string, string>
 }
 export type IssueDetail = IssueRow & {
   /** Every custom field of the issue as display strings, in the order YouTrack lists them. */
@@ -100,7 +102,7 @@ declare module 'orca' {
     /** limit <= 50, offset + limit <= 500; `total` only when offset is 0. */
     'yt.issues.search': {
       input: { server: string; query: string; offset: number; limit: number }
-      output: Result<{ issues: IssueRow[]; hasMore: boolean; total?: number }>
+      output: Result<{ issues: IssueRow[]; hasMore: boolean; total?: number; columns?: string[] }>
     }
     /** Fails only when the issue itself cannot be read; failed comments are reported in `commentsError`. */
     'yt.issue.get': { input: { server: string; id: string }; output: Result<IssueDetail> }

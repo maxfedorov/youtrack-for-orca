@@ -1,5 +1,6 @@
 /** Requests about servers, issues and saved queries (everything answered by the YouTrack CLI). */
 import { ok, fail, CODES } from '../result.mjs'
+import { parseColumns } from '../query.mjs'
 import { toIssueRow, toIssueDetail, toComments, toLinks, toSavedQuery, toSavedQueries, toServers } from '../mapping.mjs'
 import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, MAX_COMMAND, MAX_NEW_COMMENT, isPlainUrl, normalizeUrl, settingString, capDetail, attempt, fallback, readSetting, INSTALL } from './common.mjs'
 
@@ -82,16 +83,18 @@ export function registerYoutrackHandlers(ctx) {
     const room = MAX_WINDOW - offset
     if (room <= 0) return ok({ issues: [], hasMore: false })
     const size = Math.min(limit, MAX_LIMIT, room)
+    const columns = parseColumns(await readSetting(orca, 'columns'))
     // The count is optional: without it the panel shows "N+ issues".
     const [list, count] = await Promise.all([
-      ctx.youtrack.listIssues(s.data.alias, query, offset, Math.min(size + 1, room)),
+      ctx.youtrack.listIssues(s.data.alias, query, offset, Math.min(size + 1, room), columns),
       offset === 0 ? attempt(() => ctx.youtrack.countIssues(s.data.alias, query)) : Promise.resolve(null)
     ])
     if (!list.ok) return list
     if (!Array.isArray(list.data)) return unexpected()
     const data = {
-      issues: unique(list.data.slice(0, size).filter(hasId)).map((r) => toIssueRow(r, s.data.url)),
-      hasMore: list.data.length > size
+      issues: unique(list.data.slice(0, size).filter(hasId)).map((r) => toIssueRow(r, s.data.url, columns)),
+      hasMore: list.data.length > size,
+      columns
     }
     if (count?.ok) data.total = count.data
     return ok(data)

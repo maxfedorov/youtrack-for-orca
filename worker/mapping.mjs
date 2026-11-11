@@ -1,6 +1,8 @@
 // Pure mappers from YouTrack CLI JSON to the plugin's UI models.
 // Output is strict JSON: absent values are omitted, never set to undefined.
 
+import { columnKey } from './query.mjs'
+
 /** @typedef {{ name: string, color?: string }} Value */
 /** @typedef {{ login: string, fullName: string }} User */
 /** @typedef {{ id: string, author: User, created: number, textMd: string }} Comment */
@@ -43,7 +45,15 @@ function issueUrl(baseUrl, id) {
  * @param {string} baseUrl
  * @returns {IssueRow}
  */
-export function toIssueRow(raw, baseUrl) {
+/** A column cell stays one short line. */
+const MAX_CELL = 120
+
+/**
+ * @param {any} raw
+ * @param {string} baseUrl
+ * @param {string[]} [columns] custom fields to show as columns; each becomes `fields[columnKey(name)]`
+ */
+export function toIssueRow(raw, baseUrl, columns) {
   const id = text(raw?.idReadable)
   /** @type {IssueRow} */
   const row = {
@@ -60,6 +70,17 @@ export function toIssueRow(raw, baseUrl) {
   if (priority) row.priority = priority
   const assignee = toUser(fieldValue(raw, 'Assignee'))
   if (assignee) row.assignee = assignee
+  if (columns?.length) {
+    const list = Array.isArray(raw?.customFields) ? raw.customFields : []
+    const fields = {}
+    for (const name of columns) {
+      const key = columnKey(name)
+      const field = list.find((f) => typeof f?.name === 'string' && columnKey(f.name) === key)
+      const value = field ? fieldText(field.value, String(field.$type ?? '')) : ''
+      if (value) fields[key] = value.length <= MAX_CELL ? value : `${value.slice(0, MAX_CELL - 1).replace(/[\ud800-\udbff]$/, '')}\u2026`
+    }
+    row.fields = fields
+  }
   return row
 }
 

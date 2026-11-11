@@ -57,6 +57,13 @@
         "default": "for: me #Unresolved"
       },
       {
+        "key": "columns",
+        "title": "Issue list columns",
+        "description": "Fields shown as columns between Summary and Created, separated by commas, such as \"State, Priority, Assignee, Fix versions\" (at most 8). A field no listed issue has a value for is left out.",
+        "type": "string",
+        "default": "State, Priority, Assignee"
+      },
+      {
         "key": "branchTemplate",
         "title": "Branch name template",
         "description": "Name of the new workspace and branch.",

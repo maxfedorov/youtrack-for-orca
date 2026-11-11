@@ -14,6 +14,7 @@ const issue = (n: number, over: Record<string, unknown> = {}) => ({
   updated: 1_700_000_000_000 + n,
   resolved: false,
   url: `https://main.example.com/issue/DEMO-${n}`,
+  fields: { 'field:state': 'Open', 'field:priority': 'Major', 'field:assignee': 'Jane Doe' },
   ...over
 })
 const env = (over: Record<string, unknown> = {}) =>
@@ -428,12 +429,14 @@ test('the table scrolls sideways instead of hiding columns that have values', as
   const host = mockHost({ requests: requests() })
   const view = await mount(panel, { host })
   const columns = view.find(table).props.columns
-  assert.deepEqual(columns.map((c: any) => c.key), ['id', 'summary', 'state', 'priority', 'assignee', 'created', 'updated'])
+  assert.deepEqual(columns.map((c: any) => c.key), ['id', 'summary', 'field:state', 'field:priority', 'field:assignee', 'created', 'updated'])
+  assert.deepEqual(columns.map((c: any) => c.label), ['ID', 'Summary', 'State', 'Priority', 'Assignee', 'Created', 'Updated'])
   assert.ok(columns.every((c: any) => c.hideBelow === undefined))
   const outer = view.find({ type: 'Box', testId: 'table-scroll' })
   const inner = view.find({ type: 'Box', testId: 'table-width' })
   assert.equal(outer.props.scroll, 'x')
-  assert.equal(inner.props.minWidth, 840)
+  // 3 x 96 (ID, Created, Updated) + 144 (Summary) + 3 x 144 (custom fields) + 24
+  assert.equal(inner.props.minWidth, 888)
   const within = (outer: any, node: any) => JSON.stringify(node.path).startsWith(JSON.stringify(outer.path).slice(0, -1))
   assert.ok(within(outer, inner))
   assert.ok(within(inner, view.find(table)))
@@ -441,19 +444,16 @@ test('the table scrolls sideways instead of hiding columns that have values', as
 })
 
 test('columns no loaded issue has a value for are left out, unless the list is sorted by them', async () => {
-  const bare = (n: number) => {
-    const { state: _s, priority: _p, assignee: _a, ...rest } = issue(n)
-    return rest
-  }
-  const host = mockHost({ requests: requests({ 'yt.issues.search': ok({ issues: [bare(1), { ...bare(2), priority: { name: 'Major' } }], hasMore: false, total: 2 }) }) })
+  const bare = (n: number, fields: Record<string, string> = {}) => issue(n, { fields })
+  const host = mockHost({ requests: requests({ 'yt.issues.search': ok({ issues: [bare(1), bare(2, { 'field:priority': 'Major' })], hasMore: false, total: 2 }) }) })
   const view = await mount(panel, { host })
-  assert.deepEqual(view.find(table).props.columns.map((c: any) => c.key), ['id', 'summary', 'priority', 'created', 'updated'])
+  assert.deepEqual(view.find(table).props.columns.map((c: any) => c.key), ['id', 'summary', 'field:priority', 'created', 'updated'])
   // 3 x 96 + 144 + 144 + 24
   assert.equal(view.find({ type: 'Box', testId: 'table-width' }).props.minWidth, 600)
   // a query sorted by State keeps its column, so the sort shows
   await view.type({ label: 'Query' }, 'for: me sort by: State asc', { replace: true, submit: true })
   await view.settled()
-  assert.ok(view.find(table).props.columns.some((c: any) => c.key === 'state'))
+  assert.ok(view.find(table).props.columns.some((c: any) => c.key === 'field:state'))
   await view.unmount()
 })
 
@@ -469,5 +469,18 @@ test('a query left empty runs by itself; emptied and typed anew it does not', as
   await view.settled()
   assert.equal(calls(host, 'yt.issues.search').length, before + 1)
   assert.equal(calls(host, 'yt.issues.search').at(-1).input.query, '')
+  await view.unmount()
+})
+
+test('the columns follow the answer: the fields the setting names, in its order, sorted by their field', async () => {
+  const rows = [issue(1, { fields: { 'field:fix versions': '2.0', 'field:state': 'Open' } })]
+  const host = mockHost({ requests: requests({ 'yt.issues.search': ok({ issues: rows, hasMore: false, total: 1, columns: ['Fix versions', 'State'] }) }) })
+  const view = await mount(panel, { host })
+  const grid = view.find(table)
+  assert.deepEqual(grid.props.columns.map((c: any) => c.label), ['ID', 'Summary', 'Fix versions', 'State', 'Created', 'Updated'])
+  assert.equal(grid.props.rows[0].cells['field:fix versions'], '2.0')
+  await view.sort(grid, 'field:fix versions')
+  await view.settled()
+  assert.match(calls(host, 'yt.issues.search').at(-1).input.query, /sort by: \{Fix versions\} asc$/)
   await view.unmount()
 })

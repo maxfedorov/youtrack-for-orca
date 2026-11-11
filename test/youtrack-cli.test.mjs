@@ -304,3 +304,10 @@ test('output past the buffer limit is too large, not a timeout; an unrunnable CL
   const cli = createOrcaCli({ run: async () => ({ exitCode: null, stdout: '', stderr: '', timedOut: false, tooLarge: true }) })
   assert.deepEqual(await cli.repos(), { ok: false, error: { code: 'ORCA_CLI_FAILED', message: 'The Orca CLI answered with more data than the plugin can read.' } })
 })
+
+test('listIssues reads the column fields after the fixed ones', async () => {
+  const run = fakeRun({ '--server work issue list': { stdout: '[]' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  await yt.listIssues('work', 'q', 0, 5, ['Fix versions', 'State'])
+  assert.equal(run.calls[0].args[run.calls[0].args.indexOf('--fields') + 1], 'idReadable,summary,created,updated,resolved,State,Priority,Assignee,Fix versions')
+})
