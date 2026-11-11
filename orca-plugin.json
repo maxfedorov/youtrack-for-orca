@@ -151,7 +151,7 @@
     },
     {
       "path": "images/issue-detail.png",
-      "alt": "The detail of an issue: its fields, description and comments, with Apply command and Add comment",
+      "alt": "The detail of an issue: creator, tags, Apply command, fields, description, linked issues and comments",
       "caption": "Issue details, commands and comments"
     },
     {

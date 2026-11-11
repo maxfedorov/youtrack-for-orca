@@ -9,7 +9,7 @@ This is an unofficial plugin.
 
 | Issue details | Start work on an issue |
 | --- | --- |
-| ![The detail of an issue: its fields, description and comments, with Apply command and Add comment](images/issue-detail.png) | ![The Start view: Run in New worktree, project, name, Create from, workspace, agent, the prompt switches, template and the editable prompt](images/start.png) |
+| ![The detail of an issue: creator, tags, Apply command, fields, description, linked issues and comments](images/issue-detail.png) | ![The Start view: Run in New worktree, project, name, Create from, workspace, agent, the prompt switches, template and the editable prompt](images/start.png) |
 
 ## Install
 
