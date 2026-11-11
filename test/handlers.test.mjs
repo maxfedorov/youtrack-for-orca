@@ -1,4 +1,5 @@
 import { test, assert } from 'orca/testing'
+import { readFileSync } from 'node:fs'
 import { registerHandlers } from '../worker/handlers.mjs'
 import { createLinkStore, createLaunchTracker } from '../worker/links.mjs'
 import { createStateStore } from '../worker/state.mjs'
@@ -886,4 +887,18 @@ test('issues.search reads only the custom fields of the columns setting, not the
   const r = await call('yt.issues.search', { server: 'one', query: 'q', offset: 0, limit: 5 })
   assert.deepEqual(r.data.columns, ['Created', 'State', 'Updated'])
   assert.deepEqual(seen[0][4], ['State'])
+})
+
+test('settings.reset writes every declared setting back to its manifest default', async () => {
+  const { SETTING_DEFAULTS } = await import('../worker/handlers/settings.mjs')
+  const manifest = JSON.parse(readFileSync(new URL('../orca-plugin.json', import.meta.url), 'utf8'))
+  assert.deepEqual(SETTING_DEFAULTS, Object.fromEntries(manifest.contributes.settings.map((s) => [s.key, s.default])))
+  const { call, orca } = setup({ settings: { columns: 'State', defaultAgent: 'codex' } })
+  assert.deepEqual(await call('yt.settings.reset', {}), ok({}))
+  assert.equal(await orca.settings.get('columns'), SETTING_DEFAULTS.columns)
+  assert.equal(await orca.settings.get('defaultAgent'), 'claude')
+  orca.settings.set = async (key) => {
+    if (key === 'columns') throw new Error('denied')
+  }
+  assert.deepEqual(await call('yt.settings.reset', {}), fail('UNKNOWN', 'Some settings could not be reset: columns'))
 })

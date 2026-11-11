@@ -251,3 +251,17 @@ test('Clear empties the template text, and an empty template cannot be saved', a
   clean(view)
   await view.unmount()
 })
+
+test('Reset all settings to defaults asks first, then resets them', async () => {
+  const host = settingsHost({ 'yt.settings.reset': ok({}) })
+  const view = await openSettings(host)
+  await view.press({ role: 'button', text: 'Reset all settings to defaults' })
+  assert.equal(calls(host, 'yt.settings.reset').length, 0)
+  await view.press({ role: 'button', text: 'Cancel' })
+  await view.press({ role: 'button', text: 'Reset all settings to defaults' })
+  await view.press({ role: 'button', text: 'Reset' })
+  assert.equal(calls(host, 'yt.settings.reset').length, 1)
+  assert.ok(view.find({ text: 'Settings reset.' }))
+  clean(view)
+  await view.unmount()
+})

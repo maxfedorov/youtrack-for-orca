@@ -46,8 +46,9 @@ now, run `orca plugin update maxfedorov.youtrack-for-orca`. **Remove:** Settings
    **Start**. Orca creates the worktree and starts the agent there; the issue then offers **Open →**,
    and you get a notification when the agent finishes.
 5. **Tune it:** Orca's Settings → Plugins → YouTrack for Orca holds the defaults (query, columns,
-   branch name, agent, where to run, prompt options). The gear in the panel manages prompt templates
-   and each server's default Orca project.
+   branch name, agent, where to run, prompt options), each with a Reset once changed. The gear in the
+   panel manages prompt templates and each server's default Orca project, and resets all the settings
+   at once.
 
 ## Requirements
 

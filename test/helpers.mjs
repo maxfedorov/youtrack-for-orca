@@ -59,7 +59,7 @@ export function fakeOrca({ host = {}, settings = {}, storage = {} } = {}) {
         return typeof r === 'function' ? r(params) : r
       },
     },
-    settings: { get: async (key) => settings[key] },
+    settings: { get: async (key) => settings[key], set: async (key, value) => void (settings[key] = value) },
     storage: fakeStorage(storage),
     handlers,
     posts,

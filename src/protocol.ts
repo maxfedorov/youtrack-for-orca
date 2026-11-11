@@ -112,6 +112,8 @@ declare module 'orca' {
     'yt.issue.command': { input: { server: string; id: string; command: string }; output: Result<Record<string, never>> }
     /** Adds a comment to the issue, with the server's default visibility; text <= 10000 characters. */
     'yt.issue.comment': { input: { server: string; id: string; text: string }; output: Result<Record<string, never>> }
+    /** Puts every setting of the plugin back to its default. */
+    'yt.settings.reset': { input: Record<string, never>; output: Result<Record<string, never>> }
     'yt.savedQueries': { input: { server: string }; output: Result<SavedQuery[]> }
     /** name <= 60 characters. */
     'yt.savedQueries.create': { input: { server: string; name: string; query: string }; output: Result<SavedQuery> }
