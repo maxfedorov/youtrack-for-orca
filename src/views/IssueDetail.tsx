@@ -6,6 +6,7 @@ import { call, goBack, refreshTick, server, view } from '../state'
 import { openInBrowser, openLinked, openWorkspace, start } from './IssueRowActions'
 import { CommandBar, onCommandApplied } from './CommandBar'
 import { CommentBox } from './CommentBox'
+import { IssueRelations } from './IssueRelations'
 import type { IssueComments, IssueDetail as Detail } from '../protocol'
 
 type Status = 'idle' | 'loading' | 'ok' | 'error'
@@ -225,6 +226,7 @@ function Body({ issue }: { issue: Detail }) {
           ))}
         </Row>
       ) : null}
+      <IssueRelations issue={issue} />
       <CommandBar id={issue.id} />
       {issue.truncated || issue.commentsOmitted ? (
         <Callout tone="neutral">
