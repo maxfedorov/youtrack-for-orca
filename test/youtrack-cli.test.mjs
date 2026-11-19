@@ -316,3 +316,17 @@ test('listIssues reads the column fields after the fixed ones', async () => {
   await yt.listIssues('work', 'q', 0, 5, ['Fix versions', 'State'])
   assert.equal(run.calls[0].args[run.calls[0].args.indexOf('--fields') + 1], 'idReadable,summary,created,updated,resolved,State,Priority,Assignee,Fix versions')
 })
+
+test('updateIssue sends the summary as one argument and the description on standard input', async () => {
+  const run = fakeRun({ '--server work issue update': { stdout: '{}' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.updateIssue('work', 'DEMO-1', { summary: '-not a flag', description: '--x\nline' }), { ok: true, data: {} })
+  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'update', '--summary=-not a flag', '--description-file', '-', '--json', '--quiet', '--', 'DEMO-1'])
+  assert.equal(run.calls[0].opts.input, '--x\nline')
+  assert.equal(run.calls[0].opts.timeoutMs, 30_000)
+  await yt.updateIssue('work', 'DEMO-1', { summary: 'Only this' })
+  assert.deepEqual(run.calls[1].args, ['--server', 'work', 'issue', 'update', '--summary=Only this', '--json', '--quiet', '--', 'DEMO-1'])
+  await yt.updateIssue('work', 'DEMO-1', { description: '' })
+  assert.deepEqual(run.calls[2].args, ['--server', 'work', 'issue', 'update', '--description-file', '-', '--json', '--quiet', '--', 'DEMO-1'])
+  assert.equal(run.calls[2].opts.input, '')
+})

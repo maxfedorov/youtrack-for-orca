@@ -148,6 +148,17 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
     addComment: (server, id, text) =>
       exec(['--server', server, 'issue', 'comment', 'create', '--text-file', '-', ...tail, '--', id], WRITE_MS, () => ({}), { input: text }),
     /**
+     * Changes the summary, the description or both. The summary is one `--summary=` argument, so it is
+     * never read as a flag; the description goes through standard input ('' clears it).
+     */
+    updateIssue: (server, id, { summary, description }) => {
+      const args = ['--server', server, 'issue', 'update']
+      if (summary !== undefined) args.push(`--summary=${summary}`)
+      if (description !== undefined) args.push('--description-file', '-')
+      const extra = description !== undefined ? { input: description } : {}
+      return exec([...args, ...tail, '--', id], WRITE_MS, () => ({}), extra)
+    },
+    /**
      * Removes a configured server from the CLI, which signs it out; after `--`, so an alias starting
      * with a dash is not read as a flag. `--force` skips the CLI's own confirmation (the panel asks).
      * `warning`: what the CLI warned about, such as a token left in the keyring.

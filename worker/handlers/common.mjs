@@ -5,6 +5,10 @@ export const ISSUE_ID = /^[A-Za-z0-9_]+-\d+$/
 export const MAX_QUERY = 2000
 export const MAX_NAME = 60
 export const MAX_COMMAND = 500
+/** Longest summary: YouTrack keeps one line of text. */
+export const MAX_SUMMARY = 255
+/** Longest description the panel can write; it also has to fit the Markdown limit when drawn. */
+export const MAX_NEW_DESCRIPTION = 60_000
 /** Longest comment the panel can add. */
 export const MAX_NEW_COMMENT = 10_000
 const MAX_TOKEN = 500

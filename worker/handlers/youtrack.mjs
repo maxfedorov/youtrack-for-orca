@@ -2,7 +2,7 @@
 import { ok, fail, CODES } from '../result.mjs'
 import { customFields, parseColumns } from '../query.mjs'
 import { toIssueRow, toIssueDetail, toComments, toLinks, toSavedQuery, toSavedQueries, toServers } from '../mapping.mjs'
-import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, MAX_COMMAND, MAX_NEW_COMMENT, isPlainUrl, normalizeUrl, settingString, capDetail, attempt, fallback, readSetting, INSTALL } from './common.mjs'
+import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, MAX_COMMAND, MAX_NEW_COMMENT, MAX_SUMMARY, MAX_NEW_DESCRIPTION, isPlainUrl, normalizeUrl, settingString, capDetail, attempt, fallback, readSetting, INSTALL } from './common.mjs'
 
 const MAX_LIMIT = 50
 const MAX_WINDOW = 500
@@ -155,6 +155,28 @@ export function registerYoutrackHandlers(ctx) {
     const s = await resolveServer(server)
     if (!s.ok) return s
     const r = await ctx.youtrack.addComment(s.data.alias, id, body)
+    return r.ok ? ok({}) : r
+  })
+
+  handle('yt.issue.update', async ({ server, id, summary, description }) => {
+    if (typeof id !== 'string' || !ISSUE_ID.test(id)) return invalid('Invalid issue id')
+    if (summary === undefined && description === undefined) return invalid('Nothing to change')
+    const change = {}
+    if (summary !== undefined) {
+      const text = typeof summary === 'string' ? summary.trim() : ''
+      if (!text) return invalid('Enter a summary')
+      if (/[\r\n]/.test(text)) return invalid('A summary is one line')
+      if (text.length > MAX_SUMMARY) return invalid(`A summary is at most ${MAX_SUMMARY} characters`)
+      change.summary = text
+    }
+    if (description !== undefined) {
+      if (typeof description !== 'string') return invalid('Invalid description')
+      if (description.length > MAX_NEW_DESCRIPTION) return invalid(`A description is at most ${MAX_NEW_DESCRIPTION} characters`)
+      change.description = description
+    }
+    const s = await resolveServer(server)
+    if (!s.ok) return s
+    const r = await ctx.youtrack.updateIssue(s.data.alias, id, change)
     return r.ok ? ok({}) : r
   })
 

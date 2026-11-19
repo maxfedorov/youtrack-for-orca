@@ -110,6 +110,8 @@ declare module 'orca' {
     'yt.issue.comments': { input: { server: string; id: string }; output: Result<IssueComments> }
     /** Applies a YouTrack command such as "State Done" to the issue; command <= 500 characters. */
     'yt.issue.command': { input: { server: string; id: string; command: string }; output: Result<Record<string, never>> }
+    /** Changes the summary (one line, <= 255) and/or the description (<= 60000; '' clears it). */
+    'yt.issue.update': { input: { server: string; id: string; summary?: string; description?: string }; output: Result<Record<string, never>> }
     /** Adds a comment to the issue, with the server's default visibility; text <= 10000 characters. */
     'yt.issue.comment': { input: { server: string; id: string; text: string }; output: Result<Record<string, never>> }
     /** Puts every setting of the plugin back to its default. */

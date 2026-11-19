@@ -24,7 +24,8 @@ export function onCommandApplied(reload: (id: string) => unknown): void {
   reloadDetail = reload
 }
 
-async function refreshAfter(alias: string, id: string): Promise<void> {
+/** After a change to an issue: reloads the list and links of that server and the issue's open detail. */
+export async function refreshIssue(alias: string, id: string): Promise<void> {
   if (read(server) !== alias) return
   const current = read(view)
   const work: unknown[] = []
@@ -50,7 +51,7 @@ async function apply(id: string): Promise<void> {
     patch(key, { busy: false, error: answer.message })
     return
   }
-  await refreshAfter(alias, id)
+  await refreshIssue(alias, id)
 }
 
 /**

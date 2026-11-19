@@ -941,3 +941,15 @@ test('links also match live workspaces by the issue id in their branch', async (
   const fresh = await setup({ host: { 'workspace.list': { workspaces: ws, truncated: false } } }).call('yt.links', { server: 'one' })
   assert.equal(fresh.data['DEMO-7'], 'identity:d7')
 })
+
+test('issue.update checks the summary and description before it writes', async () => {
+  const updates = []
+  const { call } = setup({ yt: fakeYt({ updateIssue: async (...a) => (updates.push(a), ok({})) }) })
+  for (const bad of [{}, { summary: '' }, { summary: '  ' }, { summary: 'a\nb' }, { summary: 'x'.repeat(256) }, { summary: 7 }, { description: 'x'.repeat(60_001) }, { description: null }]) {
+    assert.equal((await call('yt.issue.update', { server: 'one', id: 'DEMO-1', ...bad })).ok, false, JSON.stringify(bad).slice(0, 40))
+  }
+  assert.equal((await call('yt.issue.update', { server: 'one', id: 'bad id', summary: 'x' })).ok, false)
+  assert.equal(updates.length, 0)
+  assert.deepEqual(await call('yt.issue.update', { server: 'one', id: 'DEMO-1', summary: '  New  ', description: '' }), { ok: true, data: {} })
+  assert.deepEqual(updates[0], ['one', 'DEMO-1', { summary: 'New', description: '' }])
+})
