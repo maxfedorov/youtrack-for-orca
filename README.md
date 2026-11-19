@@ -78,8 +78,8 @@ seen less use.
   press each.
 - **This workspace**: the issue of the focused workspace shows above the list, one press from its
   details: the issue the plugin started there, or the one its branch is named after (`demo-42-fix`,
-  `feature/DEMO-42`). A workspace whose branch names an issue also gives that issue **Open →**, even when
-  the plugin did not create it.
+  `feature/DEMO-42`). A workspace whose branch names an issue of one of the server's projects also gives
+  that issue **Open →**, even when the plugin did not create it (unless it was started for another server).
 - Star button (☆) to save the current query as a saved search.
 - Columns sort when you press their header. After ID and Summary come the columns of the *Issue list
   columns* setting, in its order: custom fields and the Created and Updated dates (State, Priority,
@@ -163,8 +163,8 @@ everything that talks to YouTrack goes through the CLI.
   data, not instructions. The description goes into the prompt only when the switch is on or the
   template contains `{{description}}`, and always inside a block marked untrusted.
 - The "when the agent finishes" steps are written by the plugin from the issue id, the server alias
-  and names from the project's own value lists; names with quotes, `$`, backticks, braces or line breaks
-  are not offered.
+  and names from the project's own value lists, each in single quotes; only names made of letters,
+  digits, spaces and `_ . -` are offered.
 
 ## Settings
 
