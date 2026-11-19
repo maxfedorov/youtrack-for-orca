@@ -355,3 +355,20 @@ test('setField puts the field and value after --, with the user type for users a
   assert.deepEqual(run.calls[2].args, ['--server', 'work', 'issue', 'field', 'set', '--clear', '--json', '--quiet', '--', 'DEMO-1', 'Assignee'])
   assert.equal(run.calls[0].opts.timeoutMs, 30_000)
 })
+
+test('createIssue sends the summary as one argument, the fields as JSON and the description on standard input', async () => {
+  const run = fakeRun({ '--server work issue create': { stdout: '{"idReadable":"DEMO-9"}' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  const r = await yt.createIssue('work', { project: 'DEMO', summary: '-x', description: '--body', fields: { Severity: 'Low' } })
+  assert.deepEqual(r, { ok: true, data: { id: 'DEMO-9' } })
+  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'create', '--project', 'DEMO', '--summary=-x', '--description-file', '-', '--custom-fields={"Severity":"Low"}', '--json', '--quiet'])
+  assert.equal(run.calls[0].opts.input, '--body')
+  await yt.createIssue('work', { project: 'DEMO', summary: 'S', description: '', fields: {} })
+  assert.deepEqual(run.calls[1].args, ['--server', 'work', 'issue', 'create', '--project', 'DEMO', '--summary=S', '--description-file', '-', '--json', '--quiet'])
+})
+
+test('listProjects answers short names and names', async () => {
+  const run = fakeRun({ '--server work project list': { stdout: '[{"shortName":"DEMO","name":"Demo","id":"0-0","leader":{}},{"name":"no key"}]' } })
+  const r = await createYoutrack({ bin: 'youtrack', run }).listProjects('work')
+  assert.deepEqual(r.data, [{ shortName: 'DEMO', name: 'Demo' }])
+})

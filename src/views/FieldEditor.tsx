@@ -7,14 +7,13 @@ import type { IssueDetail, ProjectField } from '../protocol'
 /** Option value of "No value" (an option cannot have an empty value). */
 const CLEAR = '__clear__'
 
-type Meta = { status: 'loading' | 'ok' | 'error'; fields: ProjectField[]; error: string }
+export type Meta = { status: 'loading' | 'ok' | 'error'; fields: ProjectField[]; error: string }
 /** The fields of each project, by `server|project`, read once when a field is first changed. */
 const metas = atom<Record<string, Meta>>({})
 /** The field being changed, on which issue (`server|id`); null when none. */
 const picking = atom<{ key: string; field: string; busy: boolean; error: string } | null>(null)
 
 const issueKey = (issue: IssueDetail) => `${read(server) ?? ''}|${issue.id}`
-const metaKey = (issue: IssueDetail) => `${read(server) ?? ''}|${issue.project.shortName}`
 
 /** Forgets what was read, so the next change reads the project's fields again. */
 export function resetFieldEditor(): void {
@@ -22,13 +21,17 @@ export function resetFieldEditor(): void {
   set(metas, {})
 }
 
-async function loadMeta(issue: IssueDetail): Promise<void> {
+/** What is known about the fields of a project of the selected server; undefined until asked. */
+export const projectMeta = (project: string): Meta | undefined => read(metas)[`${read(server) ?? ''}|${project}`]
+
+/** Reads the fields of a project once; a failure is kept, so the screens can say why. */
+export async function loadProjectFields(project: string): Promise<void> {
   const alias = read(server)
-  const key = metaKey(issue)
+  const key = `${alias ?? ''}|${project}`
   const known = read(metas)[key]
   if (!alias || known?.status === 'loading' || known?.status === 'ok') return
   update(metas, (all) => ({ ...all, [key]: { status: 'loading', fields: [], error: '' } }))
-  const answer = await call('yt.project.fields', { server: alias, project: issue.project.shortName })
+  const answer = await call('yt.project.fields', { server: alias, project })
   update(metas, (all) => ({
     ...all,
     [key]: answer.ok ? { status: 'ok', fields: answer.data.fields, error: '' } : { status: 'error', fields: [], error: answer.message }
@@ -37,7 +40,7 @@ async function loadMeta(issue: IssueDetail): Promise<void> {
 
 function pick(issue: IssueDetail, field: string): void {
   set(picking, { key: issueKey(issue), field, busy: false, error: '' })
-  void loadMeta(issue)
+  void loadProjectFields(issue.project.shortName)
 }
 
 async function choose(issue: IssueDetail, field: string, value: string): Promise<void> {
@@ -57,7 +60,7 @@ async function choose(issue: IssueDetail, field: string, value: string): Promise
 
 function Picker({ issue, name, value }: { issue: IssueDetail; name: string; value: string }) {
   const p = read(picking)
-  const meta = read(metas)[metaKey(issue)]
+  const meta = projectMeta(issue.project.shortName)
   const field = meta?.fields.find((f) => f.name === name)
   let body
   if (!meta || meta.status === 'loading') {

@@ -9,6 +9,17 @@ const MAX_LIMIT = 50
 /** A YouTrack project short name, as it starts an issue id. */
 export const PROJECT = /^[A-Za-z][A-Za-z0-9_]{0,63}$/
 const projectOf = (id) => id.slice(0, id.lastIndexOf('-'))
+/** Fields set when an issue is created, at most. */
+const MAX_NEW_FIELDS = 20
+
+/** The summary trimmed, or the reason it cannot be used. */
+function checkSummary(summary) {
+  const text = typeof summary === 'string' ? summary.trim() : ''
+  if (!text) return { error: 'Enter a summary' }
+  if (/[\r\n]/.test(text)) return { error: 'A summary is one line' }
+  if (text.length > MAX_SUMMARY) return { error: `A summary is at most ${MAX_SUMMARY} characters` }
+  return { text }
+}
 const MAX_WINDOW = 500
 const COMMENTS_FAILED = 'Comments could not be loaded.'
 const TOKEN_KEPT = 'The server was removed, but its sign-in token may still be stored in the system keyring:'
@@ -189,16 +200,46 @@ export function registerYoutrackHandlers(ctx) {
     return r.ok ? ok({}) : r
   })
 
+  handle('yt.projects', async ({ server }) => {
+    const s = await resolveServer(server)
+    if (!s.ok) return s
+    const r = await ctx.youtrack.listProjects(s.data.alias)
+    return r.ok ? ok({ projects: r.data }) : r
+  })
+
+  // Runs only when Create is pressed; every field and value must be one the project offers.
+  handle('yt.issue.create', async ({ server, project, summary, description = '', fields = {} }) => {
+    if (typeof project !== 'string' || !PROJECT.test(project)) return invalid('Invalid project')
+    const checked = checkSummary(summary)
+    if (checked.error) return invalid(checked.error)
+    if (typeof description !== 'string' || description.length > MAX_NEW_DESCRIPTION) return invalid(`A description is at most ${MAX_NEW_DESCRIPTION} characters`)
+    if (!fields || typeof fields !== 'object' || Array.isArray(fields)) return invalid('Invalid fields')
+    const entries = Object.entries(fields)
+    if (entries.length > MAX_NEW_FIELDS) return invalid(`At most ${MAX_NEW_FIELDS} fields can be set`)
+    const s = await resolveServer(server)
+    if (!s.ok) return s
+    if (entries.length > 0) {
+      const meta = await ctx.youtrack.projectFields(s.data.alias, project)
+      if (!meta.ok) return meta
+      const known = toProjectFields(meta.data)
+      for (const [name, value] of entries) {
+        const field = known.find((f) => f.name === name)
+        if (!field || !pickable(field)) return invalid(`${name} cannot be set here`)
+        if (typeof value !== 'string' || !field.values.some((v) => v.name === value)) return invalid(`${String(value)} is not a value of ${name}`)
+      }
+    }
+    const r = await ctx.youtrack.createIssue(s.data.alias, { project, summary: checked.text, description, fields: Object.fromEntries(entries) })
+    return r.ok ? ok({ id: r.data.id }) : r
+  })
+
   handle('yt.issue.update', async ({ server, id, summary, description }) => {
     if (typeof id !== 'string' || !ISSUE_ID.test(id)) return invalid('Invalid issue id')
     if (summary === undefined && description === undefined) return invalid('Nothing to change')
     const change = {}
     if (summary !== undefined) {
-      const text = typeof summary === 'string' ? summary.trim() : ''
-      if (!text) return invalid('Enter a summary')
-      if (/[\r\n]/.test(text)) return invalid('A summary is one line')
-      if (text.length > MAX_SUMMARY) return invalid(`A summary is at most ${MAX_SUMMARY} characters`)
-      change.summary = text
+      const checked = checkSummary(summary)
+      if (checked.error) return invalid(checked.error)
+      change.summary = checked.text
     }
     if (description !== undefined) {
       if (typeof description !== 'string') return invalid('Invalid description')

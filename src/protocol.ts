@@ -118,6 +118,13 @@ declare module 'orca' {
     'yt.issue.comments': { input: { server: string; id: string }; output: Result<IssueComments> }
     /** Applies a YouTrack command such as "State Done" to the issue; command <= 500 characters. */
     'yt.issue.command': { input: { server: string; id: string; command: string }; output: Result<Record<string, never>> }
+    /** The projects of the server the account can see (at most 500). */
+    'yt.projects': { input: { server: string }; output: Result<{ projects: { shortName: string; name: string }[] }> }
+    /** Creates an issue with fields from its project's value lists (field name -> value, at most 20). */
+    'yt.issue.create': {
+      input: { server: string; project: string; summary: string; description?: string; fields?: Record<string, string> }
+      output: Result<{ id: string }>
+    }
     /** The custom fields of a project with the values they offer. */
     'yt.project.fields': { input: { server: string; project: string }; output: Result<{ fields: ProjectField[] }> }
     /** Sets a single-value field to one of its project's values; null empties a field that may be empty. */

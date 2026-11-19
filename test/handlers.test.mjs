@@ -988,3 +988,32 @@ test('issue.setField writes only values the project offers for a single-value fi
   assert.equal((await set('Priority', 'Major', 'not an id')).ok, false)
   assert.equal(sets.length, count)
 })
+
+test('issue.create checks project, summary and fields against the project before it writes', async () => {
+  const made = []
+  const { call } = setup({
+    yt: fakeYt({ projectFields: async () => ok(PROJECT_FIELDS), createIssue: async (...a) => (made.push(a), ok({ id: 'DEMO-77' })) })
+  })
+  const create = (over) => call('yt.issue.create', { server: 'one', project: 'DEMO', summary: 'New', description: 'Body', fields: {}, ...over })
+  for (const bad of [{ project: '-x' }, { summary: '' }, { summary: 'a\nb' }, { description: 'x'.repeat(60_001) }, { fields: { Priority: 'Blocker' } },
+    { fields: { Sprints: '1' } }, { fields: { Nope: 'x' } }, { fields: 'x' }, { fields: Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`F${i}`, 'x'])) }]) {
+    assert.equal((await create(bad)).ok, false, JSON.stringify(bad).slice(0, 50))
+  }
+  assert.equal(made.length, 0)
+  const r = await create({ summary: '  New one ', fields: { Priority: 'Minor', Assignee: 'jane' } })
+  assert.deepEqual(r, { ok: true, data: { id: 'DEMO-77' } })
+  assert.deepEqual(made[0], ['one', { project: 'DEMO', summary: 'New one', description: 'Body', fields: { Priority: 'Minor', Assignee: 'jane' } }])
+})
+
+test('issue.create works without the project fields when there are none to set', async () => {
+  const made = []
+  const { call } = setup({ yt: fakeYt({ projectFields: async () => fail('FORBIDDEN', 'HTTP 403'), createIssue: async (...a) => (made.push(a), ok({ id: 'DEMO-1' })) }) })
+  assert.equal((await call('yt.issue.create', { server: 'one', project: 'DEMO', summary: 'S' })).ok, true)
+  assert.deepEqual(made[0][1], { project: 'DEMO', summary: 'S', description: '', fields: {} })
+  assert.equal((await call('yt.issue.create', { server: 'one', project: 'DEMO', summary: 'S', fields: { Priority: 'Minor' } })).error.message, 'HTTP 403')
+})
+
+test('projects lists the projects of a server', async () => {
+  const { call } = setup({ yt: fakeYt({ listProjects: async () => ok([{ shortName: 'DEMO', name: 'Demo' }]) }) })
+  assert.deepEqual((await call('yt.projects', { server: 'one' })).data, { projects: [{ shortName: 'DEMO', name: 'Demo' }] })
+})

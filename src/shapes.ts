@@ -180,6 +180,11 @@ const REPAIRS: Record<string, { core: Check; fix: (v: Obj) => unknown }> = {
       return out
     }
   },
+  'yt.projects': {
+    core: shape({ projects: Array.isArray }),
+    fix: (v) => ({ projects: (v.projects as unknown[]).filter((p): p is Obj => isObj(p) && id(p.shortName)).map((p) => ({ shortName: p.shortName, name: str(p.name) ? p.name : p.shortName })) })
+  },
+  'yt.issue.create': { core: shape({ id }), fix: (v) => ({ id: v.id }) },
   'yt.project.fields': {
     core: shape({ fields: Array.isArray }),
     fix: (v) => ({

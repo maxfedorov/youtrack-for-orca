@@ -149,6 +149,27 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
      */
     addComment: (server, id, text) =>
       exec(['--server', server, 'issue', 'comment', 'create', '--text-file', '-', ...tail, '--', id], WRITE_MS, () => ({}), { input: text }),
+    /** Projects the account can see, by short name. */
+    listProjects: (server) =>
+      read(server, ['project', 'list'], (s) =>
+        (JSON.parse(s) ?? [])
+          .filter((p) => typeof p?.shortName === 'string' && p.shortName)
+          .slice(0, 500)
+          .map((p) => ({ shortName: p.shortName, name: typeof p.name === 'string' ? p.name : p.shortName }))
+      ),
+    /**
+     * Creates an issue in one request, so workflows that require a field accept it: the summary is one
+     * `--summary=` argument, the fields one `--custom-fields=` JSON argument, the description on standard input.
+     */
+    createIssue: (server, { project, summary, description, fields }) => {
+      const args = ['--server', server, 'issue', 'create', '--project', project, `--summary=${summary}`, '--description-file', '-']
+      if (Object.keys(fields).length > 0) args.push(`--custom-fields=${JSON.stringify(fields)}`)
+      return exec([...args, ...tail], WRITE_MS, (s) => {
+        const id = JSON.parse(s)?.idReadable
+        if (typeof id !== 'string' || !id) throw new Error('no id')
+        return { id }
+      }, { input: description })
+    },
     /**
      * The custom fields of a project with their values. The CLI has no command that lists the values,
      * so this is the one read through `raw`: always GET, on a path built from a checked short name.
