@@ -381,3 +381,11 @@ test('updateSkill installs or updates the skill for the agents the CLI finds, an
   assert.deepEqual(run.calls[0].args, ['skill', 'update', '--json', '--quiet'])
   assert.equal(run.calls[0].opts.timeoutMs, 60_000)
 })
+
+test('projectFields can leave out the users, for a caller that needs only the state values', async () => {
+  const run = fakeRun({ '--server work raw': { stdout: '[]' } })
+  await createYoutrack({ bin: 'youtrack', run }).projectFields('work', 'DEMO', { users: false })
+  const fields = run.calls[0].args[run.calls[0].args.indexOf('--fields') + 1]
+  assert.equal(fields.includes('aggregatedUsers'), false)
+  assert.ok(fields.includes('bundle(values(name,archived,isResolved))'))
+})

@@ -112,7 +112,7 @@ export function registerStartHandlers(ctx) {
       attempt(() => ctx.youtrack.viewIssue(s.data.alias, id)),
       orcaCli ? attempt(() => orcaCli.repos()) : Promise.resolve(ok([])),
       attempt(async () => ok(await listWorkspaces())),
-      attempt(() => ctx.youtrack.projectFields(s.data.alias, projectOf(id)))
+      attempt(() => ctx.youtrack.projectFields(s.data.alias, projectOf(id), { users: false }))
     ])
     if (!view.ok) return view
     if (!hasId(view.data)) return unexpected()

@@ -45,6 +45,8 @@ export const prompt = atom('')
 export const finishComment = atom(false)
 /** The state the prompt asks the agent to set when done; '' for none. */
 export const finishState = atom('')
+/** The finish steps the prompt ends with now, so a change can replace them in a prompt edited by hand. */
+let appliedSuffix = ''
 export const promptEdited = atom(false)
 export const running = atom(false)
 export const runError = atom('')
@@ -87,7 +89,8 @@ const templateText = (p: StartPrepare, id: string | null) => (p.templates ?? [])
 
 export function templatePrompt(p: StartPrepare, include: boolean, id: string | null = read(templateId)): string {
   const vars = { ...EMPTY_VARS, ...p.vars }
-  const suffix = finishBlock({ server: vars.server, id: vars.id, comment: read(finishComment), stateField: p.finish?.stateField, state: read(finishState) })
+  const suffix = finishSuffix(p)
+  appliedSuffix = suffix
   return buildPrompt({ template: templateText(p, id), vars, includeDescription: include, description: vars.description, suffix })
 }
 
@@ -172,12 +175,25 @@ export function chooseRef(ref: string): void {
   set(baseBranch, ref)
 }
 
-/** A finish choice changed: the prompt is built again, unless it was edited by hand. */
+const finishSuffix = (p: StartPrepare) =>
+  finishBlock({ server: p.vars?.server ?? '', id: p.vars?.id ?? '', comment: read(finishComment), stateField: p.finish?.stateField, state: read(finishState) })
+
+/**
+ * A finish choice changed. A prompt built from the template is built again; in one edited by hand the
+ * old finish steps at its end are swapped for the new ones, so the switches always say what is sent.
+ */
 export function setFinish(next: { comment?: boolean; state?: string }): void {
   if (next.comment !== undefined) set(finishComment, next.comment)
   if (next.state !== undefined) set(finishState, next.state)
   const p = read(prep)
-  if (p && !read(promptEdited)) set(prompt, templatePrompt(p, read(includeDescription)))
+  if (!p) return
+  if (!read(promptEdited)) return set(prompt, templatePrompt(p, read(includeDescription)))
+  let text = read(prompt)
+  if (appliedSuffix && text.endsWith(`\n\n${appliedSuffix}`)) text = text.slice(0, -(appliedSuffix.length + 2))
+  else if (appliedSuffix && text === appliedSuffix) text = ''
+  const suffix = finishSuffix(p)
+  appliedSuffix = suffix
+  set(prompt, suffix ? (text ? `${text}\n\n${suffix}` : suffix) : text)
 }
 
 export function toggleDescription(include: boolean): void {

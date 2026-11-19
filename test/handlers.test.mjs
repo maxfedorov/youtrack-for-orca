@@ -1023,9 +1023,11 @@ test('start.prepare offers the finish options: the setting, the state field and 
   const meta = [
     { canBeEmpty: false, field: { name: 'Stage', fieldType: { id: 'state[1]' } }, bundle: { values: [{ name: 'Open' }, { name: 'In Review' }, { name: 'Bad"one' }] } }
   ]
-  const { call } = setup({ yt: fakeYt({ projectFields: async () => ok(meta) }), settings: { finishComment: true, finishState: 'In Review' } })
+  const asked = []
+  const { call } = setup({ yt: fakeYt({ projectFields: async (...a) => (asked.push(a), ok(meta)) }), settings: { finishComment: true, finishState: 'In Review' } })
   const r = await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
   assert.deepEqual(r.data.finish, { comment: true, state: 'In Review', stateField: 'Stage', states: ['Open', 'In Review'] })
+  assert.deepEqual(asked[0], ['one', 'DEMO', { users: false }])
   const denied = await setup({ yt: fakeYt({ projectFields: async () => fail('FORBIDDEN', 'x') }), settings: { finishState: 'Done' } }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
   assert.deepEqual(denied.data.finish, { comment: false, state: '', stateField: null, states: [] })
 })

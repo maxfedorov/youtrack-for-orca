@@ -124,8 +124,14 @@ export function buildPrompt({ template, vars, includeDescription, description = 
   return (block ? `${bare}\n\n${block}` : bare) + tail
 }
 
-/** A field or state name that can stand in the finish instructions as is: no quotes, `$`, braces or line breaks. */
-export const safeValue = (v) => typeof v === 'string' && v.length > 0 && v.length <= 100 && /^[^"$`\\{}\r\n]+$/.test(v)
+/**
+ * A field or state name that can stand, single-quoted, in the shell line the agent runs: letters, digits,
+ * spaces and `_ . -`, starting with a letter or digit (so never a flag).
+ */
+export const safeValue = (v) => typeof v === 'string' && v.length <= 100 && /^[\p{L}\p{N}][\p{L}\p{N} _.\-]*$/u.test(v)
+/** A server alias as the CLI names them. */
+const SAFE_ALIAS = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/
+const quoted = (v) => `'${v}'`
 
 /**
  * What the agent does when it is done: comment a summary, then set the state. Trusted text built by
@@ -134,11 +140,13 @@ export const safeValue = (v) => typeof v === 'string' && v.length > 0 && v.lengt
  */
 export function finishBlock({ server, id, comment, stateField, state }) {
   const steps = []
+  if (typeof server !== 'string' || !SAFE_ALIAS.test(server) || typeof id !== 'string' || !/^[A-Za-z0-9_]+-\d+$/.test(id)) return ''
+  const cli = `youtrack --server ${quoted(server)}`
   if (comment) {
-    steps.push(`- Add a comment to ${id} that sums up your work, with the text on standard input:\n  youtrack --server ${server} issue comment create --text-file - -- ${id}`)
+    steps.push(`- Add a comment to ${id} that sums up your work, with the text on standard input:\n  ${cli} issue comment create --text-file - -- ${id}`)
   }
   if (state && stateField && safeValue(state) && safeValue(stateField)) {
-    steps.push(`- ${steps.length ? 'Then set' : 'Set'} its ${stateField} to "${state}":\n  youtrack --server ${server} issue field set ${id} ${/\s/.test(stateField) ? `"${stateField}"` : stateField} "${state}"`)
+    steps.push(`- ${steps.length ? 'Then set' : 'Set'} its ${stateField} to "${state}":\n  ${cli} issue field set -- ${id} ${quoted(stateField)} ${quoted(state)}`)
   }
   return steps.length ? `When you are done:\n${steps.join('\n')}` : ''
 }

@@ -18,6 +18,8 @@ const listFields = (columns) => {
 const VIEW_FIELDS = 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText))'
 /** What the project field editor needs: kind, required, and the values of the field's bundle. */
 const PROJECT_FIELDS = 'canBeEmpty,emptyFieldText,field(name,fieldType(id)),bundle(values(name,archived,isResolved),aggregatedUsers(login,fullName))'
+/** The same without the users, which can be thousands: for callers that need only the state values. */
+const PROJECT_FIELDS_NO_USERS = 'canBeEmpty,emptyFieldText,field(name,fieldType(id)),bundle(values(name,archived,isResolved))'
 const CLI_ENV = Object.freeze({ YOUTRACK_NO_UPDATE: '1', NO_COLOR: '1' })
 
 /**
@@ -200,8 +202,8 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
      * The custom fields of a project with their values. The CLI has no command that lists the values,
      * so this is the one read through `raw`: always GET, on a path built from a checked short name.
      */
-    projectFields: (server, project) =>
-      exec(['--server', server, 'raw', '--method', 'GET', '--paginate', '--fields', PROJECT_FIELDS, ...tail, '--', `/api/admin/projects/${project}/customFields`], READ_MS, list),
+    projectFields: (server, project, { users = true } = {}) =>
+      exec(['--server', server, 'raw', '--method', 'GET', '--paginate', '--fields', users ? PROJECT_FIELDS : PROJECT_FIELDS_NO_USERS, ...tail, '--', `/api/admin/projects/${project}/customFields`], READ_MS, list),
     /** Sets one field of an issue, or empties it with `clear`; issue, field and value come after `--`. */
     setField: (server, id, field, { value, user = false, clear = false }) => {
       const args = ['--server', server, 'issue', 'field', 'set']
