@@ -13,7 +13,7 @@ import { createStatusBar, createFinishNotifier, refreshAfter } from './status.mj
 import { safePost } from './handlers/common.mjs'
 import { createContextWatcher } from './branch-issue.mjs'
 
-const REFRESHING = ['yt.setServer', 'yt.setQuery', 'yt.start.run', 'yt.runInExisting', 'yt.savedQueries.create', 'yt.issue.command', 'yt.issue.update', 'yt.servers.remove']
+const REFRESHING = ['yt.setServer', 'yt.setQuery', 'yt.start.run', 'yt.runInExisting', 'yt.savedQueries.create', 'yt.issue.command', 'yt.issue.update', 'yt.issue.setField', 'yt.servers.remove']
 let statusBar = null
 let notifier = null
 

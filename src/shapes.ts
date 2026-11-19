@@ -180,6 +180,19 @@ const REPAIRS: Record<string, { core: Check; fix: (v: Obj) => unknown }> = {
       return out
     }
   },
+  'yt.project.fields': {
+    core: shape({ fields: Array.isArray }),
+    fix: (v) => ({
+      fields: (v.fields as unknown[])
+        .filter((f): f is Obj => isObj(f) && id(f.name) && str(f.kind) && Array.isArray(f.values))
+        .map((f) => ({
+          ...f,
+          multi: f.multi === true,
+          required: f.required === true,
+          values: (f.values as unknown[]).filter((x): x is Obj => isObj(x) && id(x.name))
+        }))
+    })
+  },
   'yt.issues.search': { core: shape({ issues: Array.isArray, hasMore: bool }), fix: fixIssues },
   'yt.issue.get': { core: shape({ id, url: str }), fix: fixDetail },
   'yt.issue.comments': {

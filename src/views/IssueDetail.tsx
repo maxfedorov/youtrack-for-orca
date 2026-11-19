@@ -1,5 +1,5 @@
 import {
-  Badge, Button, Callout, Heading, IconButton, KeyValue, List, ListItem, Markdown, Row, Separator, Skeleton, Stack, Text, atom, read, set
+  Badge, Button, Callout, Heading, IconButton, List, ListItem, Markdown, Row, Separator, Skeleton, Stack, Text, atom, read, set
 } from 'orca'
 import { links, loadLinks } from '../listState'
 import { call, goBack, refreshTick, server, view } from '../state'
@@ -7,6 +7,7 @@ import { openInBrowser, openLinked, openWorkspace, start } from './IssueRowActio
 import { CommandBar, onCommandApplied } from './CommandBar'
 import { CommentBox } from './CommentBox'
 import { IssueRelations } from './IssueRelations'
+import { FieldList, resetFieldEditor } from './FieldEditor'
 import { IssueEditForm, editing, startEdit, stopEdit } from './IssueEdit'
 import type { IssueComments, IssueDetail as Detail } from '../protocol'
 
@@ -112,6 +113,7 @@ function sync(id: string): void {
 function back(toList = false): void {
   seq++
   stopEdit()
+  resetFieldEditor()
   set(loadedFor, null)
   set(detail, null)
   if (toList) set(view, { kind: 'list' })
@@ -196,7 +198,6 @@ function LinkedIssues({ issue }: { issue: Detail }) {
 
 function Body({ issue }: { issue: Detail }) {
   const workspaceId = read(links)[issue.id]
-  const items = issue.fields.map((field) => ({ label: field.name, value: field.value }))
   const keys = commentKeys(issue)
   return (
     <Stack gap="sm">
@@ -241,7 +242,7 @@ function Body({ issue }: { issue: Detail }) {
           </Stack>
         </Callout>
       ) : null}
-      {items.length > 0 ? <KeyValue label="Fields" items={items} /> : null}
+      {issue.fields.length > 0 ? <FieldList issue={issue} /> : null}
       {editing(issue) ? null : issue.descriptionMd ? <Markdown content={issue.descriptionMd} /> : <Text muted>No description</Text>}
       <LinkedIssues issue={issue} />
       <Separator />

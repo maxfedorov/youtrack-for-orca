@@ -953,3 +953,38 @@ test('issue.update checks the summary and description before it writes', async (
   assert.deepEqual(await call('yt.issue.update', { server: 'one', id: 'DEMO-1', summary: '  New  ', description: '' }), { ok: true, data: {} })
   assert.deepEqual(updates[0], ['one', 'DEMO-1', { summary: 'New', description: '' }])
 })
+
+const PROJECT_FIELDS = [
+  { canBeEmpty: false, field: { name: 'Priority', fieldType: { id: 'enum[1]' } }, bundle: { values: [{ name: 'Major' }, { name: 'Minor' }] } },
+  { canBeEmpty: true, field: { name: 'Assignee', fieldType: { id: 'user[1]' } }, bundle: { aggregatedUsers: [{ login: 'jane', fullName: 'Jane Doe' }] } },
+  { canBeEmpty: true, field: { name: 'Sprints', fieldType: { id: 'version[*]' } }, bundle: { values: [{ name: '1' }] } },
+  { canBeEmpty: true, field: { name: 'Estimation', fieldType: { id: 'period' } } }
+]
+
+test('project.fields answers the fields of a project and refuses odd project names', async () => {
+  let reads = 0
+  const { call } = setup({ yt: fakeYt({ projectFields: async () => (reads++, ok(PROJECT_FIELDS)) }) })
+  const r = await call('yt.project.fields', { server: 'one', project: 'DEMO' })
+  assert.deepEqual(r.data.fields.map((f) => f.name), ['Priority', 'Assignee', 'Sprints', 'Estimation'])
+  for (const project of ['', '-x', 'a/b', '../x', 'DEMO X', 7]) assert.equal((await call('yt.project.fields', { server: 'one', project })).ok, false)
+  assert.equal(reads, 1)
+  strict(r)
+})
+
+test('issue.setField writes only values the project offers for a single-value field', async () => {
+  const sets = []
+  const { call } = setup({ yt: fakeYt({ projectFields: async () => ok(PROJECT_FIELDS), setField: async (...a) => (sets.push(a), ok({})) }) })
+  const set = (field, value, id = 'DEMO-1') => call('yt.issue.setField', { server: 'one', id, field, value })
+  assert.equal((await set('Priority', 'Major')).ok, true)
+  assert.deepEqual(sets.at(-1), ['one', 'DEMO-1', 'Priority', { value: 'Major' }])
+  assert.equal((await set('Assignee', 'jane')).ok, true)
+  assert.deepEqual(sets.at(-1), ['one', 'DEMO-1', 'Assignee', { value: 'jane', user: true }])
+  assert.equal((await set('Assignee', null)).ok, true)
+  assert.deepEqual(sets.at(-1), ['one', 'DEMO-1', 'Assignee', { clear: true }])
+  const count = sets.length
+  for (const [field, value] of [['Priority', 'Blocker'], ['Priority', null], ['Sprints', '1'], ['Estimation', '1h'], ['Nope', 'x'], ['', 'x'], ['Priority', 7]]) {
+    assert.equal((await set(field, value)).ok, false, `${field}=${value}`)
+  }
+  assert.equal((await set('Priority', 'Major', 'not an id')).ok, false)
+  assert.equal(sets.length, count)
+})

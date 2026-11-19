@@ -330,3 +330,28 @@ test('updateIssue sends the summary as one argument and the description on stand
   assert.deepEqual(run.calls[2].args, ['--server', 'work', 'issue', 'update', '--description-file', '-', '--json', '--quiet', '--', 'DEMO-1'])
   assert.equal(run.calls[2].opts.input, '')
 })
+
+test('projectFields reads the project fields with a fixed GET request', async () => {
+  const run = fakeRun({ '--server work raw': { stdout: '[{"field":{"name":"Priority","fieldType":{"id":"enum[1]"}}}]' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  const r = await yt.projectFields('work', 'DEMO')
+  assert.equal(r.ok, true)
+  const args = run.calls[0].args
+  assert.deepEqual(args.slice(0, 5), ['--server', 'work', 'raw', '--method', 'GET'])
+  assert.equal(args.at(-1), '/api/admin/projects/DEMO/customFields')
+  assert.equal(args.at(-2), '--')
+  assert.ok(args.includes('--paginate'))
+  assert.match(args[args.indexOf('--fields') + 1], /aggregatedUsers\(login,fullName\)/)
+})
+
+test('setField puts the field and value after --, with the user type for users and --clear to empty it', async () => {
+  const run = fakeRun({ '--server work issue field set': { stdout: '{}' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  await yt.setField('work', 'DEMO-1', 'Priority', { value: '-Major' })
+  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'field', 'set', '--json', '--quiet', '--', 'DEMO-1', 'Priority', '-Major'])
+  await yt.setField('work', 'DEMO-1', 'Assignee', { value: 'jane', user: true })
+  assert.deepEqual(run.calls[1].args, ['--server', 'work', 'issue', 'field', 'set', '--type', 'user', '--json', '--quiet', '--', 'DEMO-1', 'Assignee', 'jane'])
+  await yt.setField('work', 'DEMO-1', 'Assignee', { clear: true })
+  assert.deepEqual(run.calls[2].args, ['--server', 'work', 'issue', 'field', 'set', '--clear', '--json', '--quiet', '--', 'DEMO-1', 'Assignee'])
+  assert.equal(run.calls[0].opts.timeoutMs, 30_000)
+})

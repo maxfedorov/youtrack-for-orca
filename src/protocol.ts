@@ -37,6 +37,14 @@ export type IssueDetail = IssueRow & {
   /** Set when only the comments could not be loaded; `comments` is then empty. */
   commentsError?: string
 }
+/** A custom field of a project; `values` are what can be chosen (users by login, `label` their name). */
+export type ProjectField = {
+  name: string; kind: 'enum' | 'state' | 'user' | 'version' | 'ownedField' | 'build' | 'other'
+  multi: boolean; required: boolean; emptyText?: string
+  values: { name: string; label?: string; resolved?: true }[]
+  /** More values exist than were sent. */
+  valuesCut?: true
+}
 export type IssueComments = { comments: Comment[]; commentsOmitted?: number; truncated?: true }
 export type SavedQuery = { id: string; name: string; query: string }
 export type Repo = { id: string; name: string; path?: string; worktreeBaseRef?: string }
@@ -110,6 +118,10 @@ declare module 'orca' {
     'yt.issue.comments': { input: { server: string; id: string }; output: Result<IssueComments> }
     /** Applies a YouTrack command such as "State Done" to the issue; command <= 500 characters. */
     'yt.issue.command': { input: { server: string; id: string; command: string }; output: Result<Record<string, never>> }
+    /** The custom fields of a project with the values they offer. */
+    'yt.project.fields': { input: { server: string; project: string }; output: Result<{ fields: ProjectField[] }> }
+    /** Sets a single-value field to one of its project's values; null empties a field that may be empty. */
+    'yt.issue.setField': { input: { server: string; id: string; field: string; value: string | null }; output: Result<Record<string, never>> }
     /** Changes the summary (one line, <= 255) and/or the description (<= 60000; '' clears it). */
     'yt.issue.update': { input: { server: string; id: string; summary?: string; description?: string }; output: Result<Record<string, never>> }
     /** Adds a comment to the issue, with the server's default visibility; text <= 10000 characters. */

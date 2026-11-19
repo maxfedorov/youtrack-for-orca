@@ -15,6 +15,8 @@ const listFields = (columns) => {
   return names.join(',')
 }
 const VIEW_FIELDS = 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText))'
+/** What the project field editor needs: kind, required, and the values of the field's bundle. */
+const PROJECT_FIELDS = 'canBeEmpty,emptyFieldText,field(name,fieldType(id)),bundle(values(name,archived,isResolved),aggregatedUsers(login,fullName))'
 const CLI_ENV = Object.freeze({ YOUTRACK_NO_UPDATE: '1', NO_COLOR: '1' })
 
 /**
@@ -147,6 +149,19 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
      */
     addComment: (server, id, text) =>
       exec(['--server', server, 'issue', 'comment', 'create', '--text-file', '-', ...tail, '--', id], WRITE_MS, () => ({}), { input: text }),
+    /**
+     * The custom fields of a project with their values. The CLI has no command that lists the values,
+     * so this is the one read through `raw`: always GET, on a path built from a checked short name.
+     */
+    projectFields: (server, project) =>
+      exec(['--server', server, 'raw', '--method', 'GET', '--paginate', '--fields', PROJECT_FIELDS, ...tail, '--', `/api/admin/projects/${project}/customFields`], READ_MS, list),
+    /** Sets one field of an issue, or empties it with `clear`; issue, field and value come after `--`. */
+    setField: (server, id, field, { value, user = false, clear = false }) => {
+      const args = ['--server', server, 'issue', 'field', 'set']
+      if (user) args.push('--type', 'user')
+      if (clear) args.push('--clear')
+      return exec([...args, ...tail, '--', id, field, ...(clear ? [] : [value])], WRITE_MS, () => ({}))
+    },
     /**
      * Changes the summary, the description or both. The summary is one `--summary=` argument, so it is
      * never read as a flag; the description goes through standard input ('' clears it).

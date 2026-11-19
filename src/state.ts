@@ -90,6 +90,7 @@ const TIMEOUTS: Partial<Record<string, number>> = {
   'yt.issue.command': 120_000,
   'yt.issue.comment': 120_000,
   'yt.issue.update': 120_000,
+  'yt.issue.setField': 120_000,
   'yt.settings.reset': 120_000,
   'yt.servers.remove': 120_000
 }

@@ -63,6 +63,17 @@ const clean = (view: any) => {
   assert.deepEqual(view.warnings, [])
 }
 
+/** The detail's fields as [name, value] pairs, read from their change buttons and value texts. */
+const fieldPairs = (view: any) =>
+  view
+    .findAll({ type: 'IconButton' })
+    .map((b: any) => String(b.props.label))
+    .filter((label: string) => label.startsWith('Change '))
+    .map((label: string) => {
+      const name = label.slice('Change '.length)
+      return [name, String(view.find({ testId: `field-value:${name}` })?.text ?? '')]
+    })
+
 test('back keeps query and loaded rows', async () => {
   const host = mockHost({ requests: requests() })
   const view = await open(host)
@@ -89,7 +100,7 @@ test('back keeps the selected row', async () => {
   await view.unmount()
 })
 
-test('renders fields read-only', async () => {
+test('renders fields with change buttons and no other inputs', async () => {
   const host = mockHost({ requests: requests() })
   const view = await open(host)
   assert.ok(view.find({ text: 'DEMO-1' }))
@@ -99,8 +110,7 @@ test('renders fields read-only', async () => {
   assert.equal(view.find({ type: 'Select', label: 'Assignee' }), null)
   assert.equal(view.find({ type: 'Select', label: 'Type' }), null)
   assert.deepEqual(view.findAll({ type: 'Input' }).map((i: any) => i.props.label), ['Command'])
-  const items = view.find({ type: 'KeyValue' }).props.items
-  assert.deepEqual(items.map((i: any) => [i.label, i.value]), [
+  assert.deepEqual(fieldPairs(view), [
     ['Priority', 'Major'], ['State', 'Open'], ['Assignee', 'Jane Doe'], ['Subsystem', 'No Subsystem'], ['Estimation', '2h 30m']
   ])
   assert.equal(view.find({ type: 'Markdown' }).props.content, 'Description of **issue 1**')
@@ -112,7 +122,7 @@ test('an issue without fields shows no field list', async () => {
   const bare = { ...detail(1), fields: [] }
   const host = mockHost({ requests: requests({ 'yt.issue.get': ok(bare) }) })
   const view = await open(host)
-  assert.equal(view.find({ type: 'KeyValue' }), null)
+  assert.deepEqual(fieldPairs(view), [])
   await view.unmount()
 })
 

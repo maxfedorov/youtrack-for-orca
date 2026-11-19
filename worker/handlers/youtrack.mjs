@@ -1,10 +1,14 @@
 /** Requests about servers, issues and saved queries (everything answered by the YouTrack CLI). */
 import { ok, fail, CODES } from '../result.mjs'
 import { customFields, parseColumns } from '../query.mjs'
+import { toProjectFields, pickable, MAX_FIELD_NAME, MAX_VALUE_NAME } from '../project-fields.mjs'
 import { toIssueRow, toIssueDetail, toComments, toLinks, toSavedQuery, toSavedQueries, toServers } from '../mapping.mjs'
 import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, MAX_COMMAND, MAX_NEW_COMMENT, MAX_SUMMARY, MAX_NEW_DESCRIPTION, isPlainUrl, normalizeUrl, settingString, capDetail, attempt, fallback, readSetting, INSTALL } from './common.mjs'
 
 const MAX_LIMIT = 50
+/** A YouTrack project short name, as it starts an issue id. */
+export const PROJECT = /^[A-Za-z][A-Za-z0-9_]{0,63}$/
+const projectOf = (id) => id.slice(0, id.lastIndexOf('-'))
 const MAX_WINDOW = 500
 const COMMENTS_FAILED = 'Comments could not be loaded.'
 const TOKEN_KEPT = 'The server was removed, but its sign-in token may still be stored in the system keyring:'
@@ -155,6 +159,33 @@ export function registerYoutrackHandlers(ctx) {
     const s = await resolveServer(server)
     if (!s.ok) return s
     const r = await ctx.youtrack.addComment(s.data.alias, id, body)
+    return r.ok ? ok({}) : r
+  })
+
+  handle('yt.project.fields', async ({ server, project }) => {
+    if (typeof project !== 'string' || !PROJECT.test(project)) return invalid('Invalid project')
+    const s = await resolveServer(server)
+    if (!s.ok) return s
+    const r = await ctx.youtrack.projectFields(s.data.alias, project)
+    if (!r.ok) return r
+    return Array.isArray(r.data) ? ok({ fields: toProjectFields(r.data) }) : unexpected()
+  })
+
+  // Runs only when a value is chosen in the panel; the value must be one the project offers.
+  handle('yt.issue.setField', async ({ server, id, field, value }) => {
+    if (typeof id !== 'string' || !ISSUE_ID.test(id)) return invalid('Invalid issue id')
+    if (typeof field !== 'string' || !field || field.length > MAX_FIELD_NAME) return invalid('Invalid field')
+    if (value !== null && (typeof value !== 'string' || !value || value.length > MAX_VALUE_NAME)) return invalid('Invalid value')
+    const s = await resolveServer(server)
+    if (!s.ok) return s
+    const meta = await ctx.youtrack.projectFields(s.data.alias, projectOf(id))
+    if (!meta.ok) return meta
+    const known = toProjectFields(meta.data).find((f) => f.name === field)
+    if (!known || !pickable(known)) return invalid(`${field} cannot be changed here. Use a command.`)
+    if (value === null && known.required) return invalid(`${field} cannot be empty`)
+    if (value !== null && !known.values.some((v) => v.name === value)) return invalid(`${value} is not a value of ${field}`)
+    const how = value === null ? { clear: true } : known.kind === 'user' ? { value, user: true } : { value }
+    const r = await ctx.youtrack.setField(s.data.alias, id, field, how)
     return r.ok ? ok({}) : r
   })
 
