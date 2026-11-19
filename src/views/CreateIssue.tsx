@@ -2,7 +2,7 @@ import { Button, Callout, Field, Heading, Input, Row, Stack, Text, Textarea, ato
 import { call, goBack, here, server, view } from '../state'
 import { currentIssue, issues, rerunSearch } from '../listState'
 import { Combobox } from './Combobox'
-import { loadProjectFields, projectMeta } from './FieldEditor'
+import { cutNote, loadProjectFields, projectMeta } from './FieldEditor'
 import { MAX_DESCRIPTION, MAX_SUMMARY } from './IssueEdit'
 import type { ProjectField } from '../protocol'
 
@@ -75,14 +75,17 @@ function FieldPicker({ field }: { field: ProjectField }) {
   const f = read(form)
   const options = field.values.map((v) => (v.label ? { value: v.name, label: v.label, description: v.name } : { value: v.name, label: v.name }))
   return (
-    <Combobox
-      label={field.name}
-      value={f.values[field.name] ?? null}
-      placeholder={field.required ? 'Required' : (field.emptyText ?? 'Default')}
-      disabled={f.busy}
-      options={options}
-      onChange={(value) => patch({ values: { ...read(form).values, [field.name]: value }, error: '' })}
-    />
+    <Stack gap="xs">
+      <Combobox
+        label={field.name}
+        value={f.values[field.name] ?? null}
+        placeholder={field.required ? 'Required' : (field.emptyText ?? 'Default')}
+        disabled={f.busy}
+        options={options}
+        onChange={(value) => patch({ values: { ...read(form).values, [field.name]: value }, error: '' })}
+      />
+      {field.valuesCut ? <Text muted size="sm">{cutNote(field.name)}</Text> : null}
+    </Stack>
   )
 }
 

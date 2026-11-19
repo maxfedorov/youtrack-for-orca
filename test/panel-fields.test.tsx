@@ -84,3 +84,13 @@ test('a write that fails says why and keeps the picker open', async () => {
   assert.ok(view.find({ testId: 'Priority:toggle' }))
   await view.unmount()
 })
+
+test('a value list cut short says so and points to commands', async () => {
+  const cut = { fields: [{ ...FIELDS.fields[1], valuesCut: true }, FIELDS.fields[0]] }
+  const view = await opened(host({ 'yt.project.fields': ok(cut) }))
+  await view.press({ label: 'Change Assignee' })
+  assert.ok(view.find({ text: 'Only the first 500 values are listed. Set another one with a command, such as "Assignee <value>".' }))
+  await view.press({ label: 'Change Priority' })
+  assert.equal(view.find({ text: /Only the first 500/ }), null)
+  await view.unmount()
+})

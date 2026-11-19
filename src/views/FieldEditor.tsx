@@ -4,6 +4,9 @@ import { refreshIssue } from './CommandBar'
 import { Combobox } from './Combobox'
 import type { IssueDetail, ProjectField } from '../protocol'
 
+/** Shown under a picker whose project offers more values than were sent. */
+export const cutNote = (name: string) => `Only the first 500 values are listed. Set another one with a command, such as "${name} <value>".`
+
 /** Option value of "No value" (an option cannot have an empty value). */
 const CLEAR = '__clear__'
 
@@ -72,14 +75,17 @@ function Picker({ issue, name, value }: { issue: IssueDetail; name: string; valu
   } else {
     const options = field.values.map((v) => (v.label ? { value: v.name, label: v.label, description: v.name } : { value: v.name, label: v.name }))
     body = (
-      <Combobox
-        label={name}
-        value={null}
-        placeholder={value}
-        disabled={p?.busy}
-        options={field.required ? options : [{ value: CLEAR, label: 'No value', pinned: true }, ...options]}
-        onChange={(chosen) => void choose(issue, name, chosen)}
-      />
+      <Stack gap="xs">
+        <Combobox
+          label={name}
+          value={null}
+          placeholder={value}
+          disabled={p?.busy}
+          options={field.required ? options : [{ value: CLEAR, label: 'No value', pinned: true }, ...options]}
+          onChange={(chosen) => void choose(issue, name, chosen)}
+        />
+        {field.valuesCut ? <Text muted size="sm">{cutNote(name)}</Text> : null}
+      </Stack>
     )
   }
   return (

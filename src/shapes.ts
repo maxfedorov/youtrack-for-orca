@@ -203,6 +203,7 @@ const REPAIRS: Record<string, { core: Check; fix: (v: Obj) => unknown }> = {
           ...f,
           multi: f.multi === true,
           required: f.required === true,
+          ...(f.valuesCut === true ? { valuesCut: true } : {}),
           values: (f.values as unknown[]).filter((x): x is Obj => isObj(x) && id(x.name))
         }))
     })
