@@ -80,6 +80,11 @@ export type StartPrepare = {
   vars: Record<string, string>
   workspaces: WorkspaceItem[]
   defaultWorkspaceId: string | null
+  /**
+   * What the prompt asks the agent to do when it is done: comment a summary, then set the project's
+   * state field (`stateField`, null when the project fields could not be read) to one of `states`.
+   */
+  finish?: { comment: boolean; state: string; stateField: string | null; states: string[] }
 }
 
 declare module 'orca' {
@@ -118,6 +123,8 @@ declare module 'orca' {
     'yt.issue.comments': { input: { server: string; id: string }; output: Result<IssueComments> }
     /** Applies a YouTrack command such as "State Done" to the issue; command <= 500 characters. */
     'yt.issue.command': { input: { server: string; id: string; command: string }; output: Result<Record<string, never>> }
+    /** Installs or updates the YouTrack CLI's skill for every coding agent found; `messages`: what the CLI did. */
+    'yt.skill.install': { input: Record<string, never>; output: Result<{ messages: string[] }> }
     /** The projects of the server the account can see (at most 500). */
     'yt.projects': { input: { server: string }; output: Result<{ projects: { shortName: string; name: string }[] }> }
     /** Creates an issue with fields from its project's value lists (field name -> value, at most 20). */

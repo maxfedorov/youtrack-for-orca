@@ -3,6 +3,7 @@ import { call } from '../state'
 import { closeSettings, templatesBusy } from '../settingsState'
 import { TemplatesSection } from './Templates'
 import { ServersSection } from './Servers'
+import { SkillSection } from './SkillSection'
 
 type ResetState = 'idle' | 'asking' | 'busy' | 'done'
 const resetState = atom<ResetState>('idle')
@@ -73,6 +74,8 @@ export function Settings() {
       <TemplatesSection />
       <Separator />
       <ServersSection />
+      <Separator />
+      <SkillSection />
       <Separator />
       <ResetSection />
     </Stack>

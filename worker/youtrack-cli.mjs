@@ -6,6 +6,7 @@ import { findOnPath, runProcess } from './exec.mjs'
 const READ_MS = 15_000
 const WRITE_MS = 30_000
 const LOGIN_MS = 10 * 60_000
+const SKILL_MS = 60_000
 const ISSUE_FIELDS = 'idReadable,summary,created,updated,resolved,State,Priority,Assignee'
 /** The list's fields plus the columns' custom fields, each once (names compare without case). */
 const listFields = (columns) => {
@@ -59,6 +60,26 @@ function parseCliError(stderr) {
     }
   }
   return null
+}
+
+/** The `message` of each JSON object the CLI printed one after another (one per agent). */
+function messagesOf(stdout) {
+  const lines = String(stdout ?? '').split(/\r?\n/)
+  const out = []
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].trim().startsWith('{')) continue
+    for (let j = i; j < lines.length; j++) {
+      try {
+        const m = JSON.parse(lines.slice(i, j + 1).join('\n'))?.message
+        if (typeof m === 'string' && m) out.push(m.slice(0, 300))
+        i = j
+        break
+      } catch {
+        // incomplete; try a longer slice
+      }
+    }
+  }
+  return out.slice(0, 50)
 }
 
 /**
@@ -149,6 +170,11 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
      */
     addComment: (server, id, text) =>
       exec(['--server', server, 'issue', 'comment', 'create', '--text-file', '-', ...tail, '--', id], WRITE_MS, () => ({}), { input: text }),
+    /**
+     * Installs the YouTrack CLI skill for every coding agent the CLI finds on this machine, or brings
+     * an older copy up to date; already current copies are left alone.
+     */
+    updateSkill: () => exec(['skill', 'update', ...tail], SKILL_MS, (s) => ({ messages: messagesOf(s) })),
     /** Projects the account can see, by short name. */
     listProjects: (server) =>
       read(server, ['project', 'list'], (s) =>

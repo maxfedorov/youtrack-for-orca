@@ -111,6 +111,20 @@
         "default": false
       },
       {
+        "key": "finishComment",
+        "title": "Agent comments when done",
+        "description": "Whether the \"Comment on the issue when done\" switch starts on in the Start view: the prompt then asks the agent to add a comment that sums up its work.",
+        "type": "boolean",
+        "default": false
+      },
+      {
+        "key": "finishState",
+        "title": "State when done",
+        "description": "The state the Start view offers to set when the agent is done, such as In Review; empty or a state the project lacks means none.",
+        "type": "string",
+        "default": ""
+      },
+      {
         "key": "youtrackPath",
         "title": "YouTrack CLI path",
         "description": "Leave empty to find the YouTrack CLI automatically.",

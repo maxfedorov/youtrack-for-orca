@@ -372,3 +372,12 @@ test('listProjects answers short names and names', async () => {
   const r = await createYoutrack({ bin: 'youtrack', run }).listProjects('work')
   assert.deepEqual(r.data, [{ shortName: 'DEMO', name: 'Demo' }])
 })
+
+test('updateSkill installs or updates the skill for the agents the CLI finds, and reports each line', async () => {
+  const out = '{\n  "status": "ok",\n  "message": "installed youtrack-cli for codex (2.1.0)"\n}\n{\n  "status": "ok",\n  "message": "skill youtrack-cli already up to date (2.1.0)"\n}\n'
+  const run = fakeRun({ 'skill update': { stdout: out } })
+  const r = await createYoutrack({ bin: 'youtrack', run }).updateSkill()
+  assert.deepEqual(r, { ok: true, data: { messages: ['installed youtrack-cli for codex (2.1.0)', 'skill youtrack-cli already up to date (2.1.0)'] } })
+  assert.deepEqual(run.calls[0].args, ['skill', 'update', '--json', '--quiet'])
+  assert.equal(run.calls[0].opts.timeoutMs, 60_000)
+})

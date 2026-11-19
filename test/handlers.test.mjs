@@ -1017,3 +1017,20 @@ test('projects lists the projects of a server', async () => {
   const { call } = setup({ yt: fakeYt({ listProjects: async () => ok([{ shortName: 'DEMO', name: 'Demo' }]) }) })
   assert.deepEqual((await call('yt.projects', { server: 'one' })).data, { projects: [{ shortName: 'DEMO', name: 'Demo' }] })
 })
+
+test('start.prepare offers the finish options: the setting, the state field and its values', async () => {
+  const meta = [
+    { canBeEmpty: false, field: { name: 'Stage', fieldType: { id: 'state[1]' } }, bundle: { values: [{ name: 'Open' }, { name: 'In Review' }, { name: 'Bad"one' }] } }
+  ]
+  const { call } = setup({ yt: fakeYt({ projectFields: async () => ok(meta) }), settings: { finishComment: true, finishState: 'In Review' } })
+  const r = await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.deepEqual(r.data.finish, { comment: true, state: 'In Review', stateField: 'Stage', states: ['Open', 'In Review'] })
+  const denied = await setup({ yt: fakeYt({ projectFields: async () => fail('FORBIDDEN', 'x') }), settings: { finishState: 'Done' } }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.deepEqual(denied.data.finish, { comment: false, state: '', stateField: null, states: [] })
+})
+
+test('skill.install runs the CLI skill update', async () => {
+  const { call } = setup({ yt: fakeYt({ updateSkill: async () => ok({ messages: ['installed youtrack-cli for codex (2.1.0)'] }) }) })
+  assert.deepEqual((await call('yt.skill.install', {})).data, { messages: ['installed youtrack-cli for codex (2.1.0)'] })
+  assert.equal((await setup({ yt: null }).call('yt.skill.install', {})).error.code, 'CLI_NOT_FOUND')
+})

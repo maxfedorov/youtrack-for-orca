@@ -1,5 +1,5 @@
 import { atom, read, set } from 'orca'
-import { buildPrompt, issueVars, PROMPT_LIMIT } from '../worker/prompt.mjs'
+import { buildPrompt, finishBlock, issueVars, PROMPT_LIMIT } from '../worker/prompt.mjs'
 import { loadLinks } from './listState'
 import { call, goBack, notice, server, view } from './state'
 import { closeComboboxes } from './views/Combobox'
@@ -41,6 +41,10 @@ export const withoutPrompt = atom(false)
 /** The chosen prompt template; null when the answer listed none (the prompt template text is used). */
 export const templateId = atom<string | null>(null)
 export const prompt = atom('')
+/** The prompt asks the agent to comment a summary on the issue when done. */
+export const finishComment = atom(false)
+/** The state the prompt asks the agent to set when done; '' for none. */
+export const finishState = atom('')
 export const promptEdited = atom(false)
 export const running = atom(false)
 export const runError = atom('')
@@ -83,7 +87,8 @@ const templateText = (p: StartPrepare, id: string | null) => (p.templates ?? [])
 
 export function templatePrompt(p: StartPrepare, include: boolean, id: string | null = read(templateId)): string {
   const vars = { ...EMPTY_VARS, ...p.vars }
-  return buildPrompt({ template: templateText(p, id), vars, includeDescription: include, description: vars.description })
+  const suffix = finishBlock({ server: vars.server, id: vars.id, comment: read(finishComment), stateField: p.finish?.stateField, state: read(finishState) })
+  return buildPrompt({ template: templateText(p, id), vars, includeDescription: include, description: vars.description, suffix })
 }
 
 /** Another template: the prompt is built from it again, unless it was edited by hand. */
@@ -167,6 +172,14 @@ export function chooseRef(ref: string): void {
   set(baseBranch, ref)
 }
 
+/** A finish choice changed: the prompt is built again, unless it was edited by hand. */
+export function setFinish(next: { comment?: boolean; state?: string }): void {
+  if (next.comment !== undefined) set(finishComment, next.comment)
+  if (next.state !== undefined) set(finishState, next.state)
+  const p = read(prep)
+  if (p && !read(promptEdited)) set(prompt, templatePrompt(p, read(includeDescription)))
+}
+
 export function toggleDescription(include: boolean): void {
   set(includeDescription, include)
   const p = read(prep)
@@ -214,6 +227,8 @@ function init(p: StartPrepare): void {
   set(otherAgent, '')
   set(includeDescription, p.includeDescription)
   set(withoutPrompt, p.withoutPrompt === true)
+  set(finishComment, p.finish?.comment === true)
+  set(finishState, p.finish?.state ?? '')
   const templates = p.templates ?? []
   const chosen = templates.find((t) => t.id === p.defaultTemplateId) ?? templates[0]
   set(templateId, chosen ? chosen.id : null)

@@ -2,13 +2,16 @@ import { Button, Callout, Field, Heading, Input, Row, Select, Skeleton, Stack, S
 import {
   back, canStart, editPrompt, failure, includeDescription, load, loadedFor, mode, name, prep, prompt, PROMPT_LIMIT, resetPrompt,
   repoId, runError, running, setProject, status, submit, sync, toggleDescription, workspaceId, chosenAgent, currentAvailable, usableMode,
-  worktreeAvailable, workspaceOptions, templateId, chooseTemplate, withoutPrompt, clearPrompt
+  worktreeAvailable, workspaceOptions, templateId, chooseTemplate, withoutPrompt, clearPrompt, finishComment, finishState, setFinish
 } from '../startState'
 import { AgentPicker } from './start/AgentPicker'
 import { BranchPicker } from './start/BranchPicker'
 import { Combobox } from './Combobox'
 import { server, view } from '../state'
 import type { StartPrepare } from '../protocol'
+
+/** Option value of "Don't change" (an option cannot have an empty value). */
+const NO_STATE = '__none__'
 
 /** Back one screen (the issue Start was opened from, if any), or straight to the list. */
 const BackButton = () => (
@@ -110,6 +113,24 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
           options={p.templates.map((t) => ({ value: t.id, label: t.name }))}
           onChange={chooseTemplate}
         />
+      ) : null}
+      <Switch
+        label="Comment on the issue when done"
+        checked={read(finishComment)}
+        disabled={promptOff}
+        onChange={(on) => setFinish({ comment: on })}
+      />
+      {p.finish?.stateField && p.finish.states.length > 0 ? (
+        <Field label={`Then set ${p.finish.stateField} to`}>
+          <Select
+            label={`Then set ${p.finish.stateField} to`}
+            labelHidden
+            value={read(finishState) || NO_STATE}
+            disabled={promptOff}
+            options={[{ value: NO_STATE, label: "Don't change" }, ...p.finish.states.map((s) => ({ value: s, label: s }))]}
+            onChange={(value) => setFinish({ state: value === NO_STATE ? '' : value })}
+          />
+        </Field>
       ) : null}
       <Field label="Prompt">
         <Textarea label="Prompt" labelHidden rows={8} value={read(prompt)} disabled={promptOff} onChange={editPrompt} />

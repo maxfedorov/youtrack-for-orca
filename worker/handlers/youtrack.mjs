@@ -200,6 +200,12 @@ export function registerYoutrackHandlers(ctx) {
     return r.ok ? ok({}) : r
   })
 
+  // Writes skill files into the coding agents' folders: runs only when the button is pressed.
+  handle('yt.skill.install', async () => {
+    if (!ctx.youtrack) return fail(CODES.CLI_NOT_FOUND, 'The YouTrack CLI was not found.')
+    return ctx.youtrack.updateSkill()
+  })
+
   handle('yt.projects', async ({ server }) => {
     const s = await resolveServer(server)
     if (!s.ok) return s

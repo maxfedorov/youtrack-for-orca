@@ -140,6 +140,14 @@ function fixPrepare(v: Obj): Obj {
   }
   const templates = out.templates as Obj[]
   out.defaultTemplateId = templates.some((t) => t.id === v.defaultTemplateId) ? v.defaultTemplateId : (templates[0]?.id ?? null)
+  const f = isObj(v.finish) ? v.finish : {}
+  const states = keep(f.states, id) as string[]
+  out.finish = {
+    comment: f.comment === true,
+    stateField: id(f.stateField) ? f.stateField : null,
+    states: id(f.stateField) ? states : [],
+    state: id(f.stateField) && states.includes(f.state as string) ? f.state : ''
+  }
   for (const key of ['reposError', 'workspacesError', 'agentsError']) if (!str(v[key])) delete out[key]
   if (!detected && !str(v.agentsError)) out.agentsError = 'Installed agents could not be detected.'
   return out
@@ -180,6 +188,7 @@ const REPAIRS: Record<string, { core: Check; fix: (v: Obj) => unknown }> = {
       return out
     }
   },
+  'yt.skill.install': { core: isObj, fix: (v) => ({ messages: keep(v.messages, id) }) },
   'yt.projects': {
     core: shape({ projects: Array.isArray }),
     fix: (v) => ({ projects: (v.projects as unknown[]).filter((p): p is Obj => isObj(p) && id(p.shortName)).map((p) => ({ shortName: p.shortName, name: str(p.name) ? p.name : p.shortName })) })
