@@ -1,6 +1,6 @@
 import { Button, Callout, plugin, read, set, Stack, Text, type PanelContext } from 'orca'
 import { env, loadEnv, notice, panelError, view } from './state'
-import { loadLinks } from './listState'
+import { loadCurrent, loadLinks } from './listState'
 import { postedUrl } from './shapes'
 import { Header } from './views/Header'
 import { IssueDetail } from './views/IssueDetail'
@@ -18,7 +18,8 @@ export function setup(ctx: PanelContext): void {
     }),
     plugin.on('yt.servers.added', (result) => onAdded(result)),
     plugin.on('yt.agentFinished', () => void loadLinks()),
-    plugin.on('yt.linksChanged', () => void loadLinks())
+    plugin.on('yt.linksChanged', () => void loadLinks()),
+    plugin.on('yt.currentChanged', () => void Promise.all([loadCurrent(), loadLinks()]))
   )
   visible = ctx.visible
   void loadEnv()

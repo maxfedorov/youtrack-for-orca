@@ -5,6 +5,7 @@ import { issueVars, workspaceName, PROMPT_LIMIT } from '../prompt.mjs'
 import { AGENTS } from '../agents.mjs'
 import { inside, shortBranch, workspaceItems } from '../workspaces.mjs'
 import { BUILT_IN } from '../templates.mjs'
+import { issueIdFromBranch } from '../branch-issue.mjs'
 import { safeHandle, shortMessage, unexpected, hasId, invalid, token, issueUrl, ISSUE_ID, settingString, capDetail, AGENT_ID, attempt, fallback, readSetting } from './common.mjs'
 
 const DEFAULT_BRANCH_TEMPLATE = '{{id_lower}}-{{summary_slug}}'
@@ -218,7 +219,43 @@ export function registerStartHandlers(ctx) {
     const { list, truncated } = await listWorkspaces()
     const live = new Set(list.map((w) => w.id))
     if (!truncated) await links.prune(live, snapshotAt)
-    return ok(await links.forServer(s.data.alias, live))
+    const out = await links.forServer(s.data.alias, live)
+    // Workspaces the plugin did not start count by the issue id in their branch; saved links win.
+    for (const w of list) {
+      const id = issueIdFromBranch(w.branch)
+      if (id && !(id in out)) out[id] = w.id
+    }
+    return ok(out)
+  })
+
+  /**
+   * The issue of the focused workspace: the one the plugin started there, else the one its branch is
+   * named after, if this server has it. Never fails: without one the answer is `{ issue: null }`.
+   */
+  handle('yt.current', async ({ server }) => {
+    const s = await resolveServer(server)
+    if (!s.ok) return s
+    const none = ok({ issue: null })
+    let context = null
+    try {
+      context = await host('workspace.readContext', {})
+    } catch {
+      return none
+    }
+    if (!context || typeof context !== 'object') return none
+    const { list } = await fallback(() => listWorkspaces(), { list: [] })
+    const active = await activeWorkspace(list)
+    let id = null
+    if (active) {
+      const linked = await fallback(() => links.forServer(s.data.alias, new Set([active.id])), {})
+      id = Object.keys(linked).find((key) => linked[key] === active.id) ?? null
+    }
+    id ??= issueIdFromBranch(context.branch)
+    if (!id) return none
+    const view = await attempt(() => ctx.youtrack.viewIssue(s.data.alias, id))
+    if (!view.ok || !hasId(view.data)) return none
+    const issue = { id: view.data.idReadable, summary: String(view.data.summary ?? '').slice(0, 500), url: issueUrl(s.data.url, view.data.idReadable) }
+    return ok(active ? { issue, workspaceId: active.id } : { issue })
   })
 
   handle('yt.workspace.open', async ({ workspaceId }) => {

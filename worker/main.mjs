@@ -11,6 +11,7 @@ import { registerHandlers } from './handlers.mjs'
 import { createOpenPanelCommand } from './open-panel.mjs'
 import { createStatusBar, createFinishNotifier, refreshAfter } from './status.mjs'
 import { safePost } from './handlers/common.mjs'
+import { createContextWatcher } from './branch-issue.mjs'
 
 const REFRESHING = ['yt.setServer', 'yt.setQuery', 'yt.start.run', 'yt.runInExisting', 'yt.savedQueries.create', 'yt.issue.command', 'yt.servers.remove']
 let statusBar = null
@@ -50,6 +51,8 @@ export default async function activate(orca) {
     post: (name, payload) => safePost(orca, name, payload)
   })
   await optional(orca, 'workspace events', () => orca.events.on('workspace.removed', onRemoved))
+  const onFocus = createContextWatcher(() => safePost(orca, 'yt.currentChanged', {}))
+  await optional(orca, 'focus events', () => orca.events.on('workspace.changed', onFocus))
   await optional(orca, 'open panel command', () => orca.commands.register('youtrack.openPanel', createOpenPanelCommand({ orcaCli, host: orca.host })))
   await optional(orca, 'status bar', () => statusBar.start())
 }

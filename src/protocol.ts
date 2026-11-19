@@ -130,7 +130,9 @@ declare module 'orca' {
       input: { server: string; id: string; workspaceId: string; agent: string; prompt: string }
       output: Result<{ terminalId?: string; warning?: string }>
     }
-    /** Issue id -> newest live workspace id. */
+    /** The issue of the focused workspace (started there by the plugin, or named in its branch); `issue` null when none. */
+    'yt.current': { input: { server: string }; output: Result<{ issue: { id: string; summary: string; url: string } | null; workspaceId?: string }> }
+    /** Issue id -> newest live workspace id; workspaces whose branch names an issue count too. */
     'yt.links': { input: { server: string }; output: Result<Record<string, string>> }
     'yt.workspace.open': { input: { workspaceId: string }; output: Result<Record<string, never>> }
     /** The prompt templates; the built-ins (and a changed old prompt setting) are set up on first use. */
@@ -162,6 +164,8 @@ declare module 'orca' {
     'yt.servers.added': Result<{ alias: string }>
     /** Workspace links changed (a linked workspace was removed); load 'yt.links' again. */
     'yt.linksChanged': Record<string, never>
+    /** The focused workspace or its branch changed; load 'yt.current' again. */
+    'yt.currentChanged': Record<string, never>
     /** An agent started by the plugin finished. */
     'yt.agentFinished': { server: string; issueId: string; workspaceId: string | null }
   }

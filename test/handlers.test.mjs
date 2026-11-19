@@ -902,3 +902,42 @@ test('settings.reset writes every declared setting back to its manifest default'
   }
   assert.deepEqual(await call('yt.settings.reset', {}), fail('UNKNOWN', 'Some settings could not be reset: columns'))
 })
+
+test('current names the issue of the focused workspace from its branch', async () => {
+  const ws = [...WS, { id: 'identity:d4', kind: 'worktree', name: 'demo-4-fix', project: 'demo-repo', path: '/w/d4', branch: 'refs/heads/demo-4-fix', hostId: 'local' }]
+  const { call, yt } = setup({ host: { 'workspace.list': { workspaces: ws, truncated: false }, 'workspace.readContext': { branch: 'demo-4-fix', displayName: 'demo-4-fix', terminals: [] } } })
+  const r = await call('yt.current', { server: 'one' })
+  assert.deepEqual(r.data, { issue: { id: 'DEMO-4', summary: 'Fix DEMO-4', url: 'https://one.example.com/issue/DEMO-4' }, workspaceId: 'identity:d4' })
+  assert.deepEqual(yt.calls.find((c) => c.name === 'viewIssue').a.slice(0, 2), ['one', 'DEMO-4'])
+  strict(r)
+})
+
+test('current prefers the issue the plugin started in the focused workspace', async () => {
+  const { call, links } = setup()
+  await links.add('one', 'DEMO-9', 'identity:feat', 1)
+  const r = await call('yt.current', { server: 'one' })
+  assert.equal(r.data.issue.id, 'DEMO-9')
+  assert.equal(r.data.workspaceId, 'identity:feat')
+})
+
+test('current is empty when the branch names no issue on this server', async () => {
+  const none = await setup().call('yt.current', { server: 'one' })
+  assert.deepEqual(none.data, { issue: null })
+  const missing = setup({
+    host: { 'workspace.readContext': { branch: 'zz-1', displayName: 'zz', terminals: [] } },
+    yt: fakeYt({ viewIssue: async () => fail('NOT_FOUND', 'HTTP 404') })
+  })
+  assert.deepEqual((await missing.call('yt.current', { server: 'one' })).data, { issue: null })
+  const noContext = setup({ host: { 'workspace.readContext': () => { throw new Error('no window') } } })
+  assert.deepEqual((await noContext.call('yt.current', { server: 'one' })).data, { issue: null })
+})
+
+test('links also match live workspaces by the issue id in their branch', async () => {
+  const ws = [...WS, { id: 'identity:d7', kind: 'worktree', name: 'x', project: 'demo-repo', path: '/w/x', branch: 'refs/heads/demo-7-x', hostId: 'local' }]
+  const { call, links } = setup({ host: { 'workspace.list': { workspaces: ws, truncated: false } } })
+  await links.add('one', 'DEMO-7', 'identity:feat', 1)
+  const r = await call('yt.links', { server: 'one' })
+  assert.equal(r.data['DEMO-7'], 'identity:feat')
+  const fresh = await setup({ host: { 'workspace.list': { workspaces: ws, truncated: false } } }).call('yt.links', { server: 'one' })
+  assert.equal(fresh.data['DEMO-7'], 'identity:d7')
+})

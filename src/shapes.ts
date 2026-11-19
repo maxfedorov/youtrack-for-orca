@@ -150,6 +150,16 @@ const REPAIRS: Record<string, { core: Check; fix: (v: Obj) => unknown }> = {
   'yt.env': { core: shape({ cli: shape({ found: bool }), servers: Array.isArray }), fix: fixEnv },
   'yt.savedQueries': { core: Array.isArray, fix: (v) => keep(v, savedQuery) },
   'yt.links': { core: isObj, fix: strings },
+  'yt.current': {
+    core: isObj,
+    fix: (v) => {
+      const i = isObj(v.issue) ? v.issue : null
+      if (!i || !id(i.id) || !str(i.url)) return { issue: null }
+      const out: Obj = { issue: { id: i.id, summary: str(i.summary) ? i.summary : '', url: i.url } }
+      if (id(v.workspaceId)) out.workspaceId = v.workspaceId
+      return out
+    }
+  },
   'yt.refs.search': { core: shape({ refs: Array.isArray }), fix: (v) => ({ refs: keep(v.refs, id) }) },
   'yt.start.prepare': {
     core: shape({

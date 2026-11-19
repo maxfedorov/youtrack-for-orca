@@ -34,6 +34,8 @@ export const links = atom<Record<string, string>>({})
 /** The workspace links could not be loaded; rows then offer no Open. */
 export const linksFailed = atom(false)
 export const selectedIssue = atom<string | null>(null)
+/** The issue of the focused workspace; null when there is none or it could not be read. */
+export const currentIssue = atom<{ id: string; summary: string; url: string } | null>(null)
 export const loadingMore = atom(false)
 export const moreError = atom('')
 
@@ -117,6 +119,15 @@ export async function loadLinks(): Promise<void> {
   if (answer.ok) set(links, answer.data)
 }
 
+/** Reads the issue of the focused workspace; a failure only hides it. */
+export async function loadCurrent(): Promise<void> {
+  const current = read(server)
+  if (!current) return
+  const answer = await call('yt.current', { server: current })
+  if (read(server) !== current) return
+  set(currentIssue, answer.ok ? answer.data.issue : null)
+}
+
 export async function loadSavedQueries(): Promise<void> {
   const current = read(server)
   if (!current) return
@@ -131,14 +142,14 @@ export async function startList(): Promise<void> {
   if (read(listStatus) !== 'idle' || !read(server)) return
   seenTick = read(refreshTick)
   set(listStatus, 'loading')
-  await Promise.all([runSearch(read(query)), loadSavedQueries(), loadLinks()])
+  await Promise.all([runSearch(read(query)), loadSavedQueries(), loadLinks(), loadCurrent()])
 }
 
 /** Re-runs the current search and reloads links and saved searches. */
 export async function refreshList(): Promise<void> {
   if (read(switchFailed)) return onServerChanged()
   if (!read(server)) return
-  await Promise.all([runSearch(read(appliedQuery) || read(query)), loadSavedQueries(), loadLinks()])
+  await Promise.all([runSearch(read(appliedQuery) || read(query)), loadSavedQueries(), loadLinks(), loadCurrent()])
 }
 
 /** Called while rendering the list: starts the first load, and reloads when the header's refresh was pressed. */
@@ -166,6 +177,7 @@ export async function onServerChanged(): Promise<void> {
   set(links, {})
   set(linksFailed, false)
   set(selectedIssue, null)
+  set(currentIssue, null)
   set(listError, '')
   set(listStatus, 'loading')
   const answer = await call('yt.env', {})
