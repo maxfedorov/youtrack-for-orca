@@ -10,6 +10,8 @@ import { toProjectFields } from '../project-fields.mjs'
 import { safeValue } from '../prompt.mjs'
 import { safeHandle, shortMessage, unexpected, hasId, invalid, token, issueUrl, ISSUE_ID, settingString, capDetail, AGENT_ID, attempt, fallback, readSetting } from './common.mjs'
 
+/** How long the project list of a server is reused for matching branches. */
+const PROJECTS_MS = 10 * 60_000
 const DEFAULT_BRANCH_TEMPLATE = '{{id_lower}}-{{summary_slug}}'
 const noOrcaCli = () => fail(CODES.ORCA_CLI_NOT_FOUND, 'The Orca CLI was not found.')
 const tooLong = () => fail(CODES.PROMPT_TOO_LONG, `Prompt is longer than ${PROMPT_LIMIT} characters`)
@@ -39,6 +41,31 @@ export function registerStartHandlers(ctx) {
       }
       return NOT_SAVED
     }
+  }
+
+  /** Project short names of each server by upper case, read at most every PROJECTS_MS; null when unreadable. */
+  const projectsByServer = new Map()
+  async function serverProjects(alias) {
+    const known = projectsByServer.get(alias)
+    if (known && now() - known.at < PROJECTS_MS) return known.names
+    const r = await attempt(() => ctx.youtrack.listProjects(alias))
+    if (!r.ok || !Array.isArray(r.data)) return null
+    const names = new Map(r.data.map((p) => [p.shortName.toUpperCase(), p.shortName]))
+    projectsByServer.set(alias, { at: now(), names })
+    return names
+  }
+
+  /**
+   * The issue a workspace's branch names on this server: its project must be one of the server's, and
+   * no other server may have started that workspace. The id takes the project's own spelling.
+   */
+  function branchIssue(branch, workspaceId, projects, owners) {
+    const id = issueIdFromBranch(branch)
+    if (!id || !projects) return null
+    const others = owners.get(workspaceId)
+    if (others && others.size > 0) return null
+    const name = projects.get(id.slice(0, id.lastIndexOf('-')))
+    return name ? `${name}${id.slice(id.lastIndexOf('-'))}` : null
   }
 
   async function listWorkspaces() {
@@ -234,8 +261,10 @@ export function registerStartHandlers(ctx) {
     if (!truncated) await links.prune(live, snapshotAt)
     const out = await links.forServer(s.data.alias, live)
     // Workspaces the plugin did not start count by the issue id in their branch; saved links win.
+    const projects = await serverProjects(s.data.alias)
+    const owners = projects ? await fallback(() => links.owners(live), new Map()) : new Map()
     for (const w of list) {
-      const id = issueIdFromBranch(w.branch)
+      const id = branchIssue(w.branch, w.id, projects, owners)
       if (id && !(id in out)) out[id] = w.id
     }
     return ok(out)
@@ -262,6 +291,9 @@ export function registerStartHandlers(ctx) {
     if (active) {
       const linked = await fallback(() => links.forServer(s.data.alias, new Set([active.id])), {})
       id = Object.keys(linked).find((key) => linked[key] === active.id) ?? null
+      // Started for another server's issue: its branch names nothing here.
+      const owners = await fallback(() => links.owners(new Set([active.id])), new Map())
+      if (!id && owners.get(active.id)?.size) return none
     }
     id ??= issueIdFromBranch(context.branch)
     if (!id) return none

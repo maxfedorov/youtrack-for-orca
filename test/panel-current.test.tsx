@@ -51,3 +51,19 @@ test('the current issue loads again when the worker says the workspace changed',
   assert.ok(view.find({ text: 'This workspace' }))
   await view.unmount()
 })
+
+test('a slow answer for a workspace left behind does not replace the newer one', async () => {
+  let n = 0
+  const h = host(() => {
+    n++
+    if (n === 2) return new Promise((resolve) => setTimeout(() => resolve(ok(current)), 30))
+    return ok({ issue: null })
+  })
+  const view = await mount(panel, { host: h })
+  view.post('yt.currentChanged', {})
+  view.post('yt.currentChanged', {})
+  await new Promise((resolve) => setTimeout(resolve, 60))
+  await view.settled()
+  assert.equal(view.find({ text: 'This workspace' }), null)
+  await view.unmount()
+})

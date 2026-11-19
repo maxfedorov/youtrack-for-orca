@@ -120,11 +120,14 @@ export async function loadLinks(): Promise<void> {
 }
 
 /** Reads the issue of the focused workspace; a failure only hides it. */
+let currentSeq = 0
 export async function loadCurrent(): Promise<void> {
   const current = read(server)
   if (!current) return
+  const mine = ++currentSeq
   const answer = await call('yt.current', { server: current })
-  if (read(server) !== current) return
+  // Only the newest answer counts: focus may have moved on while an older one was read.
+  if (mine !== currentSeq || read(server) !== current) return
   set(currentIssue, answer.ok ? answer.data.issue : null)
 }
 

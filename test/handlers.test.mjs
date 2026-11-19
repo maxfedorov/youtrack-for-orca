@@ -934,11 +934,12 @@ test('current is empty when the branch names no issue on this server', async () 
 
 test('links also match live workspaces by the issue id in their branch', async () => {
   const ws = [...WS, { id: 'identity:d7', kind: 'worktree', name: 'x', project: 'demo-repo', path: '/w/x', branch: 'refs/heads/demo-7-x', hostId: 'local' }]
-  const { call, links } = setup({ host: { 'workspace.list': { workspaces: ws, truncated: false } } })
+  const yt = () => fakeYt({ listProjects: async () => ok([{ shortName: 'DEMO', name: 'Demo' }]) })
+  const { call, links } = setup({ host: { 'workspace.list': { workspaces: ws, truncated: false } }, yt: yt() })
   await links.add('one', 'DEMO-7', 'identity:feat', 1)
   const r = await call('yt.links', { server: 'one' })
   assert.equal(r.data['DEMO-7'], 'identity:feat')
-  const fresh = await setup({ host: { 'workspace.list': { workspaces: ws, truncated: false } } }).call('yt.links', { server: 'one' })
+  const fresh = await setup({ host: { 'workspace.list': { workspaces: ws, truncated: false } }, yt: yt() }).call('yt.links', { server: 'one' })
   assert.equal(fresh.data['DEMO-7'], 'identity:d7')
 })
 
@@ -1033,4 +1034,30 @@ test('skill.install runs the CLI skill update', async () => {
   const { call } = setup({ yt: fakeYt({ updateSkill: async () => ok({ messages: ['installed youtrack-cli for codex (2.1.0)'] }) }) })
   assert.deepEqual((await call('yt.skill.install', {})).data, { messages: ['installed youtrack-cli for codex (2.1.0)'] })
   assert.equal((await setup({ yt: null }).call('yt.skill.install', {})).error.code, 'CLI_NOT_FOUND')
+})
+
+test('branch matches count only for projects of this server and workspaces no other server claimed', async () => {
+  const ws = [...WS,
+    { id: 'identity:d7', kind: 'worktree', name: 'x', project: 'demo-repo', path: '/w/x', branch: 'refs/heads/demo-7-x', hostId: 'local' },
+    { id: 'identity:dep', kind: 'worktree', name: 'd', project: 'demo-repo', path: '/w/d', branch: 'dependabot/npm/lodash-4.17.21', hostId: 'local' },
+    { id: 'identity:d8', kind: 'worktree', name: 'y', project: 'demo-repo', path: '/w/y', branch: 'demo-8-y', hostId: 'local' }]
+  const { call, links } = setup({
+    host: { 'workspace.list': { workspaces: ws, truncated: false } },
+    yt: fakeYt({ listProjects: async () => ok([{ shortName: 'DEMO', name: 'Demo' }]) })
+  })
+  await links.add('two', 'DEMO-8', 'identity:d8', 1)
+  const r = await call('yt.links', { server: 'one' })
+  assert.equal(r.data['DEMO-7'], 'identity:d7')
+  assert.equal('LODASH-4' in r.data, false)
+  assert.equal('DEMO-8' in r.data, false)
+  const none = await setup({ host: { 'workspace.list': { workspaces: ws, truncated: false } }, yt: fakeYt({ listProjects: async () => fail('NETWORK', 'x') }) }).call('yt.links', { server: 'one' })
+  assert.equal(none.ok, true)
+  assert.equal('DEMO-7' in none.data, false)
+})
+
+test('current names no issue for a workspace another server started', async () => {
+  const ws = [...WS, { id: 'identity:d4', kind: 'worktree', name: 'demo-4-fix', project: 'demo-repo', path: '/w/d4', branch: 'refs/heads/demo-4-fix', hostId: 'local' }]
+  const { call, links } = setup({ host: { 'workspace.list': { workspaces: ws, truncated: false }, 'workspace.readContext': { branch: 'demo-4-fix', displayName: 'demo-4-fix', terminals: [] } } })
+  await links.add('two', 'DEMO-4', 'identity:d4', 1)
+  assert.deepEqual((await call('yt.current', { server: 'one' })).data, { issue: null })
 })
