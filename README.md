@@ -93,10 +93,11 @@ seen less use.
 - Issue details: who created the issue and when, tags, fields, description and comments. Open
   blockers ("depends on") are named at the top, one press from their details, and subtasks show how
   many are done.
-- **Change fields**: the pencil next to a field offers the values YouTrack lets you pick for it on that
-  issue (State, Priority, Assignee, versions, subsystems, builds and other single-value fields); "No
-  value" empties a field that may be empty. Multi-value and free-text fields have no pencil and are
-  changed with a command. Without permission to change the issue, the picker says so.
+- **Change fields**: the fields sit in a grid as wide as the panel. Press the value of a single-value
+  list field (State, Priority, Assignee, versions, subsystems, builds and others) to pick from the values
+  YouTrack lets you set on that issue; the choice is saved at once. "No value" empties a field that may
+  be empty. Multi-value and free-text fields show their value and are changed with a command. Without
+  permission to change the issue, the list says so.
 - **Edit** the summary and the description of an issue (the pencil next to its id).
 - **New issue**: choose the project, write the summary and description, and set its fields; the
   required ones come first, with the defaults YouTrack fills in. The form works on a YouTrack draft, like

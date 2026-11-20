@@ -28,6 +28,10 @@ type Props = {
   limit?: number
   /** Drawn right of the closed field, on its line (such as a button acting on the choice). */
   aside?: JSX.Element | null
+  /** Called each time it opens (such as to read the options). */
+  onOpen?: () => void
+  /** Shown in the open list above the options (such as "Loading…" or why there are none). */
+  note?: string
 }
 
 /** The open combobox (one at a time) and the filter text of each, by label. */
@@ -62,7 +66,7 @@ function sections(options: readonly ComboOption[]): { group?: string; options: C
  * A button showing the chosen option; pressing it opens a filter field and the matching options right
  * under it. Choosing one, or pressing the button again, closes it.
  */
-export function Combobox({ label, value, options, placeholder, disabled, onChange, onQuery, query, pending, limit = DEFAULT_LIMIT, aside }: Props) {
+export function Combobox({ label, value, options, placeholder, disabled, onChange, onQuery, query, pending, limit = DEFAULT_LIMIT, aside, onOpen, note }: Props) {
   const opened = read(openOne) === label
   // Disabled while open: it closes for good (state cannot change while rendering, so right after).
   if (opened && disabled) queueMicrotask(() => {
@@ -84,7 +88,11 @@ export function Combobox({ label, value, options, placeholder, disabled, onChang
     set(openOne, null)
     if (!remote) update(queries, (all) => ({ ...all, [label]: '' }))
   }
-  const toggle = () => (isOpen ? close() : set(openOne, label))
+  const toggle = () => {
+    if (isOpen) return close()
+    set(openOne, label)
+    onOpen?.()
+  }
   const choose = (next: string) => {
     close()
     onChange(next)
@@ -134,6 +142,7 @@ export function Combobox({ label, value, options, placeholder, disabled, onChang
                 if (first) choose(first.value)
               }}
             />
+            {note ? <Text muted size="sm">{note}</Text> : null}
             {needle ? <Text muted size="xs">{count === 0 ? 'No matches' : count === 1 ? '1 match' : `${count} matches`}</Text> : null}
             {shown.length > visible.length ? <Text muted size="xs">{`Showing the first ${limit} — type to narrow`}</Text> : null}
             {visible.length > 0 ? (

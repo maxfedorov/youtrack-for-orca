@@ -38,12 +38,24 @@ async function opened(h: any) {
   return view
 }
 
-test('a field takes one of the values it offers on this issue, and the issue loads again', async () => {
+const toggle = (name: string) => ({ testId: `${name}:toggle` })
+
+test('the fields sit in a grid that fills the sidebar width, with no edit buttons', async () => {
+  const view = await opened(host())
+  const grid = view.find({ type: 'Grid' })
+  assert.equal(grid.props.minItemWidth, 'sm')
+  assert.equal(view.findAll({ type: 'IconButton' }).some((b: any) => String(b.props.label).startsWith('Change ')), false)
+  assert.equal(view.find(toggle('Priority')).props.title, 'Major')
+  assert.equal(view.find({ testId: 'field-value:Estimation' }).text, '1h')
+  await view.unmount()
+})
+
+test('a field takes one of the values it offers on this issue, read when its list first opens, and the issue loads again', async () => {
   const h = host()
   const view = await opened(h)
-  await view.press({ label: 'Change Assignee' })
+  assert.equal(calls(h, 'yt.issue.fieldValues').length, 0)
+  await view.press(toggle('Assignee'))
   assert.deepEqual(calls(h, 'yt.issue.fieldValues')[0].input, { server: 'main', id: 'DEMO-1', field: 'Assignee' })
-  await view.press({ testId: 'Assignee:toggle' })
   const loads = calls(h, 'yt.issue.get').length
   await view.press({ type: 'ListItem', label: 'Bob Roe' })
   assert.deepEqual(calls(h, 'yt.issue.setField')[0].input, { server: 'main', id: 'DEMO-1', field: 'Assignee', value: 'bob' })
@@ -54,52 +66,49 @@ test('a field takes one of the values it offers on this issue, and the issue loa
 test('an optional field can be emptied, a required one cannot', async () => {
   const h = host()
   const view = await opened(h)
-  await view.press({ label: 'Change Assignee' })
-  await view.press({ testId: 'Assignee:toggle' })
+  await view.press(toggle('Assignee'))
   await view.press({ type: 'ListItem', label: 'No value' })
   assert.deepEqual(calls(h, 'yt.issue.setField')[0].input, { server: 'main', id: 'DEMO-1', field: 'Assignee', value: null })
-  await view.press({ label: 'Change Priority' })
-  await view.press({ testId: 'Priority:toggle' })
+  await view.press(toggle('Priority'))
   assert.equal(view.findAll({ type: 'ListItem' }).some((i: any) => i.props.title === 'No value'), false)
   await view.unmount()
 })
 
-test('only single-value list fields get a change button; the others are changed with a command', async () => {
+test('only single-value list fields open a list; the others show their value and are changed with a command', async () => {
   const view = await opened(host())
-  assert.ok(view.find({ label: 'Change Priority' }))
-  assert.equal(view.find({ label: 'Change Sprints' }), null)
-  assert.equal(view.find({ label: 'Change Estimation' }), null)
-  assert.ok(view.find({ testId: 'field-value:Estimation' }))
+  assert.ok(view.find(toggle('Priority')))
+  assert.equal(view.find(toggle('Sprints')), null)
+  assert.equal(view.find(toggle('Estimation')), null)
+  assert.equal(view.find({ testId: 'field-value:Sprints' }).text, '1')
   await view.unmount()
 })
 
 test('values that cannot be read, or a write without permission, say why', async () => {
   const h = host({ 'yt.issue.fieldValues': fail('FORBIDDEN', 'HTTP 403: Forbidden'), 'yt.issue.setField': fail('FORBIDDEN', 'HTTP 403: Forbidden') })
   const view = await opened(h)
-  await view.press({ label: 'Change Priority' })
+  await view.press(toggle('Priority'))
   assert.ok(view.find({ text: 'You cannot change Priority on this issue.' }))
   await view.unmount()
   const denied = await opened(host({ 'yt.issue.setField': fail('FORBIDDEN', 'HTTP 403: Forbidden') }))
-  await denied.press({ label: 'Change Priority' })
-  await denied.press({ testId: 'Priority:toggle' })
+  await denied.press(toggle('Priority'))
   await denied.press({ type: 'ListItem', label: 'Minor' })
   assert.ok(denied.find({ text: 'You cannot change this issue.' }))
-  assert.ok(denied.find({ testId: 'Priority:toggle' }))
+  assert.ok(denied.find(toggle('Priority')))
   await denied.unmount()
 })
 
-test('a write that fails for another reason shows the reason and keeps the picker open', async () => {
+test('a write that fails for another reason names the field and the reason', async () => {
   const view = await opened(host({ 'yt.issue.setField': fail('UNKNOWN', 'Workflow refused it') }))
-  await view.press({ label: 'Change Priority' })
-  await view.press({ testId: 'Priority:toggle' })
+  await view.press(toggle('Priority'))
   await view.press({ type: 'ListItem', label: 'Minor' })
-  assert.ok(view.find({ text: 'Workflow refused it' }))
+  assert.ok(view.find({ text: 'Priority: Workflow refused it' }))
+  assert.equal(view.find(toggle('Priority')).props.title, 'Major')
   await view.unmount()
 })
 
 test('a value list cut short says so and points to commands', async () => {
   const view = await opened(host({ 'yt.issue.fieldValues': ok({ values: [{ name: 'jane' }], cut: true }) }))
-  await view.press({ label: 'Change Assignee' })
+  await view.press(toggle('Assignee'))
   assert.ok(view.find({ text: 'Only the first 500 values are listed. Set another one with a command, such as "Assignee <value>".' }))
   await view.unmount()
 })
