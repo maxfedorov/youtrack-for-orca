@@ -26,3 +26,12 @@ test('the context watcher reports only real changes of the focused workspace', (
   watch('junk')
   assert.equal(seen.length, 3)
 })
+
+test('an id is never read as the start of a longer one', () => {
+  assert.equal(issueIdFromBranch('demo-10-fix'), 'DEMO-10')
+  assert.equal(issueIdFromBranch('demo-1-fix'), 'DEMO-1')
+  assert.equal(issueIdFromBranch('feat/DEMO-10'), 'DEMO-10')
+  assert.equal(issueIdFromBranch('demo-1'), 'DEMO-1')
+  assert.equal(issueIdFromBranch('xdemo-1-fix'), 'XDEMO-1')
+  assert.equal(issueIdFromBranch('mydemo_1-2'), 'MYDEMO_1-2')
+})

@@ -1103,3 +1103,16 @@ test('start.prepare offers the finish options from the issue: its state field an
   const plain = await setup({ settings: { finishState: 'Done' } }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
   assert.deepEqual(plain.data.finish, { comment: false, state: '', stateField: null, states: [] })
 })
+
+test('branch matches tell DEMO-1 and DEMO-10 apart', async () => {
+  const ws = [...WS,
+    { id: 'identity:d1', kind: 'worktree', name: 'a', project: 'demo-repo', path: '/w/a', branch: 'demo-1-login', hostId: 'local' },
+    { id: 'identity:d10', kind: 'worktree', name: 'b', project: 'demo-repo', path: '/w/b', branch: 'demo-10-logout', hostId: 'local' }]
+  const { call } = setup({
+    host: { 'workspace.list': { workspaces: ws, truncated: false } },
+    yt: fakeYt({ listProjects: async () => ok([{ shortName: 'DEMO', name: 'Demo' }]) })
+  })
+  const r = await call('yt.links', { server: 'one' })
+  assert.equal(r.data['DEMO-1'], 'identity:d1')
+  assert.equal(r.data['DEMO-10'], 'identity:d10')
+})
