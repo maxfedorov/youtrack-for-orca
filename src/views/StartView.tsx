@@ -2,7 +2,7 @@ import { Button, Callout, Field, Heading, Input, Row, Select, Skeleton, Stack, S
 import {
   back, canStart, editPrompt, failure, includeDescription, load, loadedFor, mode, name, prep, prompt, PROMPT_LIMIT, resetPrompt,
   repoId, runError, running, setProject, status, submit, sync, toggleDescription, workspaceId, chosenAgent, currentAvailable, usableMode,
-  worktreeAvailable, workspaceOptions, templateId, chooseTemplate, withoutPrompt, clearPrompt, finishComment, finishState, setFinish
+  worktreeAvailable, workspaceOptions, templateId, chooseTemplate, withoutPrompt, clearPrompt, finishComment, finishState, setFinish, chosenFinishField
 } from '../startState'
 import { AgentPicker } from './start/AgentPicker'
 import { BranchPicker } from './start/BranchPicker'
@@ -35,6 +35,7 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
   const noPrompt = read(withoutPrompt)
   /** The prompt and the controls that build it: off without an agent or without a prompt. */
   const promptOff = !agent || noPrompt
+  const finishField = chosenFinishField(p)
   const tooLong = !promptOff && length > PROMPT_LIMIT
   const gate = canStart()
   const error = read(runError)
@@ -120,14 +121,26 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
         disabled={promptOff}
         onChange={(on) => setFinish({ comment: on })}
       />
-      {p.finish?.stateField && p.finish.states.length > 0 ? (
-        <Field label={`Then set ${p.finish.stateField} to`}>
+      {finishField && (p.finish?.fields.length ?? 0) > 1 ? (
+        <Field label="Field to set when done">
           <Select
-            label={`Then set ${p.finish.stateField} to`}
+            label="Field to set when done"
+            labelHidden
+            value={finishField.name}
+            disabled={promptOff}
+            options={(p.finish?.fields ?? []).map((f) => ({ value: f.name, label: f.name }))}
+            onChange={(value) => setFinish({ field: value })}
+          />
+        </Field>
+      ) : null}
+      {finishField ? (
+        <Field label={`Then set ${finishField.name} to`}>
+          <Select
+            label={`Then set ${finishField.name} to`}
             labelHidden
             value={read(finishState) || NO_STATE}
             disabled={promptOff}
-            options={[{ value: NO_STATE, label: "Don't change" }, ...p.finish.states.map((s) => ({ value: s, label: s }))]}
+            options={[{ value: NO_STATE, label: "Don't change" }, ...finishField.values.map((s) => ({ value: s, label: s }))]}
             onChange={(value) => setFinish({ state: value === NO_STATE ? '' : value })}
           />
         </Field>

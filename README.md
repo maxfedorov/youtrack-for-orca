@@ -60,6 +60,9 @@ now, run `orca plugin update maxfedorov.youtrack-for-orca`. **Remove:** Settings
   | macOS / Linux | `brew install jetbrains/utils/youtrack`   |
   | Windows       | `winget install JetBrains.YouTrackCLI`    |
 
+  Changing fields, the new-issue form and the when-done field in Start need a CLI with
+  `youtrack issue field list`.
+
 - A YouTrack server known to the CLI. Add one with `youtrack auth login <url>`, or in the panel
   ("Add a YouTrack server"), which signs you in through the browser. If browser sign-in fails, or you
   choose **Sign in from a terminal instead**, the panel shows the `youtrack auth login` command to run in
@@ -111,8 +114,11 @@ seen less use.
   terminal), or build the prompt: include the issue description or not, pick a template, and edit or
   clear the prompt (up to 4096 characters) before it is sent.
 - **When the agent finishes**: in Start, "Comment on the issue when done" and "Then set State to"
-  add steps at the end of the prompt, so the agent adds a comment that sums up its work and moves the
-  issue to the state you chose (the project's own state field, such as Stage), with the YouTrack CLI.
+  add steps at the end of the prompt, so the agent adds a comment that sums up its work and sets the
+  field to the value you chose, with the YouTrack CLI. The field is the issue's own (State, Stage,
+  Status, ...): when the issue has more than one single-value state or enum field, "Field to set when
+  done" chooses it. The field and value you start with are offered first next time for that YouTrack
+  project.
 - **Skill for coding agents** (the gear): installs or updates the YouTrack CLI's skill for every coding
   agent found on your computer (`youtrack skill update`), so agents know how to read and update issues.
 - **Prompt templates** (the gear button, "Prompt templates and servers"): named templates for the prompt. Five come built in —
@@ -136,7 +142,7 @@ seen less use.
 | Permission           | Used for                                                                                 |
 | -------------------- | ---------------------------------------------------------------------------------------- |
 | `settings:own`       | Reading the plugin's settings below.                                                     |
-| `storage:own`        | The chosen server, the last query and the quick views of each server, prompt templates, which workspace was started for which issue, and the project remembered for each YouTrack project. |
+| `storage:own`        | The chosen server, the last query and the quick views of each server, prompt templates, which workspace was started for which issue, and the project and when-done field and value remembered for each YouTrack project. |
 | `workspace:read`     | Listing workspaces for Start and Open, finding the focused one and the issue its branch names, and forgetting links to removed workspaces. |
 | `workspace:write`    | The Open button (switches to the issue's workspace) and opening the right sidebar.        |
 | `agent:read`         | Noticing when an agent started from an issue has finished.                               |
@@ -152,8 +158,9 @@ Only two programs, always with an argument list and never through a shell:
 
 - `youtrack`, to read issues, comments, projects and saved searches, save a search, apply a command,
   add a comment, change a field, edit and create issues, install the agent skill, add a server through
-  the browser and remove a server. Field values come from `youtrack issue field list-values`, so each
-  user sees what YouTrack lets them pick; no admin rights are needed;
+  the browser and remove a server. Fields come from `youtrack issue field list` and their values from
+  `youtrack issue field list-values`, so each user sees what YouTrack lets them pick; no admin rights
+  are needed;
 - `orca`, to list projects and branches, create worktrees and launch agents.
 
 The plugin makes no network requests of its own, stores no tokens and collects no data about you;
@@ -184,7 +191,7 @@ everything that talks to YouTrack goes through the CLI.
 | Start agents without a prompt | off                              | Initial state of the "Start without a prompt" switch in the Start view. |
 | Include issue description | off                                  | Initial state of the switch in the Start view.                          |
 | Agent comments when done | off                                   | Initial state of "Comment on the issue when done" in the Start view.    |
-| State when done         | empty                                  | State that "Then set State to" offers first, such as `In Review`; ignored when the project has no such state. |
+| State when done         | empty                                  | Values that "Then set State to" offers first, separated by commas, such as `In Review, Review`: the first one the field has is chosen. A choice made in Start for a YouTrack project wins there. |
 | YouTrack CLI path       | empty (auto-detect)                    | Full path to the `youtrack` executable if it is not found.              |
 
 Placeholders for the prompt templates and the branch name template: `{{id}}`, `{{id_lower}}`, `{{summary}}`,

@@ -186,6 +186,8 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
           .slice(0, 500)
           .map((p) => ({ shortName: p.shortName, name: typeof p.name === 'string' ? p.name : p.shortName }))
       ),
+    /** Every custom field of an issue or draft: value type, several values or one, required, current value. */
+    issueFields: (server, id) => exec(['--server', server, 'issue', 'field', 'list', ...tail, '--', id], READ_MS, list),
     /** The values one field of an issue (or a draft) offers this user, from the issue's field context. */
     fieldValues: (server, id, field) =>
       exec(['--server', server, 'issue', 'field', 'list-values', '--limit', String(MAX_VALUES), ...tail, '--', id, field], READ_MS, list),

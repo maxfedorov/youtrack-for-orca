@@ -76,6 +76,7 @@ test('other methods build argv', async () => {
   await yt.viewIssue('work', 'DEMO-1')
   await yt.listComments('work', 'DEMO-1')
   await yt.savedSearches('work')
+  await yt.issueFields('work', '-3-9')
   await yt.createSavedSearch('work', 'My "s"', 'for: me')
   await yt.version()
   await yt.instances()
@@ -83,11 +84,12 @@ test('other methods build argv', async () => {
     ['--server', 'work', 'issue', 'view', 'DEMO-1', '-f', 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText,canBeEmpty,field(fieldType(id))))', '--json', '--quiet'],
     ['--server', 'work', 'issue', 'comment', 'list', 'DEMO-1', '--json', '--quiet'],
     ['--server', 'work', 'raw', '/api/savedQueries', '--fields', 'id,name,query,pinned', '--paginate', '--json', '--quiet'],
+    ['--server', 'work', 'issue', 'field', 'list', '--json', '--quiet', '--', '-3-9'],
     ['--server', 'work', 'search', 'create', '--name', 'My "s"', '--query', 'for: me', '--json', '--quiet'],
     ['--version'],
     ['instance', 'list', '--json', '--quiet']
   ])
-  assert.equal(run.calls[3].opts.timeoutMs, 30000)
+  assert.equal(run.calls[4].opts.timeoutMs, 30000)
 })
 
 test('instances returns parsed list', async () => {

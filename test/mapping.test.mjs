@@ -1,6 +1,6 @@
 import { test, assert } from 'orca/testing'
 import { readFileSync } from 'node:fs'
-import { toIssueRow, toIssueDetail, toSavedQuery, toServer, toServers, toSavedQueries } from '../worker/mapping.mjs'
+import { toIssueRow, toIssueDetail, toSavedQuery, toServer, toServers, toSavedQueries, toListedFields } from '../worker/mapping.mjs'
 
 const load = (name) =>
   JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8'))
@@ -279,4 +279,29 @@ test('a saved search the user starred in YouTrack is a favorite', () => {
   assert.deepEqual(toSavedQuery({ id: '1-1', name: 'Mine', query: 'for: me', pinned: true }), { id: '1-1', name: 'Mine', query: 'for: me', favorite: true })
   assert.deepEqual(toSavedQuery({ id: '1-2', name: 'All', query: '', pinned: false }), { id: '1-2', name: 'All', query: '' })
   assert.deepEqual(toSavedQuery({ id: '1-3', name: 'Odd', query: '', pinned: 'yes' }), { id: '1-3', name: 'Odd', query: '' })
+})
+
+test('fields of issue field list: value as shown, kind, several values and required, in YouTrack order', () => {
+  const listed = [
+    { name: 'Priority', valueType: 'enum', multiValue: false, required: true, value: { name: 'Major' } },
+    { name: 'Stage', valueType: 'state', multiValue: false, required: true, value: { name: 'Open' } },
+    { name: 'Assignee', valueType: 'user', multiValue: false, required: false, emptyText: 'Unassigned', value: null },
+    { name: 'Sprints', valueType: 'version', multiValue: true, required: false, value: [{ name: '1' }, { name: '2' }] },
+    { name: 'Due', valueType: 'date', multiValue: false, required: false, value: Date.UTC(2026, 10, 9, 15) },
+    { name: 'Checked', valueType: 'date and time', multiValue: false, required: false, value: Date.UTC(2026, 10, 9, 15, 30) },
+    { name: 'Estimation', valueType: 'period', multiValue: false, required: false, value: { presentation: '2h' } },
+    { name: 'Odd', valueType: 'enum', multiValue: false, required: false, value: { weird: true } },
+    { valueType: 'enum', value: null }, null
+  ]
+  assert.deepEqual(toListedFields(listed), [
+    { name: 'Priority', value: 'Major', kind: 'enum', multi: false, required: true },
+    { name: 'Stage', value: 'Open', kind: 'state', multi: false, required: true },
+    { name: 'Assignee', value: 'Unassigned', kind: 'user', multi: false, required: false },
+    { name: 'Sprints', value: '1, 2', kind: 'version', multi: true, required: false },
+    { name: 'Due', value: '2026-11-09', kind: 'other', multi: false, required: false },
+    { name: 'Checked', value: '2026-11-09 15:30', kind: 'other', multi: false, required: false },
+    { name: 'Estimation', value: '2h', kind: 'other', multi: false, required: false },
+    { name: 'Odd', value: 'n/a', kind: 'enum', multi: false, required: false }
+  ])
+  assert.deepEqual(toListedFields(null), [])
 })

@@ -2,7 +2,7 @@
 import { ok, fail, CODES } from '../result.mjs'
 import { customFields, parseColumns } from '../query.mjs'
 import { toValues, pickable, MAX_FIELD_NAME, MAX_VALUE_NAME, MAX_VALUES } from '../project-fields.mjs'
-import { toFields, toIssueRow, toIssueDetail, toComments, toLinks, toSavedQuery, toSavedQueries, toServers } from '../mapping.mjs'
+import { toListedFields, toIssueRow, toIssueDetail, toComments, toLinks, toSavedQuery, toSavedQueries, toServers } from '../mapping.mjs'
 import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, MAX_COMMAND, MAX_NEW_COMMENT, MAX_SUMMARY, MAX_NEW_DESCRIPTION, isPlainUrl, normalizeUrl, settingString, capDetail, attempt, fallback, readSetting, INSTALL } from './common.mjs'
 
 const MAX_LIMIT = 50
@@ -193,10 +193,10 @@ export function registerYoutrackHandlers(ctx) {
 
   /** The fields of an issue or draft: value as shown, kind, whether required, in YouTrack order. */
   async function fieldsOf(alias, id) {
-    const r = await ctx.youtrack.viewIssue(alias, id)
+    const r = await ctx.youtrack.issueFields(alias, id)
     if (!r.ok) return r
-    if (!r.data || typeof r.data !== 'object') return unexpected()
-    return ok(toFields(r.data).filter((f) => f.name.length <= MAX_FIELD_NAME))
+    if (!Array.isArray(r.data)) return unexpected()
+    return ok(toListedFields(r.data).filter((f) => f.name.length <= MAX_FIELD_NAME))
   }
 
   /** Checks a field name and value for a write: the field takes one value from a list, and the value is one it offers. */

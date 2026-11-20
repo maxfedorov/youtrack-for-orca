@@ -6,7 +6,7 @@ import { AGENTS } from '../agents.mjs'
 import { inside, shortBranch, workspaceItems } from '../workspaces.mjs'
 import { BUILT_IN } from '../templates.mjs'
 import { issueIdFromBranch } from '../branch-issue.mjs'
-import { toFieldMeta, toValues, MAX_VALUES } from '../project-fields.mjs'
+import { toListedMeta, toValues, MAX_VALUES } from '../project-fields.mjs'
 import { safeValue } from '../prompt.mjs'
 import { safeHandle, shortMessage, unexpected, hasId, invalid, token, issueUrl, ISSUE_ID, settingString, capDetail, AGENT_ID, attempt, fallback, readSetting } from './common.mjs'
 
@@ -20,6 +20,14 @@ const NOT_SAVED = 'Started, but the plugin could not save it: this issue may not
 
 /** The YouTrack project of an issue: the short name its readable id starts with. */
 const projectOf = (id) => id.slice(0, id.lastIndexOf('-'))
+
+/** Fields the Start view offers for the agent to set when done; each one's values are read. */
+const MAX_FINISH_FIELDS = 6
+/** The names of the "State when done" setting, in order: `In Review, Review`. */
+const finishNames = (setting) => settingString(setting, '').split(',').map((n) => n.trim()).filter(safeValue)
+/** A finish choice sent with a start: a field name and a value name, or '' for no change. */
+const finishChoice = (v) =>
+  v && typeof v === 'object' && safeValue(v.field) && (v.state === '' || safeValue(v.state)) ? { field: v.field, state: v.state } : null
 
 export function registerStartHandlers(ctx) {
   const { orca, orcaCli, links, launches, templates, detectAgents, now, resolveServer } = ctx
@@ -94,6 +102,39 @@ export function registerStartHandlers(ctx) {
     return inRepo.length === 1 ? inRepo[0] : null
   }
 
+  /**
+   * What the agent may set when done: the issue's single-value state and enum fields (state fields
+   * first) with the values this user may set. Each field comes with the value to offer first: the one
+   * last chosen in this YouTrack project, else the first name of the setting the field has. The field
+   * shown first is the one last chosen, else one with a value from the setting, else a state field.
+   */
+  async function finishFields(alias, id, listed, setting) {
+    const candidates = (listed.ok && Array.isArray(listed.data) ? listed.data : [])
+      .filter((f) => safeValue(f?.name) && !toListedMeta(f).multi && ['state', 'enum'].includes(toListedMeta(f).kind))
+      .sort((a, b) => Number(toListedMeta(b).kind === 'state') - Number(toListedMeta(a).kind === 'state'))
+      .slice(0, MAX_FINISH_FIELDS)
+    const read = await Promise.all(candidates.map((f) => attempt(() => ctx.youtrack.fieldValues(alias, id, f.name))))
+    const last = await fallback(() => ctx.state.finishChoice(alias, projectOf(id)), null)
+    const wanted = finishNames(setting)
+    const fields = []
+    const stateKind = new Set()
+    candidates.forEach((f, i) => {
+      const values = read[i].ok ? toValues(read[i].data, MAX_VALUES).values.map((v) => v.name).filter(safeValue) : []
+      if (values.length === 0) return
+      const kept = last && last.field === f.name && (last.state === '' || values.includes(last.state))
+      fields.push({ name: f.name, values, state: kept ? last.state : (wanted.find((w) => values.includes(w)) ?? '') })
+      if (toListedMeta(f).kind === 'state') stateKind.add(f.name)
+    })
+    const first = fields.find((f) => last && f.name === last.field) ?? fields.find((f) => f.state) ?? fields.find((f) => stateKind.has(f.name)) ?? fields[0]
+    return { field: first ? first.name : null, fields }
+  }
+
+  /** Remembers the finish choice of a start for its YouTrack project; one that is not names is skipped. */
+  async function rememberFinish(alias, id, finish) {
+    const choice = finishChoice(finish)
+    if (choice) await fallback(() => ctx.state.rememberFinishChoice(alias, projectOf(id), choice), null)
+  }
+
   /** Validate agent (empty means none) and prompt; returns `{ agent, prompt }` or a failed Result. */
   function checkLaunch({ agent, prompt }) {
     if (prompt != null && typeof prompt !== 'string') return invalid('Invalid prompt')
@@ -108,8 +149,9 @@ export function registerStartHandlers(ctx) {
     const s = await resolveServer(server)
     if (!s.ok) return s
     // Only the issue is required; repositories, workspaces, agents and settings each fall back alone.
-    const [view, repos, ws] = await Promise.all([
+    const [view, issueFields, repos, ws] = await Promise.all([
       attempt(() => ctx.youtrack.viewIssue(s.data.alias, id)),
+      attempt(() => ctx.youtrack.issueFields(s.data.alias, id)),
       orcaCli ? attempt(() => orcaCli.repos()) : Promise.resolve(ok([])),
       attempt(async () => ok(await listWorkspaces()))
     ])
@@ -157,19 +199,7 @@ export function registerStartHandlers(ctx) {
       workspaces: workspaceItems(workspaces, repoList, ctx.homedir),
       defaultWorkspaceId: linked ?? (active ? active.id : null)
     }
-    // What the agent does when it is done: the state field is the project's own (State, Stage, ...).
-    const stateField = (Array.isArray(view.data.customFields) ? view.data.customFields : []).find(
-      (f) => typeof f?.name === 'string' && safeValue(f.name) && toFieldMeta(f).kind === 'state' && !toFieldMeta(f).multi
-    )
-    const stateValues = stateField ? await attempt(() => ctx.youtrack.fieldValues(s.data.alias, id, stateField.name)) : null
-    const states = stateValues?.ok ? toValues(stateValues.data, MAX_VALUES).values.map((v) => v.name).filter(safeValue) : []
-    const wanted = settingString(await get('finishState'), '')
-    data.finish = {
-      comment: (await get('finishComment')) === true,
-      state: states.includes(wanted) ? wanted : '',
-      stateField: stateField && states.length > 0 ? stateField.name : null,
-      states
-    }
+    data.finish = { comment: (await get('finishComment')) === true, ...(await finishFields(s.data.alias, id, issueFields, await get('finishState'))) }
     if (!repos.ok) data.reposError = shortMessage(repos.error.message)
     if (!ws.ok) data.workspacesError = shortMessage(ws.error.message)
     if (!agents) data.agentsError = 'Installed agents could not be detected.'
@@ -185,7 +215,7 @@ export function registerStartHandlers(ctx) {
     return r.ok ? ok({ refs: r.data }) : r
   })
 
-  handle('yt.start.run', async ({ server, id, repoId, name, baseBranch, agent, prompt }) => {
+  handle('yt.start.run', async ({ server, id, repoId, name, baseBranch, agent, prompt, finish }) => {
     if (!orcaCli) return noOrcaCli()
     if (typeof id !== 'string' || !ISSUE_ID.test(id)) return invalid('Invalid issue id')
     const trimmed = typeof name === 'string' ? name.trim() : name
@@ -207,6 +237,7 @@ export function registerStartHandlers(ctx) {
     const saved = await remember('yt.start.run link', () => links.add(s.data.alias, id, workspaceId, now()))
     // Offered first next time for this YouTrack project; losing it is not worth a warning.
     await fallback(() => ctx.state.rememberProjectRepo(s.data.alias, projectOf(id), repoId), null)
+    await rememberFinish(s.data.alias, id, finish)
     let tracked = null
     // The finished-notification matches `agent.status.changed` by terminal, pane or workspace, so keep
     // every id the answer has; without a terminal handle the workspace id stands in for it.
@@ -219,7 +250,7 @@ export function registerStartHandlers(ctx) {
     return ok(warning ? { workspaceId, warning } : { workspaceId })
   })
 
-  handle('yt.runInExisting', async ({ server, id, workspaceId, agent, prompt }) => {
+  handle('yt.runInExisting', async ({ server, id, workspaceId, agent, prompt, finish }) => {
     if (typeof id !== 'string' || !ISSUE_ID.test(id)) return invalid('Invalid issue id')
     const bad = token(workspaceId, 'workspace')
     if (bad) return invalid(bad)
@@ -249,6 +280,7 @@ export function registerStartHandlers(ctx) {
     if (paneKey) tracked.paneKey = paneKey
     if (terminalId || paneKey) tracked.shared = true
     const warning = await remember('yt.runInExisting launch', () => launches.track(tracked))
+    await rememberFinish(s.data.alias, id, finish)
     const data = terminalId ? { terminalId } : {}
     if (warning) data.warning = warning
     return ok(data)

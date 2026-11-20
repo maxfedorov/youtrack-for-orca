@@ -78,11 +78,17 @@ export type StartPrepare = {
   workspaces: WorkspaceItem[]
   defaultWorkspaceId: string | null
   /**
-   * What the prompt asks the agent to do when it is done: comment a summary, then set the project's
-   * state field (`stateField`, null when the project fields could not be read) to one of `states`.
+   * What the prompt asks the agent to do when it is done: comment a summary, then set one of `fields`
+   * (the issue's state and enum fields) to one of its `values`. `field` is the one shown first (null
+   * when there are none); each field's `state` is its value offered first, '' for no change.
    */
-  finish?: { comment: boolean; state: string; stateField: string | null; states: string[] }
+  finish?: { comment: boolean; field: string | null; fields: FinishField[] }
 }
+
+export type FinishField = { name: string; values: string[]; state: string }
+
+/** The field and value the agent was asked to set when done; remembered for the issue's project. */
+export type FinishChoice = { field: string; state: string }
 
 declare module 'orca' {
   // oxlint-disable-next-line typescript/consistent-type-definitions -- declaration merging needs an interface
@@ -157,13 +163,13 @@ declare module 'orca' {
     'yt.refs.search': { input: { repoId: string; query: string }; output: Result<{ refs: string[] }> }
     /** New worktree. Without `agent` no prompt is sent. */
     'yt.start.run': {
-      input: { server: string; id: string; repoId: string; name: string; baseBranch?: string; agent?: string; prompt?: string }
+      input: { server: string; id: string; repoId: string; name: string; baseBranch?: string; agent?: string; prompt?: string; finish?: FinishChoice }
       /** `warning`: it started, but the plugin could not save the link or the launch. */
       output: Result<{ workspaceId: string; warning?: string }>
     }
     /** Agent in an existing workspace; no issue-to-workspace link is stored. */
     'yt.runInExisting': {
-      input: { server: string; id: string; workspaceId: string; agent: string; prompt: string }
+      input: { server: string; id: string; workspaceId: string; agent: string; prompt: string; finish?: FinishChoice }
       output: Result<{ terminalId?: string; warning?: string }>
     }
     /** The issue of the focused workspace (started there by the plugin, or named in its branch); `issue` null when none. */

@@ -2,7 +2,7 @@
 // Output is strict JSON: absent values are omitted, never set to undefined.
 
 import { columnKey } from './query.mjs'
-import { toFieldMeta } from './project-fields.mjs'
+import { toFieldMeta, toListedMeta } from './project-fields.mjs'
 
 /** @typedef {{ name: string, color?: string }} Value */
 /** @typedef {{ login: string, fullName: string }} User */
@@ -142,6 +142,27 @@ export function toFields(raw) {
     .filter((f) => typeof f?.name === 'string' && f.name !== '')
     .slice(0, MAX_FIELDS)
     .map(toField)
+}
+
+/** The `$type` prefix `fieldText` reads dates by, for the value types of `issue field list`. */
+const DATE_TYPES = { date: 'Date', 'date and time': 'DateTime' }
+
+/** The fields of `issue field list --json` as display strings with their kind, in YouTrack order. @param {any} list */
+export function toListedFields(list) {
+  return (Array.isArray(list) ? list : [])
+    .filter((f) => typeof f?.name === 'string' && f.name !== '')
+    .slice(0, MAX_FIELDS)
+    .map((f) => {
+      let shown
+      try {
+        shown = fieldText(f.value, DATE_TYPES[f.valueType] ?? '')
+      } catch {
+        shown = null
+      }
+      const meta = toListedMeta(f)
+      if (shown === null) return { name: f.name, value: NOT_AVAILABLE, ...meta }
+      return { name: f.name, value: clip(shown || (typeof f.emptyText === 'string' && f.emptyText ? f.emptyText : EMPTY)), ...meta }
+    })
 }
 
 /**

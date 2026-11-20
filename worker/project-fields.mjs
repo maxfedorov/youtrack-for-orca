@@ -21,6 +21,12 @@ export function toFieldMeta(f) {
   return { kind: LISTED.has(base) ? base : 'other', multi: type.endsWith('[*]'), required: f?.projectCustomField?.canBeEmpty === false }
 }
 
+/** Kind, multi and required of one entry of `issue field list`. */
+export function toListedMeta(f) {
+  const type = typeof f?.valueType === 'string' ? f.valueType : ''
+  return { kind: LISTED.has(type) ? type : 'other', multi: f?.multiValue === true, required: f?.required === true }
+}
+
 /** A field whose value the panel can change: one value from a list. */
 export const pickable = (meta) => meta.kind !== 'other' && !meta.multi
 

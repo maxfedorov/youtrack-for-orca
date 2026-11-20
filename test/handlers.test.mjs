@@ -998,9 +998,13 @@ const FIELDED = (id) => ({
   ...rawIssue(id),
   customFields: [meta('Priority', 'enum[1]', false, { name: 'Major' }), meta('Assignee', 'user[1]', true), meta('Sprints', 'version[*]', true), meta('Estimation', 'period', true), meta('Stage', 'state[1]', false, { name: 'Open' })]
 })
+/** One entry of `issue field list`. */
+const listed = (name, valueType, required, value = null, multiValue = false) => ({ id: name, name, valueType, multiValue, required, hasChoices: true, value })
+const LISTED = [listed('Priority', 'enum', true, { name: 'Major' }), listed('Assignee', 'user', false), listed('Sprints', 'version', false, [], true), listed('Estimation', 'period', false), listed('Stage', 'state', true, { name: 'Open' })]
 const VALUES = { Priority: [{ name: 'Major' }, { name: 'Minor' }], Assignee: [{ login: 'jane', fullName: 'Jane Doe' }], Stage: [{ name: 'Open' }, { name: 'In Review' }, { name: 'Bad"one' }] }
 const fielded = (over = {}) => fakeYt({
   viewIssue: async (s, id) => ok(FIELDED(id)),
+  issueFields: async () => ok(LISTED),
   fieldValues: async (s, id, field) => (VALUES[field] ? ok(VALUES[field]) : fail('UNKNOWN', 'field does not expose selectable values')),
   ...over
 })
@@ -1034,7 +1038,8 @@ test('issue.setField writes only values the field offers for a single-value fiel
 
 test('issue.draft starts a draft in a project and answers its fields, and reuses it next time', async () => {
   let made = 0
-  const { call } = setup({ yt: fielded({ draftCreate: async () => (made++, ok({ id: '3-9' })) }) })
+  // The fields come from `issue field list`, which needs only permission to read the draft.
+  const { call } = setup({ yt: fielded({ draftCreate: async () => (made++, ok({ id: '3-9' })), viewIssue: async () => fail('UNKNOWN', 'not used') }) })
   const r = await call('yt.issue.draft', { server: 'one', project: 'DEMO' })
   assert.deepEqual(r.data, {
     draftId: '3-9',
@@ -1053,7 +1058,7 @@ test('issue.draft starts a draft in a project and answers its fields, and reuses
 
 test('issue.draft makes a new draft when the stored one is gone, and says when issues cannot be created', async () => {
   let n = 0
-  const { call } = setup({ yt: fielded({ draftCreate: async () => ok({ id: `3-${++n}` }), viewIssue: async (s, id) => (id === '3-1' && n > 1 ? fail('NOT_FOUND', 'HTTP 404') : ok(FIELDED(id))) }) })
+  const { call } = setup({ yt: fielded({ draftCreate: async () => ok({ id: `3-${++n}` }), issueFields: async (s, id) => (id === '3-1' && n > 1 ? fail('NOT_FOUND', 'HTTP 404') : ok(LISTED)) }) })
   assert.equal((await call('yt.issue.draft', { server: 'one', project: 'DEMO' })).data.draftId, '3-1')
   n = 1
   const again = await setup({ yt: fielded({ draftCreate: async () => fail('FORBIDDEN', 'HTTP 403: HTTP 403 Forbidden') }) }).call('yt.issue.draft', { server: 'one', project: 'DEMO' })
@@ -1096,12 +1101,65 @@ test('issue.draft.discard deletes only a draft the plugin started', async () => 
   assert.deepEqual(deleted, [['one', '3-9']])
 })
 
-test('start.prepare offers the finish options from the issue: its state field and the values it may take', async () => {
-  const { call } = setup({ yt: fielded(), settings: { finishComment: true, finishState: 'In Review' } })
+test('start.prepare offers the single-value state and enum fields to set when done, state fields first', async () => {
+  const { call } = setup({ yt: fielded(), settings: { finishComment: true, finishState: 'Review, In Review' } })
   const r = await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
-  assert.deepEqual(r.data.finish, { comment: true, state: 'In Review', stateField: 'Stage', states: ['Open', 'In Review'] })
+  assert.deepEqual(r.data.finish, {
+    comment: true,
+    field: 'Stage',
+    fields: [{ name: 'Stage', values: ['Open', 'In Review'], state: 'In Review' }, { name: 'Priority', values: ['Major', 'Minor'], state: '' }]
+  })
   const plain = await setup({ settings: { finishState: 'Done' } }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
-  assert.deepEqual(plain.data.finish, { comment: false, state: '', stateField: null, states: [] })
+  assert.deepEqual(plain.data.finish, { comment: false, field: null, fields: [] })
+})
+
+test('start.prepare picks the field that has a value from the setting, else the first state field', async () => {
+  const enums = fielded({
+    issueFields: async () => ok([listed('Priority', 'enum', true), listed('Status', 'enum', true), listed('Tags', 'enum', false, [], true)]),
+    fieldValues: async (s, id, field) => ok(field === 'Status' ? [{ name: 'Open' }, { name: 'Done' }] : [{ name: 'Major' }])
+  })
+  const r = await setup({ yt: enums, settings: { finishState: 'Done' } }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.equal(r.data.finish.field, 'Status')
+  assert.deepEqual(r.data.finish.fields.map((f) => [f.name, f.state]), [['Priority', ''], ['Status', 'Done']])
+  const none = await setup({ yt: fielded(), settings: { finishState: '' } }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.equal(none.data.finish.field, 'Stage')
+  assert.deepEqual(none.data.finish.fields.map((f) => f.state), ['', ''])
+})
+
+test('start.prepare leaves out fields whose values cannot be read, and offers none when the fields cannot be read', async () => {
+  const some = fielded({ fieldValues: async (s, id, field) => (field === 'Stage' ? fail('FORBIDDEN', 'HTTP 403') : ok(VALUES[field] ?? [])) })
+  const r = await setup({ yt: some }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.deepEqual(r.data.finish.fields.map((f) => f.name), ['Priority'])
+  const broken = await setup({ yt: fielded({ issueFields: async () => fail('UNKNOWN', 'unknown command "list"') }) }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.equal(broken.ok, true)
+  assert.deepEqual(broken.data.finish.fields, [])
+})
+
+test('the finish field and value chosen at start are offered first next time for that YouTrack project', async () => {
+  const { call } = setup({ yt: fielded(), settings: { finishState: 'In Review' } })
+  const run = (id, finish) => call('yt.start.run', { server: 'one', id, repoId: 'r1', name: 'n', agent: 'claude', prompt: 'p', finish })
+  assert.equal((await run('DEMO-3', { field: 'Priority', state: 'Minor' })).ok, true)
+  let f = (await call('yt.start.prepare', { server: 'one', id: 'DEMO-9' })).data.finish
+  assert.equal(f.field, 'Priority')
+  assert.deepEqual(f.fields.map((x) => [x.name, x.state]), [['Stage', 'In Review'], ['Priority', 'Minor']])
+  // "Don't change" is remembered too.
+  await call('yt.runInExisting', { server: 'one', id: 'DEMO-3', workspaceId: 'identity:feat', agent: 'claude', prompt: 'p', finish: { field: 'Stage', state: '' } })
+  f = (await call('yt.start.prepare', { server: 'one', id: 'DEMO-9' })).data.finish
+  assert.equal(f.field, 'Stage')
+  assert.deepEqual(f.fields.map((x) => x.state), ['', ''])
+  // Another project, and choices that are not names, change nothing.
+  assert.equal((await call('yt.start.prepare', { server: 'one', id: 'OTHER-1' })).data.finish.fields[0].state, 'In Review')
+  for (const bad of [{ field: "x' y", state: 'Minor' }, { field: 'Priority', state: '-x' }, 'Priority', { field: 7 }]) {
+    assert.equal((await run('DEMO-3', bad)).ok, true, JSON.stringify(bad))
+  }
+  assert.equal((await call('yt.start.prepare', { server: 'one', id: 'DEMO-9' })).data.finish.field, 'Stage')
+})
+
+test('a remembered finish value the field no longer has falls back to the setting', async () => {
+  const { call } = setup({ yt: fielded(), settings: { finishState: 'In Review' } })
+  await call('yt.start.run', { server: 'one', id: 'DEMO-3', repoId: 'r1', name: 'n', finish: { field: 'Stage', state: 'Gone' } })
+  const f = (await call('yt.start.prepare', { server: 'one', id: 'DEMO-9' })).data.finish
+  assert.deepEqual(f.fields.map((x) => x.state), ['In Review', ''])
 })
 
 test('branch matches tell DEMO-1 and DEMO-10 apart', async () => {

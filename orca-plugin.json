@@ -120,7 +120,7 @@
       {
         "key": "finishState",
         "title": "State when done",
-        "description": "The state the Start view offers to set when the agent is done, such as In Review; empty or a state the project lacks means none.",
+        "description": "Values the Start view offers first for the agent to set when done, separated by commas, such as In Review, Review: the first one the issue's field has is chosen. A choice made in Start for a YouTrack project is offered there instead.",
         "type": "string",
         "default": ""
       },

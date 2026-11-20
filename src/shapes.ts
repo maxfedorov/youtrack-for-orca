@@ -145,12 +145,14 @@ function fixPrepare(v: Obj): Obj {
   const templates = out.templates as Obj[]
   out.defaultTemplateId = templates.some((t) => t.id === v.defaultTemplateId) ? v.defaultTemplateId : (templates[0]?.id ?? null)
   const f = isObj(v.finish) ? v.finish : {}
-  const states = keep(f.states, id) as string[]
+  const fields = keep(f.fields, shape({ name: id })).map((x) => {
+    const values = keep((x as Obj).values, id) as string[]
+    return { name: (x as Obj).name, values, state: values.includes((x as Obj).state as string) ? (x as Obj).state : '' }
+  }).filter((x) => x.values.length > 0)
   out.finish = {
     comment: f.comment === true,
-    stateField: id(f.stateField) ? f.stateField : null,
-    states: id(f.stateField) ? states : [],
-    state: id(f.stateField) && states.includes(f.state as string) ? f.state : ''
+    field: fields.some((x) => x.name === f.field) ? f.field : (fields[0]?.name ?? null),
+    fields
   }
   for (const key of ['reposError', 'workspacesError', 'agentsError']) if (!str(v[key])) delete out[key]
   if (!detected && !str(v.agentsError)) out.agentsError = 'Installed agents could not be detected.'
