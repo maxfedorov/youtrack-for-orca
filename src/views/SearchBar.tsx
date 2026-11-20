@@ -1,7 +1,8 @@
 import { Button, IconButton, Input, Row, Stack, Text, atom, read, set, update } from 'orca'
-import { appliedQuery, listError, listStatus, loadSavedQueries, runSearch, savedQueries, savedQueriesFailed } from '../listState'
+import { appliedQuery, listError, listStatus, loadSavedQueries, quickViewIds, runSearch, savedQueries, savedQueriesFailed, setQuickView } from '../listState'
+import type { SavedQuery } from '../protocol'
 import { call, query, server } from '../state'
-import { Combobox } from './Combobox'
+import { Combobox, type ComboOption } from './Combobox'
 
 /** How long an emptied query waits before it runs: clearing the field and typing anew runs nothing. */
 const CLEARED_MS = 400
@@ -43,6 +44,41 @@ async function saveSearch(): Promise<void> {
   else void loadSavedQueries()
 }
 
+/**
+ * The saved searches to choose from: the ones starred in YouTrack first, marked ★, as YouTrack lists
+ * them; headings only when there are both kinds.
+ */
+export function savedOptions(saved: readonly SavedQuery[]): ComboOption[] {
+  const favorites = saved.filter((item) => item.favorite)
+  const others = saved.filter((item) => !item.favorite)
+  const grouped = favorites.length > 0 && others.length > 0
+  return [
+    ...favorites.map((item) => ({ value: item.id, label: `★ ${item.name}`, ...(grouped ? { group: 'Favorites' } : {}) })),
+    ...others.map((item) => ({ value: item.id, label: item.name, ...(grouped ? { group: 'Other saved searches' } : {}) }))
+  ]
+}
+
+/** As many as the worker keeps per server. */
+const MAX_QUICK_VIEWS = 12
+
+/** Adds the saved search shown to the quick view buttons above the list, or takes it off. */
+function QuickViewToggle({ id }: { id: string }) {
+  const ids = read(quickViewIds)
+  const on = ids.includes(id)
+  return on ? (
+    <IconButton icon="remove" label="Remove the quick view" variant="ghost" onPress={() => void setQuickView(id, false)} />
+  ) : (
+    <IconButton
+      icon="add"
+      label="Show as a quick view"
+      tooltip={ids.length >= MAX_QUICK_VIEWS ? `Up to ${MAX_QUICK_VIEWS} quick views` : undefined}
+      variant="ghost"
+      disabled={ids.length >= MAX_QUICK_VIEWS}
+      onPress={() => void setQuickView(id, true)}
+    />
+  )
+}
+
 export function SearchBar() {
   const text = read(query)
   const saved = read(savedQueries)
@@ -74,14 +110,17 @@ export function SearchBar() {
         value={match?.id ?? null}
         placeholder={unavailable ? 'Saved searches unavailable' : 'Saved searches'}
         disabled={unavailable && saved.length === 0}
-        options={saved.map((item) => ({ value: item.id, label: item.name }))}
+        options={savedOptions(saved)}
         onChange={(id) => {
           const chosen = read(savedQueries).find((item) => item.id === id)
           if (chosen) void runSearch(chosen.query)
         }}
         aside={
           match ? (
-            <IconButton icon="star" label={`Saved as ${match.name}`} variant="solid" tone="accent" disabled={invalid} onPress={() => {}} />
+            <Row gap="xs" align="center">
+              <QuickViewToggle id={match.id} />
+              <IconButton icon="star" label={`Saved as ${match.name}`} variant="solid" tone="accent" disabled={invalid} onPress={() => {}} />
+            </Row>
           ) : (
             <IconButton icon="star" label="Save search" variant="outline" disabled={invalid || !text.trim()} onPress={startNaming} />
           )

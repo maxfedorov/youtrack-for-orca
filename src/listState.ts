@@ -27,6 +27,8 @@ export const listError = atom('')
 /** The query the rows belong to; `query` is the text being edited. */
 export const appliedQuery = atom('')
 export const savedQueries = atom<SavedQuery[]>([])
+/** The ids of the saved searches shown as quick view buttons, in order. */
+export const quickViewIds = atom<string[]>([])
 /** The saved searches could not be loaded; searching still works. */
 export const savedQueriesFailed = atom(false)
 /** Issue id -> workspace id. */
@@ -134,10 +136,24 @@ export async function loadCurrent(): Promise<void> {
 export async function loadSavedQueries(): Promise<void> {
   const current = read(server)
   if (!current) return
-  const answer = await call('yt.savedQueries', { server: current })
+  const [answer, quick] = await Promise.all([call('yt.savedQueries', { server: current }), call('yt.quickViews', { server: current })])
   if (read(server) !== current) return
   set(savedQueriesFailed, !answer.ok)
   if (answer.ok) set(savedQueries, answer.data.filter((item) => item.id && item.name))
+  if (quick.ok) set(quickViewIds, quick.data.ids)
+}
+
+/**
+ * Shows or hides a saved search as a quick view button. Ids of saved searches the server no longer
+ * lists are dropped on the way, while the list is known.
+ */
+export async function setQuickView(id: string, shown: boolean): Promise<void> {
+  const current = read(server)
+  if (!current) return
+  const known = read(savedQueriesFailed) ? null : new Set(read(savedQueries).map((item) => item.id))
+  const kept = read(quickViewIds).filter((other) => other !== id && (!known || known.has(other)))
+  const answer = await call('yt.quickViews.set', { server: current, ids: shown ? [...kept, id] : kept })
+  if (answer.ok && read(server) === current) set(quickViewIds, answer.data.ids)
 }
 
 /** First load of the list for the selected server: search with its stored query, saved searches, links. */
@@ -176,6 +192,7 @@ export async function onServerChanged(): Promise<void> {
   set(hasMore, false)
   set(lastPageFull, false)
   set(savedQueries, [])
+  set(quickViewIds, [])
   set(savedQueriesFailed, false)
   set(links, {})
   set(linksFailed, false)

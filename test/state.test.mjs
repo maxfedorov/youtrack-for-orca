@@ -104,3 +104,22 @@ test('damaged project memory reads as empty', async () => {
   await state.rememberProjectRepo('a', 'DEMO', 'r2')
   assert.equal(await state.projectRepo('a', 'DEMO'), 'r2')
 })
+
+test('quick views are kept per server, without repeats, and forgotten with the server', async () => {
+  const state = createStateStore(fakeStorage())
+  assert.deepEqual(await state.quickViews('a'), [])
+  await state.setQuickViews('a', ['1-2', '1-3', '1-2'])
+  await state.setQuickViews('b', ['1-9'])
+  assert.deepEqual(await state.quickViews('a'), ['1-2', '1-3'])
+  await state.forgetServer('a')
+  assert.deepEqual(await state.quickViews('a'), [])
+  assert.deepEqual(await state.quickViews('b'), ['1-9'])
+})
+
+test('damaged quick views read as none', async () => {
+  const storage = fakeStorage()
+  await storage.set('quickViews', { a: 'x', b: [1, '1-2', null] })
+  const state = createStateStore(storage)
+  assert.deepEqual(await state.quickViews('a'), [])
+  assert.deepEqual(await state.quickViews('b'), ['1-2'])
+})

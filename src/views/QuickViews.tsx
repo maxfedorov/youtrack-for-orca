@@ -1,26 +1,22 @@
 import { Button, Row, read } from 'orca'
-import { appliedQuery, runSearch } from '../listState'
+import { appliedQuery, quickViewIds, runSearch, savedQueries } from '../listState'
 
-/** Common searches one press away; the one whose query the list shows is marked. */
-export const QUICK_VIEWS = [
-  { label: 'Assigned to me', query: 'for: me #Unresolved' },
-  { label: 'Reported by me', query: 'reporter: me #Unresolved' },
-  { label: 'Commented by me', query: 'commenter: me sort by: updated desc' },
-  { label: 'All open', query: '#Unresolved sort by: updated desc' }
-] as const
-
+/** The saved searches chosen as quick views, one press away; the one whose query the list shows is marked. */
 export function QuickViews() {
   const shown = read(appliedQuery).trim()
+  const saved = read(savedQueries)
+  const chosen = read(quickViewIds).flatMap((id) => saved.filter((item) => item.id === id))
+  if (chosen.length === 0) return null
   return (
     <Row gap="xs" wrap>
-      {QUICK_VIEWS.map((quick) => (
+      {chosen.map((item) => (
         <Button
-          key={quick.label}
+          key={`quick-view:${item.id}`}
           size="sm"
-          variant={quick.query === shown ? 'solid' : 'ghost'}
-          onPress={() => void runSearch(quick.query)}
+          variant={item.query.trim() === shown ? 'solid' : 'ghost'}
+          onPress={() => void runSearch(item.query)}
         >
-          {quick.label}
+          {item.name}
         </Button>
       ))}
     </Row>

@@ -42,7 +42,8 @@ export type FieldMeta = { name: string; value?: string; kind: 'enum' | 'state' |
 /** Values a field offers on one issue or draft (users by login, `label` their name); `cut`: there may be more. */
 export type FieldValues = { values: { name: string; label?: string }[]; cut: boolean }
 export type IssueComments = { comments: Comment[]; commentsOmitted?: number; truncated?: true }
-export type SavedQuery = { id: string; name: string; query: string }
+/** `favorite`: starred by the user in YouTrack (left out when the YouTrack CLI does not say). */
+export type SavedQuery = { id: string; name: string; query: string; favorite?: boolean }
 export type Repo = { id: string; name: string; path?: string; worktreeBaseRef?: string }
 /** `project`: the listed project, the repository holding the folder, or the folder name; `path` is shortened for display. */
 export type WorkspaceItem = { id: string; name: string; project?: string; branch?: string; path?: string }
@@ -146,6 +147,10 @@ declare module 'orca' {
     /** Puts every setting of the plugin back to its default. */
     'yt.settings.reset': { input: Record<string, never>; output: Result<Record<string, never>> }
     'yt.savedQueries': { input: { server: string }; output: Result<SavedQuery[]> }
+    /** The ids of the saved searches shown as quick view buttons on the server, in order. */
+    'yt.quickViews': { input: { server: string }; output: Result<{ ids: string[] }> }
+    /** Replaces them; at most 12. */
+    'yt.quickViews.set': { input: { server: string; ids: string[] }; output: Result<{ ids: string[] }> }
     /** name <= 60 characters. */
     'yt.savedQueries.create': { input: { server: string; name: string; query: string }; output: Result<SavedQuery> }
     'yt.start.prepare': { input: { server: string; id: string }; output: Result<StartPrepare> }

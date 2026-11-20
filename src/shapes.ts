@@ -160,7 +160,12 @@ function fixPrepare(v: Obj): Obj {
 /** Answers whose parts can be repaired: the core the screen needs is checked, the rest is fixed. */
 const REPAIRS: Record<string, { core: Check; fix: (v: Obj) => unknown }> = {
   'yt.env': { core: shape({ cli: shape({ found: bool }), servers: Array.isArray }), fix: fixEnv },
-  'yt.savedQueries': { core: Array.isArray, fix: (v) => keep(v, savedQuery) },
+  'yt.savedQueries': {
+    core: Array.isArray,
+    fix: (v) => keep(v, savedQuery).map((q) => ({ id: (q as Obj).id, name: (q as Obj).name, query: (q as Obj).query, ...((q as Obj).favorite === true ? { favorite: true } : {}) }))
+  },
+  'yt.quickViews': { core: isObj, fix: (v) => ({ ids: keep(v.ids, id) }) },
+  'yt.quickViews.set': { core: isObj, fix: (v) => ({ ids: keep(v.ids, id) }) },
   'yt.links': { core: isObj, fix: strings },
   'yt.current': {
     core: isObj,

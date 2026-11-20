@@ -207,10 +207,14 @@ export function toLinks(rawLinks) {
     .filter((link) => link.issues.length > 0)
 }
 
-/** @param {any} raw @returns {{ id: string, name: string, query: string } | null} null when there is no query */
+/**
+ * `favorite`: starred by the user in YouTrack (`pinned`; CLIs that do not report it leave it out).
+ * @param {any} raw @returns {{ id: string, name: string, query: string, favorite?: true } | null} null when there is no query
+ */
 export function toSavedQuery(raw) {
   if (typeof raw?.query !== 'string') return null
-  return { id: text(raw.id), name: text(raw.name), query: raw.query }
+  const saved = { id: text(raw.id), name: text(raw.name), query: raw.query }
+  return raw.pinned === true ? { ...saved, favorite: true } : saved
 }
 
 /** Saved searches that can be offered: a query, an id and a name. @param {any} list `search list --json` */

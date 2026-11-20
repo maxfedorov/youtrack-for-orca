@@ -1,5 +1,6 @@
-// Selected server, the last query used on each server, and which Orca project to offer when starting
-// work: the one last chosen for each YouTrack project, and an optional default for each server.
+// Selected server, the last query used on each server, the saved searches shown there as quick views,
+// and which Orca project to offer when starting work: the one last chosen for each YouTrack project,
+// and an optional default for each server.
 
 import { createSerial } from './serial.mjs'
 
@@ -23,6 +24,8 @@ export function createStateStore(storage) {
   const projectRepos = async () => record(await storage.get('projectRepos'))
   /** `{ server: repoId }` */
   const serverRepos = async () => strings(await storage.get('serverRepos'))
+  /** `{ server: [savedSearchId] }` */
+  const quickViews = async () => record(await storage.get('quickViews'))
 
   return {
     /** @returns {Promise<string | null>} */
@@ -45,6 +48,19 @@ export function createStateStore(storage) {
         const all = await queries()
         all[server] = query
         await storage.set('queries', all)
+      }),
+
+    /** The ids of the saved searches shown as quick views on a server, in order. */
+    async quickViews(server) {
+      const v = (await quickViews())[server]
+      return Array.isArray(v) ? v.filter((id) => typeof id === 'string') : []
+    },
+    /** Replaces the quick views of a server; repeated ids count once. */
+    setQuickViews: (server, ids) =>
+      serial(async () => {
+        const all = await quickViews()
+        all[server] = [...new Set(ids)]
+        await storage.set('quickViews', all)
       }),
 
     /** The Orca project last chosen for this YouTrack project on this server, or null. */
@@ -82,7 +98,7 @@ export function createStateStore(storage) {
     forgetServer: (server) =>
       serial(async () => {
         if ((await storage.get('server')) === server) await storage.set('server', null)
-        for (const key of ['queries', 'projectRepos', 'serverRepos']) {
+        for (const key of ['queries', 'quickViews', 'projectRepos', 'serverRepos']) {
           const all = record(await storage.get(key))
           if (!(server in all)) continue
           delete all[server]

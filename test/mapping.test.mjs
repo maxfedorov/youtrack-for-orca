@@ -274,3 +274,9 @@ test('each field says how it is changed: its kind, one or many values, and wheth
   ] })
   assert.deepEqual(f.map(({ name, kind, multi, required }) => [name, kind, multi, required]), [['Priority', 'enum', false, true], ['Fix versions', 'version', true, false]])
 })
+
+test('a saved search the user starred in YouTrack is a favorite', () => {
+  assert.deepEqual(toSavedQuery({ id: '1-1', name: 'Mine', query: 'for: me', pinned: true }), { id: '1-1', name: 'Mine', query: 'for: me', favorite: true })
+  assert.deepEqual(toSavedQuery({ id: '1-2', name: 'All', query: '', pinned: false }), { id: '1-2', name: 'All', query: '' })
+  assert.deepEqual(toSavedQuery({ id: '1-3', name: 'Odd', query: '', pinned: 'yes' }), { id: '1-3', name: 'Odd', query: '' })
+})

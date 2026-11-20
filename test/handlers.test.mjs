@@ -1116,3 +1116,24 @@ test('branch matches tell DEMO-1 and DEMO-10 apart', async () => {
   assert.equal(r.data['DEMO-1'], 'identity:d1')
   assert.equal(r.data['DEMO-10'], 'identity:d10')
 })
+
+test('quick views are read and set per server, only as saved search ids', async () => {
+  const { call } = setup()
+  assert.deepEqual((await call('yt.quickViews', { server: 'one' })).data, { ids: [] })
+  assert.deepEqual((await call('yt.quickViews.set', { server: 'one', ids: ['0-1', '0-2'] })).data, { ids: ['0-1', '0-2'] })
+  assert.deepEqual((await call('yt.quickViews', { server: 'one' })).data, { ids: ['0-1', '0-2'] })
+  assert.deepEqual((await call('yt.quickViews', { server: 'two' })).data, { ids: [] })
+  for (const ids of ['0-1', [7], ['--x'], ['a b'], ['x'.repeat(65)], Array.from({ length: 13 }, (_, i) => `0-${i}`)]) {
+    assert.equal((await call('yt.quickViews.set', { server: 'one', ids })).ok, false, JSON.stringify(ids).slice(0, 40))
+  }
+  assert.deepEqual((await call('yt.quickViews', { server: 'one' })).data, { ids: ['0-1', '0-2'] })
+  assert.equal((await call('yt.quickViews.set', { server: 'one', ids: ['--x'] })).error.message, 'Invalid saved search')
+})
+
+test('servers.remove forgets the quick views of that server', async () => {
+  const { call, orca } = setup()
+  await call('yt.quickViews.set', { server: 'one', ids: ['0-1'] })
+  await call('yt.quickViews.set', { server: 'two', ids: ['0-2'] })
+  await call('yt.servers.remove', { server: 'one' })
+  assert.deepEqual(orca.storage.data().quickViews, { two: ['0-2'] })
+})

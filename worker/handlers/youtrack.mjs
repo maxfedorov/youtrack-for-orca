@@ -13,6 +13,9 @@ const DRAFT_ID = /^\d{1,9}-\d{1,12}$/
 const projectOf = (id) => id.slice(0, id.lastIndexOf('-'))
 /** Fields set when an issue is created, at most. */
 const MAX_NEW_FIELDS = 20
+/** Saved searches shown as quick views per server, and the shape of a saved search id. */
+const MAX_QUICK_VIEWS = 12
+const SAVED_SEARCH_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
 
 /** The summary trimmed, or the reason it cannot be used. */
 function checkSummary(summary) {
@@ -320,6 +323,21 @@ export function registerYoutrackHandlers(ctx) {
     if (!s.ok) return s
     const r = await ctx.youtrack.savedSearches(s.data.alias)
     return r.ok ? ok(toSavedQueries(r.data)) : r
+  })
+
+  handle('yt.quickViews', async ({ server }) => {
+    const s = await resolveServer(server)
+    if (!s.ok) return s
+    return ok({ ids: (await state.quickViews(s.data.alias)).filter((id) => SAVED_SEARCH_ID.test(id)).slice(0, MAX_QUICK_VIEWS) })
+  })
+
+  handle('yt.quickViews.set', async ({ server, ids }) => {
+    if (!Array.isArray(ids) || ids.length > MAX_QUICK_VIEWS) return invalid(`Up to ${MAX_QUICK_VIEWS} saved searches can be quick views`)
+    if (!ids.every((id) => typeof id === 'string' && SAVED_SEARCH_ID.test(id))) return invalid('Invalid saved search')
+    const s = await resolveServer(server)
+    if (!s.ok) return s
+    await state.setQuickViews(s.data.alias, ids)
+    return ok({ ids: await state.quickViews(s.data.alias) })
   })
 
   handle('yt.savedQueries.create', async ({ server, name, query }) => {
