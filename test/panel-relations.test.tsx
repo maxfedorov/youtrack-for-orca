@@ -53,3 +53,16 @@ test('an issue without subtasks or blockers shows neither', async () => {
   assert.equal(view.find({ text: 'Blocked by DEMO-6' }), null)
   await view.unmount()
 })
+
+test('pressing a blocker opens it, and Back returns to the blocked issue', async () => {
+  const h = host([{ type: 'depends on', issues: [linked(2), linked(7)] }])
+  const asked = () => h.callsOf('plugin.request').filter((c: any) => c.name === 'yt.issue.get').map((c: any) => c.input.id)
+  const view = await mount(panel, { host: h })
+  await view.activateRow(view.find({ type: 'Table' }), 'DEMO-1')
+  assert.ok(view.find({ type: 'Link', text: 'DEMO-7' }))
+  await view.press({ type: 'Link', text: 'DEMO-2' })
+  assert.equal(asked().at(-1), 'DEMO-2')
+  await view.press({ type: 'Button', text: '← Back' })
+  assert.equal(asked().at(-1), 'DEMO-1')
+  await view.unmount()
+})

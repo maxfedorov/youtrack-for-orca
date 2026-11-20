@@ -1,5 +1,6 @@
-import { Callout, Progress, Stack, Text } from 'orca'
+import { Callout, Link, Progress, Stack, Text } from 'orca'
 import type { IssueDetail } from '../protocol'
+import { openLinked } from './IssueRowActions'
 
 type Linked = { id: string; summary: string; resolved: boolean }
 
@@ -20,7 +21,7 @@ export function relations(issue: IssueDetail): { blockers: Linked[]; subtasks: {
   }
 }
 
-/** What holds the issue up and how far its subtasks are; nothing when it has neither. */
+/** What holds the issue up (each blocker opens on a press) and how far its subtasks are; nothing when it has neither. */
 export function IssueRelations({ issue }: { issue: IssueDetail }) {
   const { blockers, subtasks } = relations(issue)
   if (blockers.length === 0 && !subtasks) return null
@@ -28,7 +29,15 @@ export function IssueRelations({ issue }: { issue: IssueDetail }) {
     <Stack gap="xs">
       {blockers.length > 0 ? (
         <Callout tone="warning">
-          <Text>{`Blocked by ${blockers.map((linked) => linked.id).join(', ')}`}</Text>
+          <Text>
+            {'Blocked by '}
+            {blockers.flatMap((linked, index) => [
+              index > 0 ? ', ' : null,
+              <Link key={linked.id} onPress={() => openLinked(linked.id)}>
+                {linked.id}
+              </Link>
+            ])}
+          </Text>
         </Callout>
       ) : null}
       {subtasks ? (
