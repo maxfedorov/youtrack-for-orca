@@ -23,7 +23,7 @@ function ResetSection() {
     <Stack gap="sm">
       <Heading level={3}>Plugin settings</Heading>
       <Text muted size="sm">
-        The defaults (query, columns, branch name, agent, where to run, prompt options, CLI path) are in Orca's Settings → Plugins → YouTrack for Orca, each with its own Reset.
+        The defaults (query, columns, branch name, agent, where to run, prompt options, what the agent does when done, CLI path) are in Orca's Settings → Plugins → YouTrack for Orca, each with its own Reset.
       </Text>
       {state === 'asking' || state === 'busy' ? (
         <Stack gap="xs">

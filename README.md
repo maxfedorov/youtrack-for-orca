@@ -73,9 +73,12 @@ seen less use.
 
 ## Features
 
-- Issue list for a YouTrack search query, with your saved searches in a drop-down.
-- **Quick views** above the query: Assigned to me, Reported by me, Commented by me and All open, one
-  press each.
+- Issue list for a YouTrack search query, with your saved searches in a drop-down. The ones you starred
+  in YouTrack come first, marked ★ (needs a YouTrack CLI that reports favorites; older ones list them
+  in YouTrack's order without stars).
+- **Quick views**: saved searches you choose show as buttons above the query, one press each. Choose a
+  saved search, then press **+** next to the drop-down to add it, or **−** to take it off (up to 12 per
+  server).
 - **This workspace**: the issue of the focused workspace shows above the list, one press from its
   details: the issue the plugin started there, or the one its branch is named after (`demo-42-fix`,
   `feature/DEMO-42`). A workspace whose branch names an issue of one of the server's projects also gives
@@ -86,7 +89,8 @@ seen less use.
   Assignee, Created, Updated unless you change it); a field no issue in the list has is left out.
   Refresh, or changing the server, reloads the list.
 - Issue details: who created the issue and when, tags, fields, description and comments. Open
-  blockers ("depends on") are named at the top, and subtasks show how many are done.
+  blockers ("depends on") are named at the top, one press from their details, and subtasks show how
+  many are done.
 - **Change fields**: the pencil next to a field offers the values YouTrack lets you pick for it on that
   issue (State, Priority, Assignee, versions, subsystems, builds and other single-value fields); "No
   value" empties a field that may be empty. Multi-value and free-text fields have no pencil and are
@@ -133,7 +137,7 @@ seen less use.
 | Permission           | Used for                                                                                 |
 | -------------------- | ---------------------------------------------------------------------------------------- |
 | `settings:own`       | Reading the plugin's settings below.                                                     |
-| `storage:own`        | The chosen server, the last query of each server, prompt templates, which workspace was started for which issue, and the project remembered for each YouTrack project. |
+| `storage:own`        | The chosen server, the last query and the quick views of each server, prompt templates, which workspace was started for which issue, and the project remembered for each YouTrack project. |
 | `workspace:read`     | Listing workspaces for Start and Open, finding the focused one and the issue its branch names, and forgetting links to removed workspaces. |
 | `workspace:write`    | The Open button (switches to the issue's workspace) and opening the right sidebar.        |
 | `agent:read`         | Noticing when an agent started from an issue has finished.                               |
