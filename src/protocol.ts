@@ -38,7 +38,15 @@ export type IssueDetail = IssueRow & {
   commentsError?: string
 }
 /** How a field is changed: `kind` other means free text, numbers or periods (changed with a command). */
-export type FieldMeta = { name: string; value?: string; kind: 'enum' | 'state' | 'user' | 'version' | 'ownedField' | 'build' | 'other'; multi: boolean; required: boolean }
+/**
+ * How a field is changed: from a list (`enum` ... `build`), by typing (`string`, `integer`, `period`),
+ * or with a command (`other`). `empty`: a typed field has no value (`value` is then its empty text).
+ */
+export type FieldMeta = {
+  name: string; value?: string
+  kind: 'enum' | 'state' | 'user' | 'version' | 'ownedField' | 'build' | 'string' | 'integer' | 'period' | 'other'
+  multi: boolean; required: boolean; empty?: true
+}
 /** Values a field offers on one issue or draft (users by login, `label` their name); `cut`: there may be more. */
 export type FieldValues = { values: { name: string; label?: string }[]; cut: boolean }
 export type IssueComments = { comments: Comment[]; commentsOmitted?: number; truncated?: true }

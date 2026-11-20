@@ -300,8 +300,18 @@ test('fields of issue field list: value as shown, kind, several values and requi
     { name: 'Sprints', value: '1, 2', kind: 'version', multi: true, required: false },
     { name: 'Due', value: '2026-11-09', kind: 'other', multi: false, required: false },
     { name: 'Checked', value: '2026-11-09 15:30', kind: 'other', multi: false, required: false },
-    { name: 'Estimation', value: '2h', kind: 'other', multi: false, required: false },
+    { name: 'Estimation', value: '2h', kind: 'period', multi: false, required: false },
     { name: 'Odd', value: 'n/a', kind: 'enum', multi: false, required: false }
   ])
   assert.deepEqual(toListedFields(null), [])
+  // A field typed into says whether it is empty, so the panel does not offer its empty text as the value.
+  assert.deepEqual(toListedFields([
+    { name: 'bla', valueType: 'string', emptyText: 'No bla', value: null },
+    { name: 'n', valueType: 'integer', value: 0 }
+  ]), [
+    { name: 'bla', value: 'No bla', kind: 'string', multi: false, required: false, empty: true },
+    { name: 'n', value: '0', kind: 'integer', multi: false, required: false }
+  ])
+  assert.deepEqual(toIssueDetail({ idReadable: 'DEMO-3', customFields: [{ name: 'bla', value: null, projectCustomField: { emptyFieldText: 'No bla', field: { fieldType: { id: 'string[1]' } } } }] }, [], BASE).fields,
+    [{ name: 'bla', value: 'No bla', kind: 'string', multi: false, required: false, empty: true }])
 })

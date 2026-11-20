@@ -10,7 +10,9 @@ const detail = {
     { name: 'Priority', value: 'Major', kind: 'enum', multi: false, required: true },
     { name: 'Assignee', value: 'Jane Doe', kind: 'user', multi: false, required: false },
     { name: 'Sprints', value: '1', kind: 'version', multi: true, required: false },
-    { name: 'Estimation', value: '1h', kind: 'other', multi: false, required: false }
+    { name: 'Estimation', value: '1h', kind: 'other', multi: false, required: false },
+    { name: 'Points', value: 'No points', kind: 'integer', multi: false, required: false, empty: true },
+    { name: 'Label', value: 'abc', kind: 'string', multi: false, required: true }
   ]
 }
 const VALUES: Record<string, unknown> = {
@@ -110,5 +112,65 @@ test('a value list cut short says so and points to commands', async () => {
   const view = await opened(host({ 'yt.issue.fieldValues': ok({ values: [{ name: 'jane' }], cut: true }) }))
   await view.press(toggle('Assignee'))
   assert.ok(view.find({ text: 'Only the first 500 values are listed. Set another one with a command, such as "Assignee <value>".' }))
+  await view.unmount()
+})
+
+test('each field is its name in small muted text over a bare value, with no field frame', async () => {
+  const view = await opened(host())
+  const name = view.findAll({ type: 'Text' }).find((t: any) => t.text === 'Priority')
+  assert.equal(name.props.size, 'xs')
+  assert.equal(name.props.muted, true)
+  assert.equal(view.findAll({ type: 'Field' }).some((f: any) => ['Priority', 'Estimation', 'Points'].includes(f.props.label)), false)
+  await view.unmount()
+})
+
+const edit = async (view: any, name: string) => view.press({ testId: `${name}:value` })
+
+test('a number or text field shows its value like the others; pressing it opens an input, Enter saves', async () => {
+  const h = host()
+  const view = await opened(h)
+  assert.equal(view.find({ type: 'Input', label: 'Points' }), null)
+  assert.equal(view.find({ testId: 'Points:value' }).props.title, 'No points')
+  assert.equal(view.find({ testId: 'Label:value' }).props.title, 'abc')
+  assert.equal(view.find({ type: 'IconButton', label: 'Edit Points' }), null)
+  await edit(view, 'Points')
+  const points = () => view.find({ type: 'Input', label: 'Points' })
+  assert.equal(points().props.value, '')
+  assert.equal(points().props.placeholder, 'No points')
+  await view.type({ type: 'Input', label: 'Points' }, '12')
+  assert.ok(view.find({ text: 'Enter to save' }))
+  const loads = calls(h, 'yt.issue.get').length
+  await view.type({ type: 'Input', label: 'Points' }, '12', { replace: true, submit: true })
+  assert.deepEqual(calls(h, 'yt.issue.setField').at(-1).input, { server: 'main', id: 'DEMO-1', field: 'Points', value: '12' })
+  assert.equal(calls(h, 'yt.issue.get').length, loads + 1)
+  assert.equal(points(), null)
+  await view.unmount()
+})
+
+test('an input left unchanged saves nothing, an emptied one clears the field, and cancel closes it', async () => {
+  const h = host()
+  const view = await opened(h)
+  await edit(view, 'Label')
+  assert.equal(view.find({ type: 'Input', label: 'Label' }).props.value, 'abc')
+  await view.type({ type: 'Input', label: 'Label' }, 'abc', { replace: true, submit: true })
+  assert.equal(calls(h, 'yt.issue.setField').length, 0)
+  assert.equal(view.find({ type: 'Input', label: 'Label' }), null)
+  await edit(view, 'Label')
+  await view.type({ type: 'Input', label: 'Label' }, '', { replace: true, submit: true })
+  assert.deepEqual(calls(h, 'yt.issue.setField').at(-1).input, { server: 'main', id: 'DEMO-1', field: 'Label', value: null })
+  await edit(view, 'Points')
+  await view.type({ type: 'Input', label: 'Points' }, '7')
+  await view.press({ type: 'IconButton', label: 'Cancel editing Points' })
+  assert.equal(view.find({ type: 'Input', label: 'Points' }), null)
+  assert.equal(calls(h, 'yt.issue.setField').length, 1)
+  await view.unmount()
+})
+
+test('a typed value the issue refuses keeps the input and the text, and says why', async () => {
+  const view = await opened(host({ 'yt.issue.setField': fail('INVALID_INPUT', 'Points takes a whole number') }))
+  await edit(view, 'Points')
+  await view.type({ type: 'Input', label: 'Points' }, '1.5', { replace: true, submit: true })
+  assert.ok(view.find({ text: 'Points takes a whole number' }))
+  assert.equal(view.find({ type: 'Input', label: 'Points' }).props.value, '1.5')
   await view.unmount()
 })

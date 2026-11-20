@@ -61,9 +61,13 @@ const fixComments = (v: unknown[]) =>
     created: or(num, c.created, 0)
   }))
 
-const KINDS = ['enum', 'state', 'user', 'version', 'ownedField', 'build', 'other']
+const KINDS = ['enum', 'state', 'user', 'version', 'ownedField', 'build', 'string', 'integer', 'period', 'other']
 /** A field's name with how it is changed; an unknown kind is changed with a command. */
-const fixMeta = (f: Obj): Obj => ({ name: f.name, kind: KINDS.includes(f.kind as string) ? f.kind : 'other', multi: f.multi === true, required: f.required === true })
+const fixMeta = (f: Obj): Obj => {
+  const meta: Obj = { name: f.name, kind: KINDS.includes(f.kind as string) ? f.kind : 'other', multi: f.multi === true, required: f.required === true }
+  if (f.empty === true) meta.empty = true
+  return meta
+}
 
 function fixDetail(v: Obj): Obj {
   const out: Obj = { ...fixRow(v) }

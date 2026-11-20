@@ -1,5 +1,5 @@
 import { test, assert } from 'orca/testing'
-import { toFieldMeta, toValues, pickable, MAX_VALUES } from '../worker/project-fields.mjs'
+import { toFieldMeta, toValues, pickable, typed, MAX_VALUES } from '../worker/project-fields.mjs'
 
 const cf = (type, canBeEmpty) => ({ projectCustomField: { canBeEmpty, field: { fieldType: { id: type } } } })
 
@@ -9,7 +9,13 @@ test('a field of an issue is read with its kind, whether it holds many values, a
   assert.deepEqual(toFieldMeta(cf('user[1]', true)), { kind: 'user', multi: false, required: false })
   assert.deepEqual(toFieldMeta(cf('version[*]', true)), { kind: 'version', multi: true, required: false })
   assert.deepEqual(toFieldMeta(cf('ownedField[1]', true)), { kind: 'ownedField', multi: false, required: false })
-  assert.deepEqual(toFieldMeta(cf('period', true)), { kind: 'other', multi: false, required: false })
+  assert.deepEqual(toFieldMeta(cf('period', true)), { kind: 'period', multi: false, required: false })
+  assert.deepEqual(toFieldMeta(cf('string[1]', false)), { kind: 'string', multi: false, required: true })
+  assert.deepEqual(toFieldMeta(cf('integer', true)), { kind: 'integer', multi: false, required: false })
+  for (const t of ['text', 'float', 'date', 'date and time']) assert.equal(toFieldMeta(cf(t, true)).kind, 'other', t)
+  assert.equal(typed({ kind: 'integer', multi: false }), true)
+  assert.equal(typed({ kind: 'enum', multi: false }), false)
+  assert.equal(pickable({ kind: 'string', multi: false }), false)
   assert.deepEqual(toFieldMeta({}), { kind: 'other', multi: false, required: false })
   assert.deepEqual(toFieldMeta(null), { kind: 'other', multi: false, required: false })
   assert.equal(pickable({ kind: 'enum', multi: false }), true)

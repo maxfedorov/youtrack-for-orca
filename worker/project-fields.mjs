@@ -1,5 +1,5 @@
-// Custom fields of an issue (or a draft): their kind, whether they are required, and the values one
-// can choose, read without admin rights: the kind from the issue's own field, the values from the
+// Custom fields of an issue (or a draft): their kind (a list, a typed-in value, or another), whether
+// they are required, and the values one can choose, read without admin rights: the kind from the issue's own field, the values from the
 // CLI's `issue field list-values` (the issue's field context, so only what this user may pick).
 // Output is strict JSON: absent values are omitted, never set to undefined.
 
@@ -11,6 +11,9 @@ export const MAX_VALUE_NAME = 200
 
 /** Field types whose values come from a list the plugin can offer. */
 const LISTED = new Set(['enum', 'state', 'user', 'version', 'ownedField', 'build'])
+/** Field types whose value is typed in, with the CLI's `--type` for each. */
+export const TYPED = Object.freeze({ string: 'string', integer: 'int', period: 'period' })
+const kindOf = (type) => (LISTED.has(type) || type in TYPED ? type : 'other')
 
 const named = (v, max) => (typeof v === 'string' && v !== '' && v.length <= max ? v : null)
 
@@ -18,17 +21,20 @@ const named = (v, max) => (typeof v === 'string' && v !== '' && v.length <= max 
 export function toFieldMeta(f) {
   const type = typeof f?.projectCustomField?.field?.fieldType?.id === 'string' ? f.projectCustomField.field.fieldType.id : ''
   const base = type.replace(/\[[1*]\]$/, '')
-  return { kind: LISTED.has(base) ? base : 'other', multi: type.endsWith('[*]'), required: f?.projectCustomField?.canBeEmpty === false }
+  return { kind: kindOf(base), multi: type.endsWith('[*]'), required: f?.projectCustomField?.canBeEmpty === false }
 }
 
 /** Kind, multi and required of one entry of `issue field list`. */
 export function toListedMeta(f) {
   const type = typeof f?.valueType === 'string' ? f.valueType : ''
-  return { kind: LISTED.has(type) ? type : 'other', multi: f?.multiValue === true, required: f?.required === true }
+  return { kind: kindOf(type), multi: f?.multiValue === true, required: f?.required === true }
 }
 
 /** A field whose value the panel can change: one value from a list. */
-export const pickable = (meta) => meta.kind !== 'other' && !meta.multi
+export const pickable = (meta) => LISTED.has(meta.kind) && !meta.multi
+
+/** A field whose value the panel can change by typing it: one string, whole number or period. */
+export const typed = (meta) => meta.kind in TYPED && !meta.multi
 
 /** The values of `issue field list-values`: users by login (with their name), the rest by name. */
 export function toValues(raw, limit) {

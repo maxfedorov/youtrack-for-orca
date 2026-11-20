@@ -214,10 +214,14 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
     /** Deletes a draft without asking (the panel's Back or another project). */
     draftDelete: (server, draftId) =>
       exec(['--server', server, 'issue', 'draft', 'delete', '--force', ...tail, '--', draftId], WRITE_MS, () => ({})),
-    /** Sets one field of an issue, or empties it with `clear`; issue, field and value come after `--`. */
-    setField: (server, id, field, { value, user = false, clear = false }) => {
+    /**
+     * Sets one field of an issue, or empties it with `clear`; issue, field and value come after `--`.
+     * `type`: the CLI's `--type` for a typed-in value (`int`, `string`, `period`); `user` for a user.
+     */
+    setField: (server, id, field, { value, user = false, clear = false, type }) => {
       const args = ['--server', server, 'issue', 'field', 'set']
       if (user) args.push('--type', 'user')
+      else if (type) args.push('--type', type)
       if (clear) args.push('--clear')
       return exec([...args, ...tail, '--', id, field, ...(clear ? [] : [value])], WRITE_MS, () => ({}))
     },

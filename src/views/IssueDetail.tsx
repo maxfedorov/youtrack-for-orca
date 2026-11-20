@@ -217,7 +217,7 @@ function Body({ issue }: { issue: Detail }) {
           )}
         </Row>
       </Row>
-      {editing(issue) ? <IssueEditForm issue={issue} /> : <Heading level={2}>{issue.summary}</Heading>}
+      {editing(issue) ? <IssueEditForm issue={issue} /> : <Heading level={1}>{issue.summary}</Heading>}
       {issue.reporter || issue.created > 0 ? (
         <Text muted size="sm">
           {[issue.reporter ? `Created by ${issue.reporter.fullName || issue.reporter.login}` : 'Created', issue.created > 0 ? when(issue.created) : ''].filter(Boolean).join(' · ')}

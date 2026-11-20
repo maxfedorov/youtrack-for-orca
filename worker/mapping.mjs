@@ -2,7 +2,7 @@
 // Output is strict JSON: absent values are omitted, never set to undefined.
 
 import { columnKey } from './query.mjs'
-import { toFieldMeta, toListedMeta } from './project-fields.mjs'
+import { toFieldMeta, toListedMeta, typed } from './project-fields.mjs'
 
 /** @typedef {{ name: string, color?: string }} Value */
 /** @typedef {{ login: string, fullName: string }} User */
@@ -121,6 +121,15 @@ function fieldText(v, type) {
   return String(v)
 }
 
+/**
+ * A field with its value as shown: an empty one shows the project's empty text. A field typed into also
+ * says it is empty, so its empty text is not taken for the value.
+ */
+function shownField(name, shown, emptyText, meta) {
+  const field = { name, value: clip(shown || (typeof emptyText === 'string' && emptyText ? emptyText : EMPTY)), ...meta }
+  return !shown && typed(meta) ? { ...field, empty: true } : field
+}
+
 /** One custom field as display strings; a value that cannot be read is n/a, the field stays. */
 function toField(f) {
   let shown
@@ -131,8 +140,7 @@ function toField(f) {
   }
   const meta = toFieldMeta(f)
   if (shown === null) return { name: f.name, value: NOT_AVAILABLE, ...meta }
-  const empty = f.projectCustomField?.emptyFieldText
-  return { name: f.name, value: clip(shown || (typeof empty === 'string' && empty ? empty : EMPTY)), ...meta }
+  return shownField(f.name, shown, f.projectCustomField?.emptyFieldText, meta)
 }
 
 /** All custom fields of an issue as display strings, in YouTrack order. @param {any} raw @returns {{ name: string, value: string }[]} */
@@ -161,7 +169,7 @@ export function toListedFields(list) {
       }
       const meta = toListedMeta(f)
       if (shown === null) return { name: f.name, value: NOT_AVAILABLE, ...meta }
-      return { name: f.name, value: clip(shown || (typeof f.emptyText === 'string' && f.emptyText ? f.emptyText : EMPTY)), ...meta }
+      return shownField(f.name, shown, f.emptyText, meta)
     })
 }
 

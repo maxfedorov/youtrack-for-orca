@@ -343,6 +343,8 @@ test('setField puts the field and value after --, with the user type for users a
   await yt.setField('work', 'DEMO-1', 'Assignee', { clear: true })
   assert.deepEqual(run.calls[2].args, ['--server', 'work', 'issue', 'field', 'set', '--clear', '--json', '--quiet', '--', 'DEMO-1', 'Assignee'])
   assert.equal(run.calls[0].opts.timeoutMs, 30_000)
+  await yt.setField('work', 'DEMO-1', 'Points', { value: '-5', type: 'int' })
+  assert.deepEqual(run.calls[3].args, ['--server', 'work', 'issue', 'field', 'set', '--type', 'int', '--json', '--quiet', '--', 'DEMO-1', 'Points', '-5'])
 })
 
 test('listProjects answers short names and names', async () => {

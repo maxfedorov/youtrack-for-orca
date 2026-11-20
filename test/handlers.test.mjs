@@ -1000,7 +1000,8 @@ const FIELDED = (id) => ({
 })
 /** One entry of `issue field list`. */
 const listed = (name, valueType, required, value = null, multiValue = false) => ({ id: name, name, valueType, multiValue, required, hasChoices: true, value })
-const LISTED = [listed('Priority', 'enum', true, { name: 'Major' }), listed('Assignee', 'user', false), listed('Sprints', 'version', false, [], true), listed('Estimation', 'period', false), listed('Stage', 'state', true, { name: 'Open' })]
+const LISTED = [listed('Priority', 'enum', true, { name: 'Major' }), listed('Assignee', 'user', false), listed('Sprints', 'version', false, [], true), listed('Estimation', 'period', false), listed('Stage', 'state', true, { name: 'Open' }),
+  listed('Points', 'integer', false), listed('Label', 'string', true, 'x'), listed('Notes', 'text', false)]
 const VALUES = { Priority: [{ name: 'Major' }, { name: 'Minor' }], Assignee: [{ login: 'jane', fullName: 'Jane Doe' }], Stage: [{ name: 'Open' }, { name: 'In Review' }, { name: 'Bad"one' }] }
 const fielded = (over = {}) => fakeYt({
   viewIssue: async (s, id) => ok(FIELDED(id)),
@@ -1029,10 +1030,31 @@ test('issue.setField writes only values the field offers for a single-value fiel
   assert.equal((await set('Assignee', null)).ok, true)
   assert.deepEqual(sets.at(-1), ['one', 'DEMO-1', 'Assignee', { clear: true }])
   const count = sets.length
-  for (const [field, value] of [['Priority', 'Blocker'], ['Priority', null], ['Sprints', '1'], ['Estimation', '1h'], ['Nope', 'x'], ['', 'x'], ['Priority', 7]]) {
+  for (const [field, value] of [['Priority', 'Blocker'], ['Priority', null], ['Sprints', '1'], ['Notes', 'x'], ['Nope', 'x'], ['', 'x'], ['Priority', 7]]) {
     assert.equal((await set(field, value)).ok, false, `${field}=${value}`)
   }
   assert.equal((await set('Priority', 'Major', 'not an id')).ok, false)
+  assert.equal(sets.length, count)
+})
+
+test('issue.setField types a string, a whole number or a period into a field that takes one', async () => {
+  const sets = []
+  const { call } = setup({ yt: fielded({ setField: async (...a) => (sets.push(a), ok({})) }) })
+  const set = (field, value) => call('yt.issue.setField', { server: 'one', id: 'DEMO-1', field, value })
+  for (const [field, value, how] of [
+    ['Points', '-12', { value: '-12', type: 'int' }], ['Points', null, { clear: true }], ['Label', 'a b', { value: 'a b', type: 'string' }],
+    ['Estimation', '1w 2d 3h 30m', { value: '1w 2d 3h 30m', type: 'period' }], ['Estimation', '2h', { value: '2h', type: 'period' }]
+  ]) {
+    assert.equal((await set(field, value)).ok, true, `${field}=${value}`)
+    assert.deepEqual(sets.at(-1), ['one', 'DEMO-1', field, how])
+  }
+  const count = sets.length
+  for (const [field, value] of [['Points', '1.5'], ['Points', 'x'], ['Points', '1'.repeat(19)], ['Label', null], ['Label', 'a\nb'], ['Label', 'x'.repeat(1001)], ['Estimation', 'soon'], ['Points', '']]) {
+    const r = await set(field, value)
+    assert.equal(r.ok, false, `${field}=${value}`)
+  }
+  assert.equal((await set('Points', 'x')).error.message, 'Points takes a whole number')
+  assert.equal((await set('Estimation', 'soon')).error.message, 'Estimation takes a period such as 1w 2d 3h 30m')
   assert.equal(sets.length, count)
 })
 
@@ -1047,8 +1069,11 @@ test('issue.draft starts a draft in a project and answers its fields, and reuses
       { name: 'Priority', value: 'Major', kind: 'enum', multi: false, required: true },
       { name: 'Assignee', value: '\u2014', kind: 'user', multi: false, required: false },
       { name: 'Sprints', value: '\u2014', kind: 'version', multi: true, required: false },
-      { name: 'Estimation', value: '\u2014', kind: 'other', multi: false, required: false },
-      { name: 'Stage', value: 'Open', kind: 'state', multi: false, required: true }
+      { name: 'Estimation', value: '\u2014', kind: 'period', multi: false, required: false, empty: true },
+      { name: 'Stage', value: 'Open', kind: 'state', multi: false, required: true },
+      { name: 'Points', value: '\u2014', kind: 'integer', multi: false, required: false, empty: true },
+      { name: 'Label', value: 'x', kind: 'string', multi: false, required: true },
+      { name: 'Notes', value: '\u2014', kind: 'other', multi: false, required: false }
     ]
   })
   assert.equal((await call('yt.issue.draft', { server: 'one', project: 'DEMO' })).data.draftId, '3-9')

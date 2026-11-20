@@ -1,7 +1,7 @@
 /** Requests about servers, issues and saved queries (everything answered by the YouTrack CLI). */
 import { ok, fail, CODES } from '../result.mjs'
 import { customFields, parseColumns } from '../query.mjs'
-import { toValues, pickable, MAX_FIELD_NAME, MAX_VALUE_NAME, MAX_VALUES } from '../project-fields.mjs'
+import { toValues, pickable, typed, TYPED, MAX_FIELD_NAME, MAX_VALUE_NAME, MAX_VALUES } from '../project-fields.mjs'
 import { toListedFields, toIssueRow, toIssueDetail, toComments, toLinks, toSavedQuery, toSavedQueries, toServers } from '../mapping.mjs'
 import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, MAX_COMMAND, MAX_NEW_COMMENT, MAX_SUMMARY, MAX_NEW_DESCRIPTION, isPlainUrl, normalizeUrl, settingString, capDetail, attempt, fallback, readSetting, INSTALL } from './common.mjs'
 
@@ -13,6 +13,12 @@ const DRAFT_ID = /^\d{1,9}-\d{1,12}$/
 const projectOf = (id) => id.slice(0, id.lastIndexOf('-'))
 /** Fields set when an issue is created, at most. */
 const MAX_NEW_FIELDS = 20
+/** Longest value typed into a string, number or period field. */
+const MAX_TYPED = 1000
+/** A whole number the CLI reads (64 bits). */
+const WHOLE = /^-?\d{1,18}$/
+/** A YouTrack period: weeks, days, hours and minutes, such as `1w 2d 3h 30m`. */
+const PERIOD = /^\s*(\d{1,6}\s*[wdhm]\s*)+$/i
 /** Saved searches shown as quick views per server, and the shape of a saved search id. */
 const MAX_QUICK_VIEWS = 12
 const SAVED_SEARCH_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/
@@ -199,9 +205,19 @@ export function registerYoutrackHandlers(ctx) {
     return ok(toListedFields(r.data).filter((f) => f.name.length <= MAX_FIELD_NAME))
   }
 
+  /** Checks a value typed into a field: one line of text, a whole number, or a period such as `1w 2d 3h 30m`. */
+  function checkTyped(field, value) {
+    if (value === null) return field.required ? invalid(`${field.name} cannot be empty`) : ok(field)
+    if (typeof value !== 'string' || !value.trim() || value.length > MAX_TYPED || /[\r\n]/.test(value)) return invalid('Invalid value')
+    if (field.kind === 'integer' && !WHOLE.test(value)) return invalid(`${field.name} takes a whole number`)
+    if (field.kind === 'period' && !PERIOD.test(value)) return invalid(`${field.name} takes a period such as 1w 2d 3h 30m`)
+    return ok(field)
+  }
+
   /** Checks a field name and value for a write: the field takes one value from a list, and the value is one it offers. */
   async function checkValue(alias, id, fields, name, value) {
     const field = fields.find((f) => f.name === name)
+    if (field && typed(field)) return checkTyped(field, value)
     if (!field || !pickable(field)) return invalid(`${name} cannot be changed here. Use a command.`)
     if (value === null) return field.required ? invalid(`${name} cannot be empty`) : ok(field)
     if (typeof value !== 'string' || !value || value.length > MAX_VALUE_NAME) return invalid('Invalid value')
@@ -230,7 +246,8 @@ export function registerYoutrackHandlers(ctx) {
     if (!fields.ok) return fields
     const checked = await checkValue(s.data.alias, id, fields.data, field, value)
     if (!checked.ok) return checked
-    const how = value === null ? { clear: true } : checked.data.kind === 'user' ? { value, user: true } : { value }
+    const kind = checked.data.kind
+    const how = value === null ? { clear: true } : kind === 'user' ? { value, user: true } : typed(checked.data) ? { value, type: TYPED[kind] } : { value }
     const r = await ctx.youtrack.setField(s.data.alias, id, field, how)
     return r.ok ? ok({}) : r
   })
@@ -275,6 +292,8 @@ export function registerYoutrackHandlers(ctx) {
       const known = await fieldsOf(alias, draftId)
       if (!known.ok) return known
       for (const [name, value] of entries) {
+        // The new-issue form offers only fields set from a list.
+        if (known.data.some((f) => f.name === name && typed(f))) return invalid(`${name} cannot be set here. Set it after creating the issue.`)
         const v = await checkValue(alias, draftId, known.data, name, value)
         if (!v.ok) return v
       }

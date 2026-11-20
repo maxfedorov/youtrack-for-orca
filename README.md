@@ -96,8 +96,11 @@ seen less use.
 - **Change fields**: the fields sit in a grid as wide as the panel. Press the value of a single-value
   list field (State, Priority, Assignee, versions, subsystems, builds and others) to pick from the values
   YouTrack lets you set on that issue; the choice is saved at once. "No value" empties a field that may
-  be empty. Multi-value and free-text fields show their value and are changed with a command. Without
-  permission to change the issue, the list says so.
+  be empty. String, whole-number and period fields (such as `2h 30m`) open an input when you press their
+  value: type a new one and press Enter, empty it to clear the field, or press × to leave
+  it as it was. Multi-value, text, float and date fields
+  show their value and are changed with a command. Without permission to change the issue, the panel
+  says so.
 - **Edit** the summary and the description of an issue (the pencil next to its id).
 - **New issue**: choose the project, write the summary and description, and set its fields; the
   required ones come first, with the defaults YouTrack fills in. The form works on a YouTrack draft, like

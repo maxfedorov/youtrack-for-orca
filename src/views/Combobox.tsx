@@ -32,6 +32,8 @@ type Props = {
   onOpen?: () => void
   /** Shown in the open list above the options (such as "Loading…" or why there are none). */
   note?: string
+  /** No field label and no frame: the chosen option and a small chevron, for a caller that names it. */
+  compact?: boolean
 }
 
 /** The open combobox (one at a time) and the filter text of each, by label. */
@@ -66,7 +68,7 @@ function sections(options: readonly ComboOption[]): { group?: string; options: C
  * A button showing the chosen option; pressing it opens a filter field and the matching options right
  * under it. Choosing one, or pressing the button again, closes it.
  */
-export function Combobox({ label, value, options, placeholder, disabled, onChange, onQuery, query, pending, limit = DEFAULT_LIMIT, aside, onOpen, note }: Props) {
+export function Combobox({ label, value, options, placeholder, disabled, onChange, onQuery, query, pending, limit = DEFAULT_LIMIT, aside, onOpen, note, compact = false }: Props) {
   const opened = read(openOne) === label
   // Disabled while open: it closes for good (state cannot change while rendering, so right after).
   if (opened && disabled) queueMicrotask(() => {
@@ -97,81 +99,84 @@ export function Combobox({ label, value, options, placeholder, disabled, onChang
     close()
     onChange(next)
   }
-  return (
-    <Field label={label}>
-      <Stack gap="xs" align="stretch">
-        {/*
-          The closed field: a list row (Orca cuts its title short with an ellipsis, where a Button's
-          text would run past its edges in a narrow panel) in a border, with the chevron on the right;
-          `aside` follows on the same line.
-        */}
-        <Box key={`${label}:line`} direction="row" align="center" gap="xs">
-          <Box key={`${label}:field`} direction="row" align="center" border radius="md" grow shrink minWidth={0}>
-            <Box grow shrink minWidth={0}>
-              <List key={`${label}:chosen`} label={label}>
-                <ListItem
-                  key={`${label}:toggle`}
-                  title={chosen ? chosen.label : (placeholder ?? 'Choose…')}
-                  disabled={disabled}
-                  onPress={toggle}
-                />
-              </List>
-            </Box>
-            <IconButton
-              icon={isOpen ? 'collapse' : 'expand'}
-              label={isOpen ? `Close ${label}` : `Open ${label}`}
-              variant="ghost"
+  const line = (
+    <Box key={`${label}:line`} direction="row" align="center" gap="xs">
+      <Box key={`${label}:field`} direction="row" align="center" border={!compact} radius="md" grow shrink minWidth={0}>
+        <Box grow shrink minWidth={0}>
+          <List key={`${label}:chosen`} label={label}>
+            <ListItem
+              key={`${label}:toggle`}
+              title={chosen ? chosen.label : (placeholder ?? 'Choose…')}
               disabled={disabled}
               onPress={toggle}
             />
-          </Box>
-          {aside}
+          </List>
         </Box>
-        {isOpen ? (
-          <Box key={`${label}:popup`} gap="xs" padding="xs" border radius="md">
-            <Input
-              type="search"
-              label={`Filter ${label}`}
-              labelHidden
-              placeholder="Type to filter…"
-              value={text}
-              onChange={setText}
-              onSubmit={() => {
-                if (!needle || (remote && pending)) return
-                const first = visible.find((option) => !option.pinned)
-                if (first) choose(first.value)
-              }}
-            />
-            {note ? <Text muted size="sm">{note}</Text> : null}
-            {needle ? <Text muted size="xs">{count === 0 ? 'No matches' : count === 1 ? '1 match' : `${count} matches`}</Text> : null}
-            {shown.length > visible.length ? <Text muted size="xs">{`Showing the first ${limit} — type to narrow`}</Text> : null}
-            {visible.length > 0 ? (
-              <Box maxHeight={LIST_HEIGHT} scroll="y" gap="xs">
-                {sections(visible).map((section, index) => (
-                  <Stack key={`${section.group ?? ''}#${index}`} gap="none">
-                    {section.group ? (
-                      <Text muted size="xs" weight="medium">
-                        {section.group}
-                      </Text>
-                    ) : null}
-                    <List label={section.group ?? label}>
-                      {section.options.map((option) => (
-                        <ListItem
-                          key={option.value}
-                          title={option.label}
-                          description={option.description}
-                          current={option.value === value}
-                          onPress={() => choose(option.value)}
-                        />
-                      ))}
-                    </List>
-                  </Stack>
-                ))}
-              </Box>
-            ) : null}
-          </Box>
-        ) : null}
-      </Stack>
-    </Field>
+        <IconButton
+          icon={isOpen ? 'collapse' : 'expand'}
+          label={isOpen ? `Close ${label}` : `Open ${label}`}
+          variant="ghost"
+          size={compact ? 'sm' : undefined}
+          disabled={disabled}
+          onPress={toggle}
+        />
+      </Box>
+      {aside}
+    </Box>
   )
+  const body = (
+    <Stack gap="xs" align="stretch">
+      {/*
+        The closed field: a list row (Orca cuts its title short with an ellipsis, where a Button's
+        text would run past its edges in a narrow panel), framed unless compact, with the chevron on
+        the right; `aside` follows on the same line.
+      */}
+      {line}
+      {isOpen ? (
+        <Box key={`${label}:popup`} gap="xs" padding="xs" border radius="md">
+          <Input
+            type="search"
+            label={`Filter ${label}`}
+            labelHidden
+            placeholder="Type to filter…"
+            value={text}
+            onChange={setText}
+            onSubmit={() => {
+              if (!needle || (remote && pending)) return
+              const first = visible.find((option) => !option.pinned)
+              if (first) choose(first.value)
+            }}
+          />
+          {note ? <Text muted size="sm">{note}</Text> : null}
+          {needle ? <Text muted size="xs">{count === 0 ? 'No matches' : count === 1 ? '1 match' : `${count} matches`}</Text> : null}
+          {shown.length > visible.length ? <Text muted size="xs">{`Showing the first ${limit} — type to narrow`}</Text> : null}
+          {visible.length > 0 ? (
+            <Box maxHeight={LIST_HEIGHT} scroll="y" gap="xs">
+              {sections(visible).map((section, index) => (
+                <Stack key={`${section.group ?? ''}#${index}`} gap="none">
+                  {section.group ? (
+                    <Text muted size="xs" weight="medium">
+                      {section.group}
+                    </Text>
+                  ) : null}
+                  <List label={section.group ?? label}>
+                    {section.options.map((option) => (
+                      <ListItem
+                        key={option.value}
+                        title={option.label}
+                        description={option.description}
+                        current={option.value === value}
+                        onPress={() => choose(option.value)}
+                      />
+                    ))}
+                  </List>
+                </Stack>
+              ))}
+            </Box>
+          ) : null}
+        </Box>
+      ) : null}
+    </Stack>
+  )
+  return compact ? body : <Field label={label}>{body}</Field>
 }
