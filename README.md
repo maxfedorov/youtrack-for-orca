@@ -92,7 +92,7 @@ seen less use.
   Refresh, or changing the server, reloads the list.
 - Issue details: who created the issue and when, tags, fields, description and comments. Open
   blockers ("depends on") are named at the top, one press from their details, and subtasks show how
-  many are done.
+  many are done. The × in a tag removes it from the issue.
 - **Change fields**: the fields sit in a grid as wide as the panel. Press the value of a single-value
   list field (State, Priority, Assignee, versions, subsystems, builds and others) to pick from the values
   YouTrack lets you set on that issue; the choice is saved at once. "No value" empties a field that may
@@ -161,7 +161,7 @@ because it starts the `youtrack` and `orca` command-line tools.
 Only two programs, always with an argument list and never through a shell:
 
 - `youtrack`, to read issues, comments, projects and saved searches, save a search, apply a command,
-  add a comment, change a field, edit and create issues, install the agent skill, add a server through
+  add a comment, change a field, remove a tag, edit and create issues, install the agent skill, add a server through
   the browser and remove a server. Fields come from `youtrack issue field list` and their values from
   `youtrack issue field list-values`, so each user sees what YouTrack lets them pick; no admin rights
   are needed;

@@ -397,3 +397,11 @@ test('the issue view asks for the type of each field and whether it may be empty
   const f = run.calls[0].args[run.calls[0].args.indexOf('-f') + 1]
   assert.match(f, /projectCustomField\(emptyFieldText,canBeEmpty,field\(fieldType\(id\)\)\)/)
 })
+
+test('removeTag puts the issue and the tag after --, as a write', async () => {
+  const run = fakeRun({ '--server work issue tag remove': { stdout: '{}' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.removeTag('work', 'DEMO-1', '-ui'), { ok: true, data: {} })
+  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'tag', 'remove', '--json', '--quiet', '--', 'DEMO-1', '-ui'])
+  assert.equal(run.calls[0].opts.timeoutMs, 30_000)
+})

@@ -51,6 +51,9 @@ function requests(over: Record<string, unknown> = {}) {
   }
 }
 const calls = (host: any, name: string) => host.callsOf('plugin.request').filter((c: any) => c.name === name)
+/** Tag names, read from the text of each tag chip. */
+const tagNames = (view: any) =>
+  view.findAll({ type: 'Text' }).filter((t: any) => String(t.key ?? '').startsWith('tag:')).map((t: any) => t.text)
 const table = { type: 'Table' }
 const open = async (host: any, id = 'DEMO-1') => {
   const view = await mount(panel, { host })
@@ -250,8 +253,49 @@ test('the detail shows who created the issue, when, and its tags', async () => {
   })
   const view = await open(host)
   assert.ok(view.find({ text: `Created by Jo Demo · ${when(issue(1).created)}` }))
-  assert.deepEqual(view.findAll({ type: 'Badge' }).map((b: any) => b.text), ['regression', 'ui'])
+  assert.deepEqual(tagNames(view), ['regression', 'ui'])
+  // A small chip: slightly rounded corners, and no padding of its own around the cross.
+  const chips: any[] = []
+  const walk = (n: any) => {
+    if (!n || typeof n !== 'object') return
+    if (n.type === 'Box' && n.props?.background === 'muted') chips.push(n)
+    for (const c of n.children ?? []) walk(c)
+  }
+  walk(view.tree())
+  assert.equal(chips.length, 2)
+  for (const chip of chips) {
+    assert.equal(chip.props.radius, 'sm')
+    assert.equal(chip.props.paddingX, undefined)
+  }
+  // The cross is Orca's smallest icon button: no underline, a hover fill and a tooltip.
+  const cross = view.find({ type: 'IconButton', label: 'Remove tag ui' })
+  assert.equal(cross.props.size, 'xs')
+  assert.equal(cross.props.icon, 'close')
+  assert.equal(view.findAll({ type: 'Link' }).length, 0)
   clean(view)
+  await view.unmount()
+})
+
+test('the cross in a tag removes it from the issue, which then loads again', async () => {
+  const host = mockHost({
+    requests: requests({ 'yt.issue.get': ok(detail(1, { tags: ['regression', 'ui'] })), 'yt.issue.removeTag': ok({}) })
+  })
+  const view = await open(host)
+  const loads = calls(host, 'yt.issue.get').length
+  await view.press({ type: 'IconButton', label: 'Remove tag ui' })
+  assert.deepEqual(calls(host, 'yt.issue.removeTag')[0].input, { server: 'main', id: 'DEMO-1', tag: 'ui' })
+  assert.equal(calls(host, 'yt.issue.get').length, loads + 1)
+  await view.unmount()
+})
+
+test('a tag that cannot be removed says why and stays', async () => {
+  const host = mockHost({
+    requests: requests({ 'yt.issue.get': ok(detail(1, { tags: ['ui'] })), 'yt.issue.removeTag': fail('FORBIDDEN', 'HTTP 403: Forbidden') })
+  })
+  const view = await open(host)
+  await view.press({ type: 'IconButton', label: 'Remove tag ui' })
+  assert.ok(view.find({ text: 'You cannot remove tags from this issue.' }))
+  assert.deepEqual(tagNames(view), ['ui'])
   await view.unmount()
 })
 
@@ -259,7 +303,7 @@ test('without a reporter or tags the detail shows only the creation time', async
   const host = mockHost({ requests: requests({ 'yt.issue.get': ok(detail(1, { tags: [5, ''] })) }) })
   const view = await open(host)
   assert.ok(view.find({ text: `Created · ${when(issue(1).created)}` }))
-  assert.equal(view.findAll({ type: 'Badge' }).length, 0)
+  assert.deepEqual(tagNames(view), [])
   await view.unmount()
 })
 

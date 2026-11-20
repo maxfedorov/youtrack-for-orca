@@ -173,6 +173,9 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
      */
     addComment: (server, id, text) =>
       exec(['--server', server, 'issue', 'comment', 'create', '--text-file', '-', ...tail, '--', id], WRITE_MS, () => ({}), { input: text }),
+    /** Removes a tag from an issue by its exact name; issue and tag come after `--`. */
+    removeTag: (server, id, tag) =>
+      exec(['--server', server, 'issue', 'tag', 'remove', ...tail, '--', id, tag], WRITE_MS, () => ({})),
     /**
      * Installs the YouTrack CLI skill for every coding agent the CLI finds on this machine, or brings
      * an older copy up to date; already current copies are left alone.

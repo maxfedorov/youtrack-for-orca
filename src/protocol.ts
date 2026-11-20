@@ -157,6 +157,8 @@ declare module 'orca' {
     /** Changes the summary (one line, <= 255) and/or the description (<= 60000; '' clears it). */
     'yt.issue.update': { input: { server: string; id: string; summary?: string; description?: string }; output: Result<Record<string, never>> }
     /** Adds a comment to the issue, with the server's default visibility; text <= 10000 characters. */
+    /** Removes a tag from the issue by its exact name. */
+    'yt.issue.removeTag': { input: { server: string; id: string; tag: string }; output: Result<Record<string, never>> }
     'yt.issue.comment': { input: { server: string; id: string; text: string }; output: Result<Record<string, never>> }
     /** Puts every setting of the plugin back to its default. */
     'yt.settings.reset': { input: Record<string, never>; output: Result<Record<string, never>> }

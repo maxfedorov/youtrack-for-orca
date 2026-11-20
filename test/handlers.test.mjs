@@ -1220,3 +1220,14 @@ test('servers.remove forgets the quick views of that server', async () => {
   await call('yt.servers.remove', { server: 'one' })
   assert.deepEqual(orca.storage.data().quickViews, { two: ['0-2'] })
 })
+
+test('issue.removeTag removes one tag by name, after --, and checks its input', async () => {
+  const removed = []
+  const { call } = setup({ yt: fakeYt({ removeTag: async (...a) => (removed.push(a), ok({})) }) })
+  assert.deepEqual(await call('yt.issue.removeTag', { server: 'one', id: 'DEMO-1', tag: '-needs review' }), ok({}))
+  assert.deepEqual(removed, [['one', 'DEMO-1', '-needs review']])
+  for (const bad of [{ id: '-x', tag: 'a' }, { id: 'DEMO-1', tag: '' }, { id: 'DEMO-1', tag: 'a\nb' }, { id: 'DEMO-1', tag: 'x'.repeat(201) }, { id: 'DEMO-1', tag: 7 }]) {
+    assert.equal((await call('yt.issue.removeTag', { server: 'one', ...bad })).ok, false, JSON.stringify(bad).slice(0, 40))
+  }
+  assert.equal(removed.length, 1)
+})

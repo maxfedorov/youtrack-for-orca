@@ -1,5 +1,5 @@
 import {
-  Badge, Button, Callout, Heading, IconButton, List, ListItem, Markdown, Row, Separator, Skeleton, Stack, Text, atom, read, set
+  Button, Callout, Heading, IconButton, List, ListItem, Markdown, Row, Separator, Skeleton, Stack, Text, atom, read, set
 } from 'orca'
 import { links, loadLinks } from '../listState'
 import { call, goBack, refreshTick, server, view } from '../state'
@@ -7,6 +7,7 @@ import { openInBrowser, openLinked, openWorkspace, start } from './IssueRowActio
 import { CommandBar, onCommandApplied } from './CommandBar'
 import { CommentBox } from './CommentBox'
 import { IssueRelations } from './IssueRelations'
+import { IssueTags } from './IssueTags'
 import { FieldList, resetFieldEditor } from './FieldEditor'
 import { IssueEditForm, editing, startEdit, stopEdit } from './IssueEdit'
 import type { IssueComments, IssueDetail as Detail } from '../protocol'
@@ -223,13 +224,7 @@ function Body({ issue }: { issue: Detail }) {
           {[issue.reporter ? `Created by ${issue.reporter.fullName || issue.reporter.login}` : 'Created', issue.created > 0 ? when(issue.created) : ''].filter(Boolean).join(' · ')}
         </Text>
       ) : null}
-      {issue.tags.length > 0 ? (
-        <Row gap="xs" wrap>
-          {issue.tags.map((tag, index) => (
-            <Badge key={`${tag}#${index}`}>{tag}</Badge>
-          ))}
-        </Row>
-      ) : null}
+      <IssueTags issue={issue} />
       <IssueRelations issue={issue} />
       <CommandBar id={issue.id} />
       {issue.truncated || issue.commentsOmitted ? (

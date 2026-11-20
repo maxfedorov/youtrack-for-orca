@@ -13,6 +13,8 @@ const DRAFT_ID = /^\d{1,9}-\d{1,12}$/
 const projectOf = (id) => id.slice(0, id.lastIndexOf('-'))
 /** Fields set when an issue is created, at most. */
 const MAX_NEW_FIELDS = 20
+/** Longest tag name the panel removes. */
+const MAX_TAG = 200
 /** Longest value typed into a string, number or period field. */
 const MAX_TYPED = 1000
 /** A whole number the CLI reads (64 bits). */
@@ -181,6 +183,16 @@ export function registerYoutrackHandlers(ctx) {
     const s = await resolveServer(server)
     if (!s.ok) return s
     const r = await ctx.youtrack.addComment(s.data.alias, id, body)
+    return r.ok ? ok({}) : r
+  })
+
+  // Runs only when the cross of a tag is pressed.
+  handle('yt.issue.removeTag', async ({ server, id, tag }) => {
+    if (typeof id !== 'string' || !ISSUE_ID.test(id)) return invalid('Invalid issue id')
+    if (typeof tag !== 'string' || !tag.trim() || tag.length > MAX_TAG || /[\r\n]/.test(tag)) return invalid('Invalid tag')
+    const s = await resolveServer(server)
+    if (!s.ok) return s
+    const r = await ctx.youtrack.removeTag(s.data.alias, id, tag)
     return r.ok ? ok({}) : r
   })
 
