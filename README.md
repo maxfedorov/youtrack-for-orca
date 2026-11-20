@@ -87,12 +87,15 @@ seen less use.
   Refresh, or changing the server, reloads the list.
 - Issue details: who created the issue and when, tags, fields, description and comments. Open
   blockers ("depends on") are named at the top, and subtasks show how many are done.
-- **Change fields**: the pencil next to a field offers the values its project has (State, Priority,
-  Assignee, versions, subsystems, builds and other single-value fields); "No value" empties a field
-  that may be empty. Multi-value and free-text fields are changed with a command.
+- **Change fields**: the pencil next to a field offers the values YouTrack lets you pick for it on that
+  issue (State, Priority, Assignee, versions, subsystems, builds and other single-value fields); "No
+  value" empties a field that may be empty. Multi-value and free-text fields have no pencil and are
+  changed with a command. Without permission to change the issue, the picker says so.
 - **Edit** the summary and the description of an issue (the pencil next to its id).
 - **New issue**: choose the project, write the summary and description, and set its fields; the
-  required ones come first. The new issue opens when it is created.
+  required ones come first, with the defaults YouTrack fills in. The form works on a YouTrack draft, like
+  YouTrack's own New issue: Create submits it, Back deletes it. A project where you cannot create
+  issues says so. The new issue opens when it is created.
 - **Apply command**: run a YouTrack command such as `State Done` on the selected issue or the open
   detail. It runs only when you press Apply or Enter.
 - **Add comment**: write a comment in the issue detail and press Send (or Cmd+Enter, Ctrl+Enter off macOS);
@@ -146,8 +149,8 @@ Only two programs, always with an argument list and never through a shell:
 
 - `youtrack`, to read issues, comments, projects and saved searches, save a search, apply a command,
   add a comment, change a field, edit and create issues, install the agent skill, add a server through
-  the browser and remove a server. The values a project's fields offer have no CLI command of their
-  own, so they are read with `youtrack raw` — always a GET of `/api/admin/projects/<project>/customFields`;
+  the browser and remove a server. Field values come from `youtrack issue field list-values`, so each
+  user sees what YouTrack lets them pick; no admin rights are needed;
 - `orca`, to list projects and branches, create worktrees and launch agents.
 
 The plugin makes no network requests of its own, stores no tokens and collects no data about you;
