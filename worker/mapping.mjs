@@ -217,7 +217,7 @@ export function toSavedQuery(raw) {
   return raw.pinned === true ? { ...saved, favorite: true } : saved
 }
 
-/** Saved searches that can be offered: a query, an id and a name. @param {any} list `search list --json` */
+/** Saved searches that can be offered: a query, an id and a name. @param {any} list `raw /api/savedQueries --json` */
 export const toSavedQueries = (list) =>
   (Array.isArray(list) ? list : []).map(toSavedQuery).filter((q) => q !== null && q.id !== '' && q.name !== '')
 

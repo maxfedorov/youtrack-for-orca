@@ -74,8 +74,7 @@ seen less use.
 ## Features
 
 - Issue list for a YouTrack search query, with your saved searches in a drop-down. The ones you starred
-  in YouTrack come first, marked ★ (needs a YouTrack CLI that reports favorites; older ones list them
-  in YouTrack's order without stars).
+  in YouTrack come first, marked ★.
 - **Quick views**: saved searches you choose show as buttons above the query, one press each. Choose a
   saved search, then press **+** next to the drop-down to add it, or **−** to take it off (up to 12 per
   server).

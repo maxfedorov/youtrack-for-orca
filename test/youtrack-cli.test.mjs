@@ -82,7 +82,7 @@ test('other methods build argv', async () => {
   assert.deepEqual(run.calls.map((c) => c.args), [
     ['--server', 'work', 'issue', 'view', 'DEMO-1', '-f', 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText,canBeEmpty,field(fieldType(id))))', '--json', '--quiet'],
     ['--server', 'work', 'issue', 'comment', 'list', 'DEMO-1', '--json', '--quiet'],
-    ['--server', 'work', 'search', 'list', '--json', '--quiet'],
+    ['--server', 'work', 'raw', '/api/savedQueries', '--fields', 'id,name,query,pinned', '--paginate', '--json', '--quiet'],
     ['--server', 'work', 'search', 'create', '--name', 'My "s"', '--query', 'for: me', '--json', '--quiet'],
     ['--version'],
     ['instance', 'list', '--json', '--quiet']
@@ -276,7 +276,7 @@ test('deleteInstance reports the CLI warning that the stored token could not be 
 })
 
 test('empty lists the CLI answers as null read as no items', async () => {
-  const run = fakeRun({ '--server work issue comment list': { stdout: 'null\n' }, '--server work search list': { stdout: 'null' }, 'instance list': { stdout: 'null' }, '--server work issue list': { stdout: 'null' } })
+  const run = fakeRun({ '--server work issue comment list': { stdout: 'null\n' }, '--server work raw /api/savedQueries': { stdout: 'null' }, 'instance list': { stdout: 'null' }, '--server work issue list': { stdout: 'null' } })
   const yt = createYoutrack({ bin: 'youtrack', run })
   assert.deepEqual(await yt.listComments('work', 'DEMO-1'), { ok: true, data: [] })
   assert.deepEqual(await yt.savedSearches('work'), { ok: true, data: [] })
