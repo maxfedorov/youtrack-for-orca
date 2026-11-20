@@ -57,16 +57,12 @@ const openIssue = async (host: any, id = 'DEMO-1') => {
   return view
 }
 
-/** The detail's fields as [name, value] pairs, read from their change buttons and value texts. */
+/** The detail's fields as [name, value] pairs, read from their value texts. */
 const fieldPairs = (view: any) =>
   view
-    .findAll({ type: 'IconButton' })
-    .map((b: any) => String(b.props.label))
-    .filter((label: string) => label.startsWith('Change '))
-    .map((label: string) => {
-      const name = label.slice('Change '.length)
-      return [name, String(view.find({ testId: `field-value:${name}` })?.text ?? '')]
-    })
+    .findAll({ type: 'Text' })
+    .filter((t: any) => String(t.key ?? '').startsWith('field-value:'))
+    .map((t: any) => [String(t.key).slice('field-value:'.length), String(t.text ?? '')])
 
 test('an issue whose comments failed shows the issue, a comments note and a Retry for the comments only', async () => {
   let n = 0

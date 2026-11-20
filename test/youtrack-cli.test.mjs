@@ -80,7 +80,7 @@ test('other methods build argv', async () => {
   await yt.version()
   await yt.instances()
   assert.deepEqual(run.calls.map((c) => c.args), [
-    ['--server', 'work', 'issue', 'view', 'DEMO-1', '-f', 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText))', '--json', '--quiet'],
+    ['--server', 'work', 'issue', 'view', 'DEMO-1', '-f', 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText,canBeEmpty,field(fieldType(id))))', '--json', '--quiet'],
     ['--server', 'work', 'issue', 'comment', 'list', 'DEMO-1', '--json', '--quiet'],
     ['--server', 'work', 'search', 'list', '--json', '--quiet'],
     ['--server', 'work', 'search', 'create', '--name', 'My "s"', '--query', 'for: me', '--json', '--quiet'],
@@ -331,19 +331,6 @@ test('updateIssue sends the summary as one argument and the description on stand
   assert.equal(run.calls[2].opts.input, '')
 })
 
-test('projectFields reads the project fields with a fixed GET request', async () => {
-  const run = fakeRun({ '--server work raw': { stdout: '[{"field":{"name":"Priority","fieldType":{"id":"enum[1]"}}}]' } })
-  const yt = createYoutrack({ bin: 'youtrack', run })
-  const r = await yt.projectFields('work', 'DEMO')
-  assert.equal(r.ok, true)
-  const args = run.calls[0].args
-  assert.deepEqual(args.slice(0, 5), ['--server', 'work', 'raw', '--method', 'GET'])
-  assert.equal(args.at(-1), '/api/admin/projects/DEMO/customFields')
-  assert.equal(args.at(-2), '--')
-  assert.ok(args.includes('--paginate'))
-  assert.match(args[args.indexOf('--fields') + 1], /aggregatedUsers\(login,fullName\)/)
-})
-
 test('setField puts the field and value after --, with the user type for users and --clear to empty it', async () => {
   const run = fakeRun({ '--server work issue field set': { stdout: '{}' } })
   const yt = createYoutrack({ bin: 'youtrack', run })
@@ -354,17 +341,6 @@ test('setField puts the field and value after --, with the user type for users a
   await yt.setField('work', 'DEMO-1', 'Assignee', { clear: true })
   assert.deepEqual(run.calls[2].args, ['--server', 'work', 'issue', 'field', 'set', '--clear', '--json', '--quiet', '--', 'DEMO-1', 'Assignee'])
   assert.equal(run.calls[0].opts.timeoutMs, 30_000)
-})
-
-test('createIssue sends the summary as one argument, the fields as JSON and the description on standard input', async () => {
-  const run = fakeRun({ '--server work issue create': { stdout: '{"idReadable":"DEMO-9"}' } })
-  const yt = createYoutrack({ bin: 'youtrack', run })
-  const r = await yt.createIssue('work', { project: 'DEMO', summary: '-x', description: '--body', fields: { Severity: 'Low' } })
-  assert.deepEqual(r, { ok: true, data: { id: 'DEMO-9' } })
-  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'create', '--project', 'DEMO', '--summary=-x', '--description-file', '-', '--custom-fields={"Severity":"Low"}', '--json', '--quiet'])
-  assert.equal(run.calls[0].opts.input, '--body')
-  await yt.createIssue('work', { project: 'DEMO', summary: 'S', description: '', fields: {} })
-  assert.deepEqual(run.calls[1].args, ['--server', 'work', 'issue', 'create', '--project', 'DEMO', '--summary=S', '--description-file', '-', '--json', '--quiet'])
 })
 
 test('listProjects answers short names and names', async () => {
@@ -382,10 +358,38 @@ test('updateSkill installs or updates the skill for the agents the CLI finds, an
   assert.equal(run.calls[0].opts.timeoutMs, 60_000)
 })
 
-test('projectFields can leave out the users, for a caller that needs only the state values', async () => {
-  const run = fakeRun({ '--server work raw': { stdout: '[]' } })
-  await createYoutrack({ bin: 'youtrack', run }).projectFields('work', 'DEMO', { users: false })
-  const fields = run.calls[0].args[run.calls[0].args.indexOf('--fields') + 1]
-  assert.equal(fields.includes('aggregatedUsers'), false)
-  assert.ok(fields.includes('bundle(values(name,archived,isResolved))'))
+
+test('fieldValues lists the values of one field from the issue context, after --', async () => {
+  const run = fakeRun({ '--server work issue field list-values': { stdout: '[{"name":"Major"}]' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.fieldValues('work', 'DEMO-1', '-Priority'), { ok: true, data: [{ name: 'Major' }] })
+  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'field', 'list-values', '--limit', '500', '--json', '--quiet', '--', 'DEMO-1', '-Priority'])
+})
+
+test('drafts are created, filled, submitted and deleted with their values off the flags', async () => {
+  const run = fakeRun({
+    '--server work issue draft create': { stdout: '{"id":"3-9"}' },
+    '--server work issue draft update': { stdout: '{}' },
+    '--server work issue draft submit': { stdout: '{"idReadable":"DEMO-12"}' },
+    '--server work issue draft delete': { stdout: '' }
+  })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.draftCreate('work', 'DEMO'), { ok: true, data: { id: '3-9' } })
+  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'draft', 'create', '--project', 'DEMO', '--json', '--quiet'])
+  await yt.draftUpdate('work', '3-9', { summary: '-x', description: '--body', fields: { Severity: 'Low' } })
+  assert.deepEqual(run.calls[1].args, ['--server', 'work', 'issue', 'draft', 'update', '--summary=-x', '--description-file', '-', '--custom-fields={"Severity":"Low"}', '--json', '--quiet', '--', '3-9'])
+  assert.equal(run.calls[1].opts.input, '--body')
+  await yt.draftUpdate('work', '3-9', { summary: 'S', description: '', fields: {} })
+  assert.deepEqual(run.calls[2].args, ['--server', 'work', 'issue', 'draft', 'update', '--summary=S', '--description-file', '-', '--json', '--quiet', '--', '3-9'])
+  assert.deepEqual(await yt.draftSubmit('work', '3-9'), { ok: true, data: { id: 'DEMO-12' } })
+  assert.deepEqual(run.calls[3].args, ['--server', 'work', 'issue', 'draft', 'submit', '--json', '--quiet', '--', '3-9'])
+  await yt.draftDelete('work', '3-9')
+  assert.deepEqual(run.calls[4].args, ['--server', 'work', 'issue', 'draft', 'delete', '--force', '--json', '--quiet', '--', '3-9'])
+})
+
+test('the issue view asks for the type of each field and whether it may be empty', async () => {
+  const run = fakeRun({ '--server work issue view': { stdout: '{"idReadable":"DEMO-1"}' } })
+  await createYoutrack({ bin: 'youtrack', run }).viewIssue('work', 'DEMO-1')
+  const f = run.calls[0].args[run.calls[0].args.indexOf('-f') + 1]
+  assert.match(f, /projectCustomField\(emptyFieldText,canBeEmpty,field\(fieldType\(id\)\)\)/)
 })

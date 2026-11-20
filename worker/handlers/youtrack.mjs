@@ -1,13 +1,15 @@
 /** Requests about servers, issues and saved queries (everything answered by the YouTrack CLI). */
 import { ok, fail, CODES } from '../result.mjs'
 import { customFields, parseColumns } from '../query.mjs'
-import { toProjectFields, pickable, MAX_FIELD_NAME, MAX_VALUE_NAME } from '../project-fields.mjs'
-import { toIssueRow, toIssueDetail, toComments, toLinks, toSavedQuery, toSavedQueries, toServers } from '../mapping.mjs'
+import { toValues, pickable, MAX_FIELD_NAME, MAX_VALUE_NAME, MAX_VALUES } from '../project-fields.mjs'
+import { toFields, toIssueRow, toIssueDetail, toComments, toLinks, toSavedQuery, toSavedQueries, toServers } from '../mapping.mjs'
 import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, MAX_COMMAND, MAX_NEW_COMMENT, MAX_SUMMARY, MAX_NEW_DESCRIPTION, isPlainUrl, normalizeUrl, settingString, capDetail, attempt, fallback, readSetting, INSTALL } from './common.mjs'
 
 const MAX_LIMIT = 50
 /** A YouTrack project short name, as it starts an issue id. */
 export const PROJECT = /^[A-Za-z][A-Za-z0-9_]{0,63}$/
+/** A draft's opaque id, such as 3-41 (drafts have no readable id). */
+const DRAFT_ID = /^\d{1,9}-\d{1,12}$/
 const projectOf = (id) => id.slice(0, id.lastIndexOf('-'))
 /** Fields set when an issue is created, at most. */
 const MAX_NEW_FIELDS = 20
@@ -173,33 +175,6 @@ export function registerYoutrackHandlers(ctx) {
     return r.ok ? ok({}) : r
   })
 
-  handle('yt.project.fields', async ({ server, project }) => {
-    if (typeof project !== 'string' || !PROJECT.test(project)) return invalid('Invalid project')
-    const s = await resolveServer(server)
-    if (!s.ok) return s
-    const r = await ctx.youtrack.projectFields(s.data.alias, project)
-    if (!r.ok) return r
-    return Array.isArray(r.data) ? ok({ fields: toProjectFields(r.data) }) : unexpected()
-  })
-
-  // Runs only when a value is chosen in the panel; the value must be one the project offers.
-  handle('yt.issue.setField', async ({ server, id, field, value }) => {
-    if (typeof id !== 'string' || !ISSUE_ID.test(id)) return invalid('Invalid issue id')
-    if (typeof field !== 'string' || !field || field.length > MAX_FIELD_NAME) return invalid('Invalid field')
-    if (value !== null && (typeof value !== 'string' || !value || value.length > MAX_VALUE_NAME)) return invalid('Invalid value')
-    const s = await resolveServer(server)
-    if (!s.ok) return s
-    const meta = await ctx.youtrack.projectFields(s.data.alias, projectOf(id))
-    if (!meta.ok) return meta
-    const known = toProjectFields(meta.data).find((f) => f.name === field)
-    if (!known || !pickable(known)) return invalid(`${field} cannot be changed here. Use a command.`)
-    if (value === null && known.required) return invalid(`${field} cannot be empty`)
-    if (value !== null && !known.values.some((v) => v.name === value)) return invalid(`${value} is not a value of ${field}`)
-    const how = value === null ? { clear: true } : known.kind === 'user' ? { value, user: true } : { value }
-    const r = await ctx.youtrack.setField(s.data.alias, id, field, how)
-    return r.ok ? ok({}) : r
-  })
-
   // Writes skill files into the coding agents' folders: runs only when the button is pressed.
   handle('yt.skill.install', async () => {
     if (!ctx.youtrack) return fail(CODES.CLI_NOT_FOUND, 'The YouTrack CLI was not found.')
@@ -213,9 +188,76 @@ export function registerYoutrackHandlers(ctx) {
     return r.ok ? ok({ projects: r.data }) : r
   })
 
-  // Runs only when Create is pressed; every field and value must be one the project offers.
-  handle('yt.issue.create', async ({ server, project, summary, description = '', fields = {} }) => {
+  /** The fields of an issue or draft: value as shown, kind, whether required, in YouTrack order. */
+  async function fieldsOf(alias, id) {
+    const r = await ctx.youtrack.viewIssue(alias, id)
+    if (!r.ok) return r
+    if (!r.data || typeof r.data !== 'object') return unexpected()
+    return ok(toFields(r.data).filter((f) => f.name.length <= MAX_FIELD_NAME))
+  }
+
+  /** Checks a field name and value for a write: the field takes one value from a list, and the value is one it offers. */
+  async function checkValue(alias, id, fields, name, value) {
+    const field = fields.find((f) => f.name === name)
+    if (!field || !pickable(field)) return invalid(`${name} cannot be changed here. Use a command.`)
+    if (value === null) return field.required ? invalid(`${name} cannot be empty`) : ok(field)
+    if (typeof value !== 'string' || !value || value.length > MAX_VALUE_NAME) return invalid('Invalid value')
+    const values = await ctx.youtrack.fieldValues(alias, id, name)
+    if (!values.ok) return values
+    return toValues(values.data, MAX_VALUES).values.some((v) => v.name === value) ? ok(field) : invalid(`${value} is not a value of ${name}`)
+  }
+
+  handle('yt.issue.fieldValues', async ({ server, id, field }) => {
+    if (typeof id !== 'string' || !(ISSUE_ID.test(id) || DRAFT_ID.test(id))) return invalid('Invalid issue id')
+    if (typeof field !== 'string' || !field || field.length > MAX_FIELD_NAME) return invalid('Invalid field')
+    const s = await resolveServer(server)
+    if (!s.ok) return s
+    const r = await ctx.youtrack.fieldValues(s.data.alias, id, field)
+    return r.ok ? ok(toValues(r.data, MAX_VALUES)) : r
+  })
+
+  // Runs only when a value is chosen in the panel; the value must be one the field offers.
+  handle('yt.issue.setField', async ({ server, id, field, value }) => {
+    if (typeof id !== 'string' || !ISSUE_ID.test(id)) return invalid('Invalid issue id')
+    if (typeof field !== 'string' || !field || field.length > MAX_FIELD_NAME) return invalid('Invalid field')
+    if (value !== null && typeof value !== 'string') return invalid('Invalid value')
+    const s = await resolveServer(server)
+    if (!s.ok) return s
+    const fields = await fieldsOf(s.data.alias, id)
+    if (!fields.ok) return fields
+    const checked = await checkValue(s.data.alias, id, fields.data, field, value)
+    if (!checked.ok) return checked
+    const how = value === null ? { clear: true } : checked.data.kind === 'user' ? { value, user: true } : { value }
+    const r = await ctx.youtrack.setField(s.data.alias, id, field, how)
+    return r.ok ? ok({}) : r
+  })
+
+  /**
+   * The draft the new-issue form fills for a project, and its fields. The draft of an earlier form is
+   * reused while it still exists. Starting one is a write (YouTrack keeps the user's drafts), so it runs
+   * only when the form opens or another project is chosen.
+   */
+  handle('yt.issue.draft', async ({ server, project }) => {
     if (typeof project !== 'string' || !PROJECT.test(project)) return invalid('Invalid project')
+    const s = await resolveServer(server)
+    if (!s.ok) return s
+    const alias = s.data.alias
+    const stored = await fallback(() => ctx.drafts.get(alias, project), null)
+    if (stored) {
+      const fields = await fieldsOf(alias, stored)
+      if (fields.ok) return ok({ draftId: stored, fields: fields.data })
+      await fallback(() => ctx.drafts.forget(alias, stored), null)
+    }
+    const made = await ctx.youtrack.draftCreate(alias, project)
+    if (!made.ok) return made.error.code === CODES.FORBIDDEN ? fail(CODES.FORBIDDEN, `You cannot create issues in ${project}.`) : made
+    await fallback(() => ctx.drafts.set(alias, project, made.data.id), null)
+    const fields = await fieldsOf(alias, made.data.id)
+    return fields.ok ? ok({ draftId: made.data.id, fields: fields.data }) : fields
+  })
+
+  // Runs only when Create is pressed: fills the plugin's own draft, then submits it as the new issue.
+  handle('yt.issue.create', async ({ server, draftId, summary, description = '', fields = {} }) => {
+    if (typeof draftId !== 'string' || !DRAFT_ID.test(draftId)) return invalid('Invalid draft')
     const checked = checkSummary(summary)
     if (checked.error) return invalid(checked.error)
     if (typeof description !== 'string' || description.length > MAX_NEW_DESCRIPTION) return invalid(`A description is at most ${MAX_NEW_DESCRIPTION} characters`)
@@ -224,18 +266,33 @@ export function registerYoutrackHandlers(ctx) {
     if (entries.length > MAX_NEW_FIELDS) return invalid(`At most ${MAX_NEW_FIELDS} fields can be set`)
     const s = await resolveServer(server)
     if (!s.ok) return s
+    const alias = s.data.alias
+    if (!(await fallback(() => ctx.drafts.has(alias, draftId), false))) return fail(CODES.NOT_FOUND, 'This form is out of date. Open New issue again.')
     if (entries.length > 0) {
-      const meta = await ctx.youtrack.projectFields(s.data.alias, project)
-      if (!meta.ok) return meta
-      const known = toProjectFields(meta.data)
+      const known = await fieldsOf(alias, draftId)
+      if (!known.ok) return known
       for (const [name, value] of entries) {
-        const field = known.find((f) => f.name === name)
-        if (!field || !pickable(field)) return invalid(`${name} cannot be set here`)
-        if (typeof value !== 'string' || !field.values.some((v) => v.name === value)) return invalid(`${String(value)} is not a value of ${name}`)
+        const v = await checkValue(alias, draftId, known.data, name, value)
+        if (!v.ok) return v
       }
     }
-    const r = await ctx.youtrack.createIssue(s.data.alias, { project, summary: checked.text, description, fields: Object.fromEntries(entries) })
-    return r.ok ? ok({ id: r.data.id }) : r
+    const filled = await ctx.youtrack.draftUpdate(alias, draftId, { summary: checked.text, description, fields: Object.fromEntries(entries) })
+    if (!filled.ok) return filled
+    const r = await ctx.youtrack.draftSubmit(alias, draftId)
+    if (!r.ok) return r
+    await fallback(() => ctx.drafts.forget(alias, draftId), null)
+    return ok({ id: r.data.id })
+  })
+
+  // Back from the form, or another project: the form's draft is deleted. Only the plugin's own drafts.
+  handle('yt.issue.draft.discard', async ({ server, draftId }) => {
+    if (typeof draftId !== 'string' || !DRAFT_ID.test(draftId)) return invalid('Invalid draft')
+    const s = await resolveServer(server)
+    if (!s.ok) return s
+    if (!(await fallback(() => ctx.drafts.has(s.data.alias, draftId), false))) return ok({})
+    const r = await ctx.youtrack.draftDelete(s.data.alias, draftId)
+    if (r.ok || r.error.code === CODES.NOT_FOUND) await fallback(() => ctx.drafts.forget(s.data.alias, draftId), null)
+    return r.ok ? ok({}) : r
   })
 
   handle('yt.issue.update', async ({ server, id, summary, description }) => {

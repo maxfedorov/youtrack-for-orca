@@ -6,7 +6,7 @@ import { AGENTS } from '../agents.mjs'
 import { inside, shortBranch, workspaceItems } from '../workspaces.mjs'
 import { BUILT_IN } from '../templates.mjs'
 import { issueIdFromBranch } from '../branch-issue.mjs'
-import { toProjectFields } from '../project-fields.mjs'
+import { toFieldMeta, toValues, MAX_VALUES } from '../project-fields.mjs'
 import { safeValue } from '../prompt.mjs'
 import { safeHandle, shortMessage, unexpected, hasId, invalid, token, issueUrl, ISSUE_ID, settingString, capDetail, AGENT_ID, attempt, fallback, readSetting } from './common.mjs'
 
@@ -108,11 +108,10 @@ export function registerStartHandlers(ctx) {
     const s = await resolveServer(server)
     if (!s.ok) return s
     // Only the issue is required; repositories, workspaces, agents and settings each fall back alone.
-    const [view, repos, ws, meta] = await Promise.all([
+    const [view, repos, ws] = await Promise.all([
       attempt(() => ctx.youtrack.viewIssue(s.data.alias, id)),
       orcaCli ? attempt(() => orcaCli.repos()) : Promise.resolve(ok([])),
-      attempt(async () => ok(await listWorkspaces())),
-      attempt(() => ctx.youtrack.projectFields(s.data.alias, projectOf(id), { users: false }))
+      attempt(async () => ok(await listWorkspaces()))
     ])
     if (!view.ok) return view
     if (!hasId(view.data)) return unexpected()
@@ -159,13 +158,16 @@ export function registerStartHandlers(ctx) {
       defaultWorkspaceId: linked ?? (active ? active.id : null)
     }
     // What the agent does when it is done: the state field is the project's own (State, Stage, ...).
-    const stateField = meta.ok && Array.isArray(meta.data) ? toProjectFields(meta.data).find((f) => f.kind === 'state' && !f.multi && safeValue(f.name)) : null
-    const states = stateField ? stateField.values.map((v) => v.name).filter(safeValue) : []
+    const stateField = (Array.isArray(view.data.customFields) ? view.data.customFields : []).find(
+      (f) => typeof f?.name === 'string' && safeValue(f.name) && toFieldMeta(f).kind === 'state' && !toFieldMeta(f).multi
+    )
+    const stateValues = stateField ? await attempt(() => ctx.youtrack.fieldValues(s.data.alias, id, stateField.name)) : null
+    const states = stateValues?.ok ? toValues(stateValues.data, MAX_VALUES).values.map((v) => v.name).filter(safeValue) : []
     const wanted = settingString(await get('finishState'), '')
     data.finish = {
       comment: (await get('finishComment')) === true,
       state: states.includes(wanted) ? wanted : '',
-      stateField: stateField ? stateField.name : null,
+      stateField: stateField && states.length > 0 ? stateField.name : null,
       states
     }
     if (!repos.ok) data.reposError = shortMessage(repos.error.message)

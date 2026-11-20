@@ -213,7 +213,7 @@ test('missing customFields gives no fields', () => {
 
 test('fields without a name are skipped and values are always strings', () => {
   const f = fieldsOf({ idReadable: 'DEMO-3', customFields: [{ value: 'x' }, { name: 'N', value: { weird: true } }, null] })
-  assert.deepEqual(f, [{ name: 'N', value: 'n/a' }])
+  assert.deepEqual(f, [{ name: 'N', value: 'n/a', kind: 'other', multi: false, required: false }])
 })
 
 test('a field value that cannot be formatted is n/a and the other fields stay', () => {
@@ -238,7 +238,7 @@ test('a field whose value throws while it is read is n/a', () => {
   const odd = { name: 'Odd' }
   Object.defineProperty(odd, 'value', { get: () => { throw new Error('boom') }, enumerable: true })
   const f = fieldsOf({ idReadable: 'DEMO-3', customFields: [odd, { name: 'Points', value: 5 }] })
-  assert.deepEqual(f, [{ name: 'Odd', value: 'n/a' }, { name: 'Points', value: '5' }])
+  assert.deepEqual(f, [{ name: 'Odd', value: 'n/a', kind: 'other', multi: false, required: false }, { name: 'Points', value: '5', kind: 'other', multi: false, required: false }])
 })
 
 test('toIssueDetail maps the reporter and tag names', async () => {
@@ -265,4 +265,12 @@ test('toLinks names each group from this issue side and leaves out empty link ty
     { type: 'depends on', issues: [{ id: 'DEMO-8', summary: 'B', resolved: true }] }
   ])
   assert.deepEqual(toLinks(null), [])
+})
+
+test('each field says how it is changed: its kind, one or many values, and whether it is required', () => {
+  const f = fieldsOf({ idReadable: 'DEMO-3', customFields: [
+    { name: 'Priority', value: { name: 'Major' }, projectCustomField: { canBeEmpty: false, field: { fieldType: { id: 'enum[1]' } } } },
+    { name: 'Fix versions', value: [], projectCustomField: { canBeEmpty: true, field: { fieldType: { id: 'version[*]' } } } }
+  ] })
+  assert.deepEqual(f.map(({ name, kind, multi, required }) => [name, kind, multi, required]), [['Priority', 'enum', false, true], ['Fix versions', 'version', true, false]])
 })

@@ -1,9 +1,10 @@
-// The custom fields of a YouTrack project: kind, required or not, and the values one can choose.
+// Custom fields of an issue (or a draft): their kind, whether they are required, and the values one
+// can choose, read without admin rights: the kind from the issue's own field, the values from the
+// CLI's `issue field list-values` (the issue's field context, so only what this user may pick).
 // Output is strict JSON: absent values are omitted, never set to undefined.
 
-/** Values offered for one field at most; a larger bundle is cut and marked `valuesCut`. */
+/** Values asked for one field; a full page means there may be more (`cut`). */
 export const MAX_VALUES = 500
-export const MAX_PROJECT_FIELDS = 100
 /** Longest field name and value the plugin passes to the CLI. */
 export const MAX_FIELD_NAME = 100
 export const MAX_VALUE_NAME = 200
@@ -13,38 +14,29 @@ const LISTED = new Set(['enum', 'state', 'user', 'version', 'ownedField', 'build
 
 const named = (v, max) => (typeof v === 'string' && v !== '' && v.length <= max ? v : null)
 
-/** One value of a bundle; null when it cannot be offered (archived, no name). */
-function toValue(v, kind) {
-  if (!v || typeof v !== 'object' || v.archived === true) return null
-  if (kind === 'user') {
+/** Kind, multi and required of one `customFields` entry with `projectCustomField(canBeEmpty,field(fieldType(id)))`. */
+export function toFieldMeta(f) {
+  const type = typeof f?.projectCustomField?.field?.fieldType?.id === 'string' ? f.projectCustomField.field.fieldType.id : ''
+  const base = type.replace(/\[[1*]\]$/, '')
+  return { kind: LISTED.has(base) ? base : 'other', multi: type.endsWith('[*]'), required: f?.projectCustomField?.canBeEmpty === false }
+}
+
+/** A field whose value the panel can change: one value from a list. */
+export const pickable = (meta) => meta.kind !== 'other' && !meta.multi
+
+/** The values of `issue field list-values`: users by login (with their name), the rest by name. */
+export function toValues(raw, limit) {
+  const list = Array.isArray(raw) ? raw : []
+  const values = []
+  for (const v of list) {
+    if (!v || typeof v !== 'object' || v.archived === true || v.banned === true) continue
     const login = named(v.login, MAX_VALUE_NAME)
-    if (!login) return null
-    return typeof v.fullName === 'string' && v.fullName && v.fullName !== login ? { name: login, label: v.fullName } : { name: login }
+    if (login) {
+      values.push(typeof v.fullName === 'string' && v.fullName && v.fullName !== login ? { name: login, label: v.fullName.slice(0, MAX_VALUE_NAME) } : { name: login })
+      continue
+    }
+    const name = named(v.name, MAX_VALUE_NAME)
+    if (name) values.push({ name })
   }
-  const name = named(v.name, MAX_VALUE_NAME)
-  if (!name) return null
-  return kind === 'state' && v.isResolved === true ? { name, resolved: true } : { name }
+  return { values, cut: list.length >= limit }
 }
-
-/** @param {any} raw the project's `customFields` with `field(name,fieldType(id))` and its bundle */
-export function toProjectFields(raw) {
-  const out = []
-  for (const f of Array.isArray(raw) ? raw : []) {
-    const name = named(f?.field?.name, MAX_FIELD_NAME)
-    if (!name || out.length >= MAX_PROJECT_FIELDS) continue
-    const type = typeof f.field.fieldType?.id === 'string' ? f.field.fieldType.id : ''
-    const base = type.replace(/\[[1*]\]$/, '')
-    const kind = LISTED.has(base) ? base : 'other'
-    const source = kind === 'user' ? f.bundle?.aggregatedUsers : kind === 'other' ? [] : f.bundle?.values
-    const all = (Array.isArray(source) ? source : []).map((v) => toValue(v, kind)).filter(Boolean)
-    const field = { name, kind, multi: type.endsWith('[*]'), required: f.canBeEmpty === false }
-    if (typeof f.emptyFieldText === 'string' && f.emptyFieldText) field.emptyText = f.emptyFieldText.slice(0, MAX_VALUE_NAME)
-    field.values = all.slice(0, MAX_VALUES)
-    if (all.length > MAX_VALUES) field.valuesCut = true
-    out.push(field)
-  }
-  return out
-}
-
-/** A field whose value the panel can change: one value from the project's list. */
-export const pickable = (field) => field.kind !== 'other' && !field.multi

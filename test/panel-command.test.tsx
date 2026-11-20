@@ -53,16 +53,12 @@ const table = { type: 'Table' }
 const commandInput = { type: 'Input', label: 'Command' }
 const apply = { role: 'button', text: 'Apply' }
 
-/** The detail's fields as [name, value] pairs, read from their change buttons and value texts. */
+/** The detail's fields as [name, value] pairs, read from their value texts. */
 const fieldPairs = (view: any) =>
   view
-    .findAll({ type: 'IconButton' })
-    .map((b: any) => String(b.props.label))
-    .filter((label: string) => label.startsWith('Change '))
-    .map((label: string) => {
-      const name = label.slice('Change '.length)
-      return [name, String(view.find({ testId: `field-value:${name}` })?.text ?? '')]
-    })
+    .findAll({ type: 'Text' })
+    .filter((t: any) => String(t.key ?? '').startsWith('field-value:'))
+    .map((t: any) => [String(t.key).slice('field-value:'.length), String(t.text ?? '')])
 
 test('the row actions apply a command to the selected issue and reload the results', async () => {
   const { host } = setup()

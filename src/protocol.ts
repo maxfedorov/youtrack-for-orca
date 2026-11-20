@@ -19,8 +19,8 @@ export type IssueRow = {
   fields?: Record<string, string>
 }
 export type IssueDetail = IssueRow & {
-  /** Every custom field of the issue as display strings, in the order YouTrack lists them. */
-  fields: { name: string; value: string }[]
+  /** Every custom field of the issue as display strings, in the order YouTrack lists them, with how it is changed. */
+  fields: ({ name: string; value: string } & Partial<Omit<FieldMeta, 'name'>>)[]
   project: { shortName: string; name: string }; type?: Value; descriptionMd: string; comments: Comment[]
   /** Who created the issue, when the CLI says. */
   reporter?: User
@@ -37,14 +37,10 @@ export type IssueDetail = IssueRow & {
   /** Set when only the comments could not be loaded; `comments` is then empty. */
   commentsError?: string
 }
-/** A custom field of a project; `values` are what can be chosen (users by login, `label` their name). */
-export type ProjectField = {
-  name: string; kind: 'enum' | 'state' | 'user' | 'version' | 'ownedField' | 'build' | 'other'
-  multi: boolean; required: boolean; emptyText?: string
-  values: { name: string; label?: string; resolved?: true }[]
-  /** More values exist than were sent. */
-  valuesCut?: true
-}
+/** How a field is changed: `kind` other means free text, numbers or periods (changed with a command). */
+export type FieldMeta = { name: string; value?: string; kind: 'enum' | 'state' | 'user' | 'version' | 'ownedField' | 'build' | 'other'; multi: boolean; required: boolean }
+/** Values a field offers on one issue or draft (users by login, `label` their name); `cut`: there may be more. */
+export type FieldValues = { values: { name: string; label?: string }[]; cut: boolean }
 export type IssueComments = { comments: Comment[]; commentsOmitted?: number; truncated?: true }
 export type SavedQuery = { id: string; name: string; query: string }
 export type Repo = { id: string; name: string; path?: string; worktreeBaseRef?: string }
@@ -127,14 +123,21 @@ declare module 'orca' {
     'yt.skill.install': { input: Record<string, never>; output: Result<{ messages: string[] }> }
     /** The projects of the server the account can see (at most 500). */
     'yt.projects': { input: { server: string }; output: Result<{ projects: { shortName: string; name: string }[] }> }
-    /** Creates an issue with fields from its project's value lists (field name -> value, at most 20). */
+    /**
+     * The draft the new-issue form fills for a project (an earlier one is reused) and its fields.
+     * Fails with FORBIDDEN when the user cannot create issues there.
+     */
+    'yt.issue.draft': { input: { server: string; project: string }; output: Result<{ draftId: string; fields: FieldMeta[] }> }
+    /** Fills the form's draft and submits it as an issue; fields are values the draft offers (at most 20). */
     'yt.issue.create': {
-      input: { server: string; project: string; summary: string; description?: string; fields?: Record<string, string> }
+      input: { server: string; draftId: string; summary: string; description?: string; fields?: Record<string, string> }
       output: Result<{ id: string }>
     }
-    /** The custom fields of a project with the values they offer. */
-    'yt.project.fields': { input: { server: string; project: string }; output: Result<{ fields: ProjectField[] }> }
-    /** Sets a single-value field to one of its project's values; null empties a field that may be empty. */
+    /** Deletes the form's draft (Back, or another project); drafts the plugin did not start are left alone. */
+    'yt.issue.draft.discard': { input: { server: string; draftId: string }; output: Result<Record<string, never>> }
+    /** The values a field offers on an issue or a draft, as `issue field list-values` reads them. */
+    'yt.issue.fieldValues': { input: { server: string; id: string; field: string }; output: Result<FieldValues> }
+    /** Sets a single-value field to one of the values it offers; null empties a field that may be empty. */
     'yt.issue.setField': { input: { server: string; id: string; field: string; value: string | null }; output: Result<Record<string, never>> }
     /** Changes the summary (one line, <= 255) and/or the description (<= 60000; '' clears it). */
     'yt.issue.update': { input: { server: string; id: string; summary?: string; description?: string }; output: Result<Record<string, never>> }

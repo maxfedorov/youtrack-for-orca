@@ -63,16 +63,12 @@ const clean = (view: any) => {
   assert.deepEqual(view.warnings, [])
 }
 
-/** The detail's fields as [name, value] pairs, read from their change buttons and value texts. */
+/** The detail's fields as [name, value] pairs, read from their value texts. */
 const fieldPairs = (view: any) =>
   view
-    .findAll({ type: 'IconButton' })
-    .map((b: any) => String(b.props.label))
-    .filter((label: string) => label.startsWith('Change '))
-    .map((label: string) => {
-      const name = label.slice('Change '.length)
-      return [name, String(view.find({ testId: `field-value:${name}` })?.text ?? '')]
-    })
+    .findAll({ type: 'Text' })
+    .filter((t: any) => String(t.key ?? '').startsWith('field-value:'))
+    .map((t: any) => [String(t.key).slice('field-value:'.length), String(t.text ?? '')])
 
 test('back keeps query and loaded rows', async () => {
   const host = mockHost({ requests: requests() })
@@ -100,7 +96,7 @@ test('back keeps the selected row', async () => {
   await view.unmount()
 })
 
-test('renders fields with change buttons and no other inputs', async () => {
+test('renders the fields and no other inputs', async () => {
   const host = mockHost({ requests: requests() })
   const view = await open(host)
   assert.ok(view.find({ text: 'DEMO-1' }))

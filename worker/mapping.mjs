@@ -2,6 +2,7 @@
 // Output is strict JSON: absent values are omitted, never set to undefined.
 
 import { columnKey } from './query.mjs'
+import { toFieldMeta } from './project-fields.mjs'
 
 /** @typedef {{ name: string, color?: string }} Value */
 /** @typedef {{ login: string, fullName: string }} User */
@@ -128,13 +129,14 @@ function toField(f) {
   } catch {
     shown = null
   }
-  if (shown === null) return { name: f.name, value: NOT_AVAILABLE }
+  const meta = toFieldMeta(f)
+  if (shown === null) return { name: f.name, value: NOT_AVAILABLE, ...meta }
   const empty = f.projectCustomField?.emptyFieldText
-  return { name: f.name, value: clip(shown || (typeof empty === 'string' && empty ? empty : EMPTY)) }
+  return { name: f.name, value: clip(shown || (typeof empty === 'string' && empty ? empty : EMPTY)), ...meta }
 }
 
 /** All custom fields of an issue as display strings, in YouTrack order. @param {any} raw @returns {{ name: string, value: string }[]} */
-function toFields(raw) {
+export function toFields(raw) {
   const list = Array.isArray(raw?.customFields) ? raw.customFields : []
   return list
     .filter((f) => typeof f?.name === 'string' && f.name !== '')

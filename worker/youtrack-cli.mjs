@@ -2,6 +2,7 @@
 import path from 'node:path'
 import { ok, fail, CODES } from './result.mjs'
 import { findOnPath, runProcess } from './exec.mjs'
+import { MAX_VALUES } from './project-fields.mjs'
 
 const READ_MS = 15_000
 const WRITE_MS = 30_000
@@ -15,11 +16,7 @@ const listFields = (columns) => {
   for (const c of columns) if (!seen.has(c.toLowerCase())) seen.add(c.toLowerCase()) && names.push(c)
   return names.join(',')
 }
-const VIEW_FIELDS = 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText))'
-/** What the project field editor needs: kind, required, and the values of the field's bundle. */
-const PROJECT_FIELDS = 'canBeEmpty,emptyFieldText,field(name,fieldType(id)),bundle(values(name,archived,isResolved),aggregatedUsers(login,fullName))'
-/** The same without the users, which can be thousands: for callers that need only the state values. */
-const PROJECT_FIELDS_NO_USERS = 'canBeEmpty,emptyFieldText,field(name,fieldType(id)),bundle(values(name,archived,isResolved))'
+const VIEW_FIELDS = 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText,canBeEmpty,field(fieldType(id))))'
 const CLI_ENV = Object.freeze({ YOUTRACK_NO_UPDATE: '1', NO_COLOR: '1' })
 
 /**
@@ -185,25 +182,32 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
           .slice(0, 500)
           .map((p) => ({ shortName: p.shortName, name: typeof p.name === 'string' ? p.name : p.shortName }))
       ),
-    /**
-     * Creates an issue in one request, so workflows that require a field accept it: the summary is one
-     * `--summary=` argument, the fields one `--custom-fields=` JSON argument, the description on standard input.
-     */
-    createIssue: (server, { project, summary, description, fields }) => {
-      const args = ['--server', server, 'issue', 'create', '--project', project, `--summary=${summary}`, '--description-file', '-']
+    /** The values one field of an issue (or a draft) offers this user, from the issue's field context. */
+    fieldValues: (server, id, field) =>
+      exec(['--server', server, 'issue', 'field', 'list-values', '--limit', String(MAX_VALUES), ...tail, '--', id, field], READ_MS, list),
+    /** A new draft in a project: what the new-issue form reads its fields from, and submits at the end. */
+    draftCreate: (server, project) =>
+      exec(['--server', server, 'issue', 'draft', 'create', '--project', project, ...tail], WRITE_MS, (s) => {
+        const id = JSON.parse(s)?.id
+        if (typeof id !== 'string' || !id) throw new Error('no id')
+        return { id }
+      }),
+    /** Fills a draft: summary as one `--summary=` argument, fields as one JSON argument, description on standard input. */
+    draftUpdate: (server, draftId, { summary, description, fields }) => {
+      const args = ['--server', server, 'issue', 'draft', 'update', `--summary=${summary}`, '--description-file', '-']
       if (Object.keys(fields).length > 0) args.push(`--custom-fields=${JSON.stringify(fields)}`)
-      return exec([...args, ...tail], WRITE_MS, (s) => {
+      return exec([...args, ...tail, '--', draftId], WRITE_MS, () => ({}), { input: description })
+    },
+    /** Turns the draft into an issue; answers its readable id. */
+    draftSubmit: (server, draftId) =>
+      exec(['--server', server, 'issue', 'draft', 'submit', ...tail, '--', draftId], WRITE_MS, (s) => {
         const id = JSON.parse(s)?.idReadable
         if (typeof id !== 'string' || !id) throw new Error('no id')
         return { id }
-      }, { input: description })
-    },
-    /**
-     * The custom fields of a project with their values. The CLI has no command that lists the values,
-     * so this is the one read through `raw`: always GET, on a path built from a checked short name.
-     */
-    projectFields: (server, project, { users = true } = {}) =>
-      exec(['--server', server, 'raw', '--method', 'GET', '--paginate', '--fields', users ? PROJECT_FIELDS : PROJECT_FIELDS_NO_USERS, ...tail, '--', `/api/admin/projects/${project}/customFields`], READ_MS, list),
+      }),
+    /** Deletes a draft without asking (the panel's Back or another project). */
+    draftDelete: (server, draftId) =>
+      exec(['--server', server, 'issue', 'draft', 'delete', '--force', ...tail, '--', draftId], WRITE_MS, () => ({})),
     /** Sets one field of an issue, or empties it with `clear`; issue, field and value come after `--`. */
     setField: (server, id, field, { value, user = false, clear = false }) => {
       const args = ['--server', server, 'issue', 'field', 'set']

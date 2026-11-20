@@ -955,81 +955,10 @@ test('issue.update checks the summary and description before it writes', async (
   assert.deepEqual(updates[0], ['one', 'DEMO-1', { summary: 'New', description: '' }])
 })
 
-const PROJECT_FIELDS = [
-  { canBeEmpty: false, field: { name: 'Priority', fieldType: { id: 'enum[1]' } }, bundle: { values: [{ name: 'Major' }, { name: 'Minor' }] } },
-  { canBeEmpty: true, field: { name: 'Assignee', fieldType: { id: 'user[1]' } }, bundle: { aggregatedUsers: [{ login: 'jane', fullName: 'Jane Doe' }] } },
-  { canBeEmpty: true, field: { name: 'Sprints', fieldType: { id: 'version[*]' } }, bundle: { values: [{ name: '1' }] } },
-  { canBeEmpty: true, field: { name: 'Estimation', fieldType: { id: 'period' } } }
-]
-
-test('project.fields answers the fields of a project and refuses odd project names', async () => {
-  let reads = 0
-  const { call } = setup({ yt: fakeYt({ projectFields: async () => (reads++, ok(PROJECT_FIELDS)) }) })
-  const r = await call('yt.project.fields', { server: 'one', project: 'DEMO' })
-  assert.deepEqual(r.data.fields.map((f) => f.name), ['Priority', 'Assignee', 'Sprints', 'Estimation'])
-  for (const project of ['', '-x', 'a/b', '../x', 'DEMO X', 7]) assert.equal((await call('yt.project.fields', { server: 'one', project })).ok, false)
-  assert.equal(reads, 1)
-  strict(r)
-})
-
-test('issue.setField writes only values the project offers for a single-value field', async () => {
-  const sets = []
-  const { call } = setup({ yt: fakeYt({ projectFields: async () => ok(PROJECT_FIELDS), setField: async (...a) => (sets.push(a), ok({})) }) })
-  const set = (field, value, id = 'DEMO-1') => call('yt.issue.setField', { server: 'one', id, field, value })
-  assert.equal((await set('Priority', 'Major')).ok, true)
-  assert.deepEqual(sets.at(-1), ['one', 'DEMO-1', 'Priority', { value: 'Major' }])
-  assert.equal((await set('Assignee', 'jane')).ok, true)
-  assert.deepEqual(sets.at(-1), ['one', 'DEMO-1', 'Assignee', { value: 'jane', user: true }])
-  assert.equal((await set('Assignee', null)).ok, true)
-  assert.deepEqual(sets.at(-1), ['one', 'DEMO-1', 'Assignee', { clear: true }])
-  const count = sets.length
-  for (const [field, value] of [['Priority', 'Blocker'], ['Priority', null], ['Sprints', '1'], ['Estimation', '1h'], ['Nope', 'x'], ['', 'x'], ['Priority', 7]]) {
-    assert.equal((await set(field, value)).ok, false, `${field}=${value}`)
-  }
-  assert.equal((await set('Priority', 'Major', 'not an id')).ok, false)
-  assert.equal(sets.length, count)
-})
-
-test('issue.create checks project, summary and fields against the project before it writes', async () => {
-  const made = []
-  const { call } = setup({
-    yt: fakeYt({ projectFields: async () => ok(PROJECT_FIELDS), createIssue: async (...a) => (made.push(a), ok({ id: 'DEMO-77' })) })
-  })
-  const create = (over) => call('yt.issue.create', { server: 'one', project: 'DEMO', summary: 'New', description: 'Body', fields: {}, ...over })
-  for (const bad of [{ project: '-x' }, { summary: '' }, { summary: 'a\nb' }, { description: 'x'.repeat(60_001) }, { fields: { Priority: 'Blocker' } },
-    { fields: { Sprints: '1' } }, { fields: { Nope: 'x' } }, { fields: 'x' }, { fields: Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`F${i}`, 'x'])) }]) {
-    assert.equal((await create(bad)).ok, false, JSON.stringify(bad).slice(0, 50))
-  }
-  assert.equal(made.length, 0)
-  const r = await create({ summary: '  New one ', fields: { Priority: 'Minor', Assignee: 'jane' } })
-  assert.deepEqual(r, { ok: true, data: { id: 'DEMO-77' } })
-  assert.deepEqual(made[0], ['one', { project: 'DEMO', summary: 'New one', description: 'Body', fields: { Priority: 'Minor', Assignee: 'jane' } }])
-})
-
-test('issue.create works without the project fields when there are none to set', async () => {
-  const made = []
-  const { call } = setup({ yt: fakeYt({ projectFields: async () => fail('FORBIDDEN', 'HTTP 403'), createIssue: async (...a) => (made.push(a), ok({ id: 'DEMO-1' })) }) })
-  assert.equal((await call('yt.issue.create', { server: 'one', project: 'DEMO', summary: 'S' })).ok, true)
-  assert.deepEqual(made[0][1], { project: 'DEMO', summary: 'S', description: '', fields: {} })
-  assert.equal((await call('yt.issue.create', { server: 'one', project: 'DEMO', summary: 'S', fields: { Priority: 'Minor' } })).error.message, 'HTTP 403')
-})
 
 test('projects lists the projects of a server', async () => {
   const { call } = setup({ yt: fakeYt({ listProjects: async () => ok([{ shortName: 'DEMO', name: 'Demo' }]) }) })
   assert.deepEqual((await call('yt.projects', { server: 'one' })).data, { projects: [{ shortName: 'DEMO', name: 'Demo' }] })
-})
-
-test('start.prepare offers the finish options: the setting, the state field and its values', async () => {
-  const meta = [
-    { canBeEmpty: false, field: { name: 'Stage', fieldType: { id: 'state[1]' } }, bundle: { values: [{ name: 'Open' }, { name: 'In Review' }, { name: 'Bad"one' }] } }
-  ]
-  const asked = []
-  const { call } = setup({ yt: fakeYt({ projectFields: async (...a) => (asked.push(a), ok(meta)) }), settings: { finishComment: true, finishState: 'In Review' } })
-  const r = await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
-  assert.deepEqual(r.data.finish, { comment: true, state: 'In Review', stateField: 'Stage', states: ['Open', 'In Review'] })
-  assert.deepEqual(asked[0], ['one', 'DEMO', { users: false }])
-  const denied = await setup({ yt: fakeYt({ projectFields: async () => fail('FORBIDDEN', 'x') }), settings: { finishState: 'Done' } }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
-  assert.deepEqual(denied.data.finish, { comment: false, state: '', stateField: null, states: [] })
 })
 
 test('skill.install runs the CLI skill update', async () => {
@@ -1062,4 +991,115 @@ test('current names no issue for a workspace another server started', async () =
   const { call, links } = setup({ host: { 'workspace.list': { workspaces: ws, truncated: false }, 'workspace.readContext': { branch: 'demo-4-fix', displayName: 'demo-4-fix', terminals: [] } } })
   await links.add('two', 'DEMO-4', 'identity:d4', 1)
   assert.deepEqual((await call('yt.current', { server: 'one' })).data, { issue: null })
+})
+
+const meta = (name, type, canBeEmpty, value = null) => ({ name, value, $type: 'X', projectCustomField: { canBeEmpty, field: { fieldType: { id: type } } } })
+const FIELDED = (id) => ({
+  ...rawIssue(id),
+  customFields: [meta('Priority', 'enum[1]', false, { name: 'Major' }), meta('Assignee', 'user[1]', true), meta('Sprints', 'version[*]', true), meta('Estimation', 'period', true), meta('Stage', 'state[1]', false, { name: 'Open' })]
+})
+const VALUES = { Priority: [{ name: 'Major' }, { name: 'Minor' }], Assignee: [{ login: 'jane', fullName: 'Jane Doe' }], Stage: [{ name: 'Open' }, { name: 'In Review' }, { name: 'Bad"one' }] }
+const fielded = (over = {}) => fakeYt({
+  viewIssue: async (s, id) => ok(FIELDED(id)),
+  fieldValues: async (s, id, field) => (VALUES[field] ? ok(VALUES[field]) : fail('UNKNOWN', 'field does not expose selectable values')),
+  ...over
+})
+
+test('issue.fieldValues answers the values a field offers on an issue or a draft', async () => {
+  const { call } = setup({ yt: fielded() })
+  assert.deepEqual((await call('yt.issue.fieldValues', { server: 'one', id: 'DEMO-1', field: 'Assignee' })).data, { values: [{ name: 'jane', label: 'Jane Doe' }], cut: false })
+  assert.equal((await call('yt.issue.fieldValues', { server: 'one', id: '3-9', field: 'Priority' })).ok, true)
+  for (const bad of [{ id: '-x', field: 'P' }, { id: 'DEMO-1', field: '' }, { id: 'DEMO-1', field: 'x'.repeat(101) }, { id: 'a b', field: 'P' }]) {
+    assert.equal((await call('yt.issue.fieldValues', { server: 'one', ...bad })).ok, false, JSON.stringify(bad))
+  }
+})
+
+test('issue.setField writes only values the field offers for a single-value field', async () => {
+  const sets = []
+  const { call } = setup({ yt: fielded({ setField: async (...a) => (sets.push(a), ok({})) }) })
+  const set = (field, value, id = 'DEMO-1') => call('yt.issue.setField', { server: 'one', id, field, value })
+  assert.equal((await set('Priority', 'Minor')).ok, true)
+  assert.deepEqual(sets.at(-1), ['one', 'DEMO-1', 'Priority', { value: 'Minor' }])
+  assert.equal((await set('Assignee', 'jane')).ok, true)
+  assert.deepEqual(sets.at(-1), ['one', 'DEMO-1', 'Assignee', { value: 'jane', user: true }])
+  assert.equal((await set('Assignee', null)).ok, true)
+  assert.deepEqual(sets.at(-1), ['one', 'DEMO-1', 'Assignee', { clear: true }])
+  const count = sets.length
+  for (const [field, value] of [['Priority', 'Blocker'], ['Priority', null], ['Sprints', '1'], ['Estimation', '1h'], ['Nope', 'x'], ['', 'x'], ['Priority', 7]]) {
+    assert.equal((await set(field, value)).ok, false, `${field}=${value}`)
+  }
+  assert.equal((await set('Priority', 'Major', 'not an id')).ok, false)
+  assert.equal(sets.length, count)
+})
+
+test('issue.draft starts a draft in a project and answers its fields, and reuses it next time', async () => {
+  let made = 0
+  const { call } = setup({ yt: fielded({ draftCreate: async () => (made++, ok({ id: '3-9' })) }) })
+  const r = await call('yt.issue.draft', { server: 'one', project: 'DEMO' })
+  assert.deepEqual(r.data, {
+    draftId: '3-9',
+    fields: [
+      { name: 'Priority', value: 'Major', kind: 'enum', multi: false, required: true },
+      { name: 'Assignee', value: '\u2014', kind: 'user', multi: false, required: false },
+      { name: 'Sprints', value: '\u2014', kind: 'version', multi: true, required: false },
+      { name: 'Estimation', value: '\u2014', kind: 'other', multi: false, required: false },
+      { name: 'Stage', value: 'Open', kind: 'state', multi: false, required: true }
+    ]
+  })
+  assert.equal((await call('yt.issue.draft', { server: 'one', project: 'DEMO' })).data.draftId, '3-9')
+  assert.equal(made, 1)
+  for (const project of ['', '-x', 'a/b', 7]) assert.equal((await call('yt.issue.draft', { server: 'one', project })).ok, false)
+})
+
+test('issue.draft makes a new draft when the stored one is gone, and says when issues cannot be created', async () => {
+  let n = 0
+  const { call } = setup({ yt: fielded({ draftCreate: async () => ok({ id: `3-${++n}` }), viewIssue: async (s, id) => (id === '3-1' && n > 1 ? fail('NOT_FOUND', 'HTTP 404') : ok(FIELDED(id))) }) })
+  assert.equal((await call('yt.issue.draft', { server: 'one', project: 'DEMO' })).data.draftId, '3-1')
+  n = 1
+  const again = await setup({ yt: fielded({ draftCreate: async () => fail('FORBIDDEN', 'HTTP 403: HTTP 403 Forbidden') }) }).call('yt.issue.draft', { server: 'one', project: 'DEMO' })
+  assert.equal(again.error.code, 'FORBIDDEN')
+  assert.equal(again.error.message, 'You cannot create issues in DEMO.')
+})
+
+test('issue.create fills the draft, submits it and forgets it; fields must be ones the draft offers', async () => {
+  const calls = []
+  const { call } = setup({
+    yt: fielded({
+      draftCreate: async () => ok({ id: '3-9' }),
+      draftUpdate: async (...a) => (calls.push(['update', ...a]), ok({})),
+      draftSubmit: async (...a) => (calls.push(['submit', ...a]), ok({ id: 'DEMO-77' }))
+    })
+  })
+  await call('yt.issue.draft', { server: 'one', project: 'DEMO' })
+  const create = (over) => call('yt.issue.create', { server: 'one', draftId: '3-9', summary: 'New', description: 'Body', fields: {}, ...over })
+  for (const bad of [{ draftId: '3-8' }, { summary: '' }, { summary: 'a\nb' }, { description: 'x'.repeat(60_001) }, { fields: { Priority: 'Blocker' } },
+    { fields: { Sprints: '1' } }, { fields: { Nope: 'x' } }, { fields: 'x' }]) {
+    assert.equal((await create(bad)).ok, false, JSON.stringify(bad).slice(0, 50))
+  }
+  assert.equal(calls.length, 0)
+  const r = await create({ summary: '  New one ', fields: { Priority: 'Minor', Assignee: 'jane' } })
+  assert.deepEqual(r, { ok: true, data: { id: 'DEMO-77' } })
+  assert.deepEqual(calls, [
+    ['update', 'one', '3-9', { summary: 'New one', description: 'Body', fields: { Priority: 'Minor', Assignee: 'jane' } }],
+    ['submit', 'one', '3-9']
+  ])
+  assert.equal((await create({})).ok, false)
+})
+
+test('issue.draft.discard deletes only a draft the plugin started', async () => {
+  const deleted = []
+  const { call } = setup({ yt: fielded({ draftCreate: async () => ok({ id: '3-9' }), draftDelete: async (...a) => (deleted.push(a), ok({})) }) })
+  assert.equal((await call('yt.issue.draft.discard', { server: 'one', draftId: '3-9' })).ok, true)
+  assert.equal(deleted.length, 0)
+  await call('yt.issue.draft', { server: 'one', project: 'DEMO' })
+  assert.equal((await call('yt.issue.draft.discard', { server: 'one', draftId: '3-9' })).ok, true)
+  assert.deepEqual(deleted, [['one', '3-9']])
+})
+
+test('start.prepare offers the finish options from the issue: its state field and the values it may take', async () => {
+  const { call } = setup({ yt: fielded(), settings: { finishComment: true, finishState: 'In Review' } })
+  const r = await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.deepEqual(r.data.finish, { comment: true, state: 'In Review', stateField: 'Stage', states: ['Open', 'In Review'] })
+  const plain = await setup({ settings: { finishState: 'Done' } }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.deepEqual(plain.data.finish, { comment: false, state: '', stateField: null, states: [] })
 })

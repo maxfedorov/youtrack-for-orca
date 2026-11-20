@@ -61,11 +61,15 @@ const fixComments = (v: unknown[]) =>
     created: or(num, c.created, 0)
   }))
 
+const KINDS = ['enum', 'state', 'user', 'version', 'ownedField', 'build', 'other']
+/** A field's name with how it is changed; an unknown kind is changed with a command. */
+const fixMeta = (f: Obj): Obj => ({ name: f.name, kind: KINDS.includes(f.kind as string) ? f.kind : 'other', multi: f.multi === true, required: f.required === true })
+
 function fixDetail(v: Obj): Obj {
   const out: Obj = { ...fixRow(v) }
   out.fields = (Array.isArray(v.fields) ? v.fields : [])
     .filter((f): f is Obj => isObj(f) && id(f.name))
-    .map((f) => ({ name: f.name, value: str(f.value) ? f.value : NOT_AVAILABLE }))
+    .map((f) => ({ ...fixMeta(f), value: str(f.value) ? f.value : NOT_AVAILABLE }))
   out.tags = (Array.isArray(v.tags) ? v.tags : []).filter((t): t is string => id(t))
   if (!user(v.reporter)) delete out.reporter
   if (Array.isArray(v.links)) {
@@ -194,18 +198,15 @@ const REPAIRS: Record<string, { core: Check; fix: (v: Obj) => unknown }> = {
     fix: (v) => ({ projects: (v.projects as unknown[]).filter((p): p is Obj => isObj(p) && id(p.shortName)).map((p) => ({ shortName: p.shortName, name: str(p.name) ? p.name : p.shortName })) })
   },
   'yt.issue.create': { core: shape({ id }), fix: (v) => ({ id: v.id }) },
-  'yt.project.fields': {
-    core: shape({ fields: Array.isArray }),
+  'yt.issue.draft': {
+    core: shape({ draftId: id, fields: Array.isArray }),
+    fix: (v) => ({ draftId: v.draftId, fields: (v.fields as unknown[]).filter((f): f is Obj => isObj(f) && id(f.name)).map((f) => (str(f.value) ? { ...fixMeta(f), value: f.value } : fixMeta(f))) })
+  },
+  'yt.issue.fieldValues': {
+    core: shape({ values: Array.isArray }),
     fix: (v) => ({
-      fields: (v.fields as unknown[])
-        .filter((f): f is Obj => isObj(f) && id(f.name) && str(f.kind) && Array.isArray(f.values))
-        .map((f) => ({
-          ...f,
-          multi: f.multi === true,
-          required: f.required === true,
-          ...(f.valuesCut === true ? { valuesCut: true } : {}),
-          values: (f.values as unknown[]).filter((x): x is Obj => isObj(x) && id(x.name))
-        }))
+      values: (v.values as unknown[]).filter((x): x is Obj => isObj(x) && id(x.name)).map((x) => (id(x.label) ? { name: x.name, label: x.label } : { name: x.name })),
+      cut: v.cut === true
     })
   },
   'yt.issues.search': { core: shape({ issues: Array.isArray, hasMore: bool }), fix: fixIssues },

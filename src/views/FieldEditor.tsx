@@ -2,48 +2,53 @@ import { Button, IconButton, Row, Stack, Text, atom, read, set, update } from 'o
 import { call, server } from '../state'
 import { refreshIssue } from './CommandBar'
 import { Combobox } from './Combobox'
-import type { IssueDetail, ProjectField } from '../protocol'
-
-/** Shown under a picker whose project offers more values than were sent. */
-export const cutNote = (name: string) => `Only the first 500 values are listed. Set another one with a command, such as "${name} <value>".`
+import type { FieldValues, IssueDetail } from '../protocol'
 
 /** Option value of "No value" (an option cannot have an empty value). */
 const CLEAR = '__clear__'
 
-export type Meta = { status: 'loading' | 'ok' | 'error'; fields: ProjectField[]; error: string }
-/** The fields of each project, by `server|project`, read once when a field is first changed. */
-const metas = atom<Record<string, Meta>>({})
+/** Shown under a picker whose field offers more values than were sent. */
+export const cutNote = (name: string) => `Only the first 500 values are listed. Set another one with a command, such as "${name} <value>".`
+
+/** A field the panel can change: one value from a list. */
+export const pickable = (f: { kind?: string; multi?: boolean }) => Boolean(f.kind) && f.kind !== 'other' && !f.multi
+
+export type Values = { status: 'loading' | 'ok' | 'error'; values: FieldValues['values']; cut: boolean; error: string; forbidden?: boolean }
+/** The values of each field, by `server|issue or draft|field`, read when its picker first opens. */
+const valueCache = atom<Record<string, Values>>({})
 /** The field being changed, on which issue (`server|id`); null when none. */
 const picking = atom<{ key: string; field: string; busy: boolean; error: string } | null>(null)
 
 const issueKey = (issue: IssueDetail) => `${read(server) ?? ''}|${issue.id}`
 
-/** Forgets what was read, so the next change reads the project's fields again. */
-export function resetFieldEditor(): void {
-  set(picking, null)
-  set(metas, {})
+/** The values known for a field of an issue or draft of the selected server; undefined until asked. */
+export const fieldValues = (id: string, field: string): Values | undefined => read(valueCache)[`${read(server) ?? ''}|${id}|${field}`]
+
+/** Reads the values a field offers on an issue or draft once; a failure is kept, so the screens can say why. */
+export async function loadFieldValues(id: string, field: string): Promise<void> {
+  const alias = read(server)
+  const key = `${alias ?? ''}|${id}|${field}`
+  const known = read(valueCache)[key]
+  if (!alias || known?.status === 'loading' || known?.status === 'ok') return
+  update(valueCache, (all) => ({ ...all, [key]: { status: 'loading', values: [], cut: false, error: '' } }))
+  const answer = await call('yt.issue.fieldValues', { server: alias, id, field })
+  update(valueCache, (all) => ({
+    ...all,
+    [key]: answer.ok
+      ? { status: 'ok', values: answer.data.values, cut: answer.data.cut, error: '' }
+      : { status: 'error', values: [], cut: false, error: answer.message, forbidden: answer.code === 'FORBIDDEN' }
+  }))
 }
 
-/** What is known about the fields of a project of the selected server; undefined until asked. */
-export const projectMeta = (project: string): Meta | undefined => read(metas)[`${read(server) ?? ''}|${project}`]
-
-/** Reads the fields of a project once; a failure is kept, so the screens can say why. */
-export async function loadProjectFields(project: string): Promise<void> {
-  const alias = read(server)
-  const key = `${alias ?? ''}|${project}`
-  const known = read(metas)[key]
-  if (!alias || known?.status === 'loading' || known?.status === 'ok') return
-  update(metas, (all) => ({ ...all, [key]: { status: 'loading', fields: [], error: '' } }))
-  const answer = await call('yt.project.fields', { server: alias, project })
-  update(metas, (all) => ({
-    ...all,
-    [key]: answer.ok ? { status: 'ok', fields: answer.data.fields, error: '' } : { status: 'error', fields: [], error: answer.message }
-  }))
+/** Forgets the values read, so the next change reads them again (they can depend on the issue). */
+export function resetFieldEditor(): void {
+  set(picking, null)
+  set(valueCache, {})
 }
 
 function pick(issue: IssueDetail, field: string): void {
   set(picking, { key: issueKey(issue), field, busy: false, error: '' })
-  void loadProjectFields(issue.project.shortName)
+  void loadFieldValues(issue.id, field)
 }
 
 async function choose(issue: IssueDetail, field: string, value: string): Promise<void> {
@@ -54,37 +59,39 @@ async function choose(issue: IssueDetail, field: string, value: string): Promise
   const answer = await call('yt.issue.setField', { server: alias, id: issue.id, field, value: value === CLEAR ? null : value })
   if (read(picking)?.key !== p.key) return
   if (!answer.ok) {
-    set(picking, { ...p, busy: false, error: answer.message })
+    set(picking, { ...p, busy: false, error: answer.code === 'FORBIDDEN' ? 'You cannot change this issue.' : answer.message })
     return
   }
   set(picking, null)
+  update(valueCache, () => ({}))
   await refreshIssue(alias, issue.id)
 }
 
-function Picker({ issue, name, value }: { issue: IssueDetail; name: string; value: string }) {
+/** Options for a value list; users show their name with the login beside it. */
+export const valueOptions = (values: FieldValues['values']) =>
+  values.map((v) => (v.label ? { value: v.name, label: v.label, description: v.name } : { value: v.name, label: v.name }))
+
+function Picker({ issue, field }: { issue: IssueDetail; field: IssueDetail['fields'][number] }) {
   const p = read(picking)
-  const meta = projectMeta(issue.project.shortName)
-  const field = meta?.fields.find((f) => f.name === name)
+  const known = fieldValues(issue.id, field.name)
   let body
-  if (!meta || meta.status === 'loading') {
+  if (!known || known.status === 'loading') {
     body = <Text muted size="sm">Loading values…</Text>
-  } else if (meta.status === 'error') {
-    body = <Text muted size="sm">{`${meta.error} Change ${name} with a command instead.`}</Text>
-  } else if (!field || field.kind === 'other' || field.multi) {
-    body = <Text muted size="sm">{`Change ${name} with a command, such as "${name} ${value}".`}</Text>
+  } else if (known.status === 'error') {
+    body = <Text muted size="sm">{known.forbidden ? `You cannot change ${field.name} on this issue.` : `${known.error} Change ${field.name} with a command instead.`}</Text>
   } else {
-    const options = field.values.map((v) => (v.label ? { value: v.name, label: v.label, description: v.name } : { value: v.name, label: v.name }))
+    const options = valueOptions(known.values)
     body = (
       <Stack gap="xs">
         <Combobox
-          label={name}
+          label={field.name}
           value={null}
-          placeholder={value}
+          placeholder={field.value}
           disabled={p?.busy}
           options={field.required ? options : [{ value: CLEAR, label: 'No value', pinned: true }, ...options]}
-          onChange={(chosen) => void choose(issue, name, chosen)}
+          onChange={(chosen) => void choose(issue, field.name, chosen)}
         />
-        {field.valuesCut ? <Text muted size="sm">{cutNote(name)}</Text> : null}
+        {known.cut ? <Text muted size="sm">{cutNote(field.name)}</Text> : null}
       </Stack>
     )
   }
@@ -105,7 +112,7 @@ function Picker({ issue, name, value }: { issue: IssueDetail; name: string; valu
   )
 }
 
-/** The issue's fields, each with a button that changes it from the values its project offers. */
+/** The issue's fields; each single-value list field has a button that changes it from the values it offers. */
 export function FieldList({ issue }: { issue: IssueDetail }) {
   const p = read(picking)
   const mine = p?.key === issueKey(issue) ? p.field : null
@@ -122,9 +129,11 @@ export function FieldList({ issue }: { issue: IssueDetail }) {
                 {field.value}
               </Text>
             </Stack>
-            <IconButton icon="edit" label={`Change ${field.name}`} variant="ghost" size="sm" disabled={mine === field.name} onPress={() => pick(issue, field.name)} />
+            {pickable(field) ? (
+              <IconButton icon="edit" label={`Change ${field.name}`} variant="ghost" size="sm" disabled={mine === field.name} onPress={() => pick(issue, field.name)} />
+            ) : null}
           </Row>
-          {mine === field.name ? <Picker issue={issue} name={field.name} value={field.value} /> : null}
+          {mine === field.name ? <Picker issue={issue} field={field} /> : null}
         </Stack>
       ))}
     </Stack>
