@@ -2,7 +2,7 @@
 import os from 'node:os'
 import { existsSync } from 'node:fs'
 import { createYoutrackHolder } from './cli-holder.mjs'
-import { createOrcaCli, resolveOrcaCli } from './orca-cli.mjs'
+import { createOrcaCli, orcaCliEnv, resolveOrcaCli } from './orca-cli.mjs'
 import { createLinkStore, createLaunchTracker, createRemovedListener } from './links.mjs'
 import { createStateStore } from './state.mjs'
 import { createTemplateStore } from './templates.mjs'
@@ -26,7 +26,7 @@ export default async function activate(orca) {
   })
   await holder.refresh()
   const orcaBin = resolveOrcaCli({ resourcesPath: process.resourcesPath, platform, env, exists: existsSync })
-  const orcaCli = orcaBin ? createOrcaCli({ bin: orcaBin }) : null
+  const orcaCli = orcaBin ? createOrcaCli({ bin: orcaBin, env: orcaCliEnv({ platform, env, homedir: os.homedir() }) }) : null
 
   const links = createLinkStore(orca.storage)
   const launches = createLaunchTracker(orca.storage)
