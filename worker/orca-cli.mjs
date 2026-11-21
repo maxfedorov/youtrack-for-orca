@@ -27,18 +27,29 @@ export function resolveOrcaCli({ resourcesPath, platform, env, exists }) {
 }
 
 /**
+ * Variables the Orca CLI needs that Orca leaves out of a plugin worker's environment: on Windows it
+ * finds the running app under %APPDATA%, so that is rebuilt from the user profile when missing.
+ * @param {{ platform: string, env: Record<string, string | undefined>, homedir: string }} o
+ * @returns {Record<string, string>}
+ */
+export function orcaCliEnv({ platform, env, homedir }) {
+  if (platform !== 'win32' || env.APPDATA) return {}
+  return { APPDATA: path.win32.join(env.USERPROFILE || homedir, 'AppData', 'Roaming') }
+}
+
+/**
  * A flag and its free-text value as one `--flag=value` argument: the Orca CLI reads a separate value
  * that starts with `--` as the next flag, which would fail on a prompt opening with `---`.
  */
 const value = (flag, text) => `--${flag}=${text}`
 
 /**
- * @param {{ bin?: string, run?: (args: string[], opts: { timeoutMs: number }) => Promise<import('./exec.mjs').ProcResult> }} o
+ * @param {{ bin?: string, env?: Record<string, string>, run?: (args: string[], opts: { timeoutMs: number, env: Record<string, string> }) => Promise<import('./exec.mjs').ProcResult> }} o
  */
-export function createOrcaCli({ bin, run = (args, opts) => runProcess(bin, args, opts) }) {
+export function createOrcaCli({ bin, env: extraEnv = {}, run = (args, opts) => runProcess(bin, args, opts) }) {
   /** Run a command and unwrap the `{ ok, result }` envelope printed on stdout. */
   async function exec(args, timeoutMs) {
-    const r = await run(args, { timeoutMs })
+    const r = await run(args, { timeoutMs, env: { ...extraEnv } })
     if (r.tooLarge) return fail(CODES.ORCA_CLI_FAILED, 'The Orca CLI answered with more data than the plugin can read.')
     if (r.timedOut) return fail(CODES.TIMEOUT, 'The Orca CLI did not answer in time.')
     if (r.spawnError) return fail(CODES.ORCA_CLI_NOT_FOUND, 'The Orca CLI could not be started.')

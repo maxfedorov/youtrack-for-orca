@@ -28,11 +28,14 @@ export function resolveYoutrack({ settingPath, env, platform, homedir, exists })
   if (onPath) return onPath
   const win = platform === 'win32'
   const p = win ? path.win32 : path.posix
+  const profile = env.USERPROFILE || homedir
+  // Orca leaves LOCALAPPDATA out of a plugin worker's environment.
+  const local = env.LOCALAPPDATA || p.join(profile, 'AppData', 'Local')
   const candidates = win
     ? [
-        p.join(env.USERPROFILE || homedir, '.local', 'bin', 'youtrack.exe'),
-        env.LOCALAPPDATA && p.join(env.LOCALAPPDATA, 'Microsoft', 'WinGet', 'Links', 'youtrack.exe'),
-        p.join(env.USERPROFILE || homedir, 'scoop', 'shims', 'youtrack.exe')
+        p.join(profile, '.local', 'bin', 'youtrack.exe'),
+        p.join(local, 'Microsoft', 'WinGet', 'Links', 'youtrack.exe'),
+        p.join(profile, 'scoop', 'shims', 'youtrack.exe')
       ]
     : [p.join(homedir, '.local', 'bin', 'youtrack'), '/opt/homebrew/bin/youtrack', '/usr/local/bin/youtrack']
   return candidates.find((c) => c && exists(c)) ?? null

@@ -1,6 +1,6 @@
 import { test, assert } from 'orca/testing'
 import { readFileSync } from 'node:fs'
-import { resolveOrcaCli, createOrcaCli } from '../worker/orca-cli.mjs'
+import { resolveOrcaCli, createOrcaCli, orcaCliEnv } from '../worker/orca-cli.mjs'
 import { fakeRun } from './helpers.mjs'
 
 const fixture = (name) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8')
@@ -50,6 +50,19 @@ test('darwin falls back to orca on PATH, else null', () => {
   assert.equal(resolveOrcaCli({ ...base, exists: (f) => f === '/usr/local/bin/orca' }), '/usr/local/bin/orca')
   assert.equal(resolveOrcaCli({ ...base, exists: () => false }), null)
   assert.equal(resolveOrcaCli({ ...base, resourcesPath: undefined, exists: () => false }), null)
+})
+
+test('win32 rebuilds APPDATA, which Orca leaves out of the worker environment', () => {
+  assert.deepEqual(orcaCliEnv({ platform: 'win32', env: { USERPROFILE: 'C:\\Users\\u' }, homedir: 'C:\\x' }), { APPDATA: 'C:\\Users\\u\\AppData\\Roaming' })
+  assert.deepEqual(orcaCliEnv({ platform: 'win32', env: {}, homedir: 'C:\\Users\\h' }), { APPDATA: 'C:\\Users\\h\\AppData\\Roaming' })
+  assert.deepEqual(orcaCliEnv({ platform: 'win32', env: { APPDATA: 'D:\\Roaming' }, homedir: 'C:\\x' }), {})
+  assert.deepEqual(orcaCliEnv({ platform: 'darwin', env: {}, homedir: '/Users/u' }), {})
+})
+
+test('every Orca CLI run gets the extra environment', async () => {
+  const run = fakeRun({ 'repo list': { stdout: '{"ok":true,"result":{"repos":[]}}' } })
+  await createOrcaCli({ run, env: { APPDATA: 'C:\\R' } }).repos()
+  assert.deepEqual(run.calls[0].opts.env, { APPDATA: 'C:\\R' })
 })
 
 const input = {

@@ -48,6 +48,11 @@ test('resolveYoutrack returns null when nothing exists', () => {
   assert.equal(resolveYoutrack({ settingPath: '', env: {}, platform: 'win32', homedir: 'C:\\u', exists: () => false }), null)
 })
 
+test('resolveYoutrack finds the WinGet link without LOCALAPPDATA, which Orca leaves out of the worker', () => {
+  const link = 'C:\\Users\\u\\AppData\\Local\\Microsoft\\WinGet\\Links\\youtrack.exe'
+  assert.equal(resolveYoutrack({ settingPath: '', env: { USERPROFILE: 'C:\\Users\\u' }, platform: 'win32', homedir: 'C:\\x', exists: (f) => f === link }), link)
+})
+
 test('listIssues builds argv', async () => {
   const run = fakeRun({ '--server work issue list': { stdout: '[]' } })
   const yt = createYoutrack({ bin: 'youtrack', run })
