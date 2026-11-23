@@ -23,7 +23,8 @@ const CHECKS: Record<string, Check> = {
   'yt.savedQueries.create': savedQuery,
   'yt.start.run': shape({ workspaceId: str, warning: optional(str) }),
   'yt.runInExisting': shape({ warning: optional(str) }),
-  'yt.servers.remove': shape({ warning: optional(str) })
+  'yt.servers.remove': shape({ warning: optional(str) }),
+  'yt.cli.update': (v) => isObj(v) && (v.available === false || (v.available === true && str(v.current) && str(v.latest) && str(v.url)))
 }
 
 /** Shown for a value of a shape the panel cannot read. */
@@ -122,7 +123,7 @@ function fixEnv(v: Obj): Obj {
   const cli = v.cli as Obj
   const out: Obj = {
     ...v,
-    cli: { found: cli.found, ...(str(cli.version) ? { version: cli.version } : {}), ...(str(cli.installCommand) ? { installCommand: cli.installCommand } : {}) },
+    cli: { found: cli.found, ...(str(cli.version) ? { version: cli.version } : {}) },
     orcaCli: { found: isObj(v.orcaCli) && v.orcaCli.found === true },
     servers: keep(v.servers, (x) => server(x) && id((x as Obj).alias)),
     server: or(str, v.server, null),

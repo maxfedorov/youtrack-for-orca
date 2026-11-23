@@ -84,9 +84,7 @@ test('env reports CLI_NOT_FOUND when youtrack is null', async () => {
   assert.equal(r.data.cli.found, false)
   assert.equal(r.data.orcaCli.found, true)
   assert.deepEqual(r.data.servers, [])
-  assert.equal(r.data.cli.installCommand, 'brew install jetbrains/utils/youtrack')
-  assert.equal((await setup({ yt: null, platform: 'win32' }).call('yt.env')).data.cli.installCommand, 'winget install JetBrains.YouTrackCLI')
-  assert.equal('installCommand' in (await setup({ yt: null, platform: 'plan9' }).call('yt.env')).data.cli, false)
+  assert.deepEqual(r.data.cli, { found: false })
   const s = await call('yt.issues.search', { server: 'one', query: '', offset: 0, limit: 10 })
   assert.equal(s.error.code, 'CLI_NOT_FOUND')
 })
@@ -965,6 +963,25 @@ test('skill.install runs the CLI skill update', async () => {
   const { call } = setup({ yt: fakeYt({ updateSkill: async () => ok({ messages: ['installed youtrack-cli for codex (2.1.0)'] }) }) })
   assert.deepEqual((await call('yt.skill.install', {})).data, { messages: ['installed youtrack-cli for codex (2.1.0)'] })
   assert.equal((await setup({ yt: null }).call('yt.skill.install', {})).error.code, 'CLI_NOT_FOUND')
+})
+
+test('cli.update offers a newer YouTrack CLI, skip hides it, and upgrade reports through an event', async () => {
+  const yt = fakeYt({
+    version: async () => ok('youtrack 0.8.2 (abc, 2026-11-12)'),
+    updateStatus: async () => ok({ latestVersion: '0.9.0', releaseUrl: 'https://github.com/JetBrains/youtrack-cli/releases/tag/v0.9.0' }),
+    upgrade: async () => ok({ upgraded: true })
+  })
+  const { call, orca } = setup({ yt })
+  assert.deepEqual((await call('yt.cli.update', {})).data, {
+    available: true, current: '0.8.2', latest: '0.9.0', url: 'https://github.com/JetBrains/youtrack-cli/releases/tag/v0.9.0'
+  })
+  assert.deepEqual(await call('yt.cli.upgrade', {}), ok({ started: true }))
+  await posted(orca, 'yt.cli.upgraded')
+  assert.deepEqual(orca.posts.find((p) => p.name === 'yt.cli.upgraded').payload, ok({ version: '0.8.2' }))
+  assert.deepEqual(await call('yt.cli.update.skip', { version: '0.9.0' }), ok({}))
+  assert.deepEqual((await call('yt.cli.update', {})).data, { available: false })
+  assert.equal((await call('yt.cli.update.skip', { version: '--yes' })).ok, false)
+  assert.equal((await setup({ yt: null }).call('yt.cli.upgrade', {})).error.code, 'CLI_NOT_FOUND')
 })
 
 test('branch matches count only for projects of this server and workspaces no other server claimed', async () => {

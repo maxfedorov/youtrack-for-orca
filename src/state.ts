@@ -3,7 +3,7 @@ import type { ErrorCode, Result, Server } from './protocol'
 import { fitAnswer } from './shapes'
 
 export type Env = {
-  cli: { found: boolean; version?: string; installCommand?: string }
+  cli: { found: boolean; version?: string }
   orcaCli: { found: boolean }
   servers: Server[]
   server: string | null
@@ -93,6 +93,8 @@ const TIMEOUTS: Partial<Record<string, number>> = {
   'yt.issue.setField': 120_000,
   'yt.issue.create': 120_000,
   'yt.skill.install': 120_000,
+  // The CLI may wait up to 30 seconds for GitHub.
+  'yt.cli.update': 60_000,
   'yt.settings.reset': 120_000,
   'yt.servers.remove': 120_000
 }

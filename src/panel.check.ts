@@ -40,7 +40,7 @@ export default defineCheck({
     requests: {
       ...requests,
       'yt.env': ok({
-        cli: { found: false, installCommand: 'brew install jetbrains/utils/youtrack' },
+        cli: { found: false },
         orcaCli: { found: true },
         servers: [],
         server: null,

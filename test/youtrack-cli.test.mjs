@@ -353,6 +353,18 @@ test('listProjects answers short names and names', async () => {
   assert.deepEqual(r.data, [{ shortName: 'DEMO', name: 'Demo' }])
 })
 
+test('updateStatus asks the CLI for the latest release; upgrade runs it without a terminal, with a long wait', async () => {
+  const answer = '{"currentVersion":"0.8.2","latestVersion":"0.9.0","updateAvailable":true,"releaseUrl":"https://github.com/JetBrains/youtrack-cli/releases/tag/v0.9.0"}'
+  const run = fakeRun({ update: { stdout: answer } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.equal((await yt.updateStatus()).data.latestVersion, '0.9.0')
+  assert.deepEqual(run.calls[0].args, ['update', '--json', '--quiet'])
+  assert.equal(run.calls[0].opts.timeoutMs, 30_000)
+  await yt.upgrade()
+  assert.deepEqual(run.calls[1].args, ['update', '--yes', '--json', '--quiet'])
+  assert.equal(run.calls[1].opts.timeoutMs, 11 * 60_000)
+})
+
 test('updateSkill installs or updates the skill for the agents the CLI finds, and reports each line', async () => {
   const out = '{\n  "status": "ok",\n  "message": "installed youtrack-cli for codex (2.1.0)"\n}\n{\n  "status": "ok",\n  "message": "skill youtrack-cli already up to date (2.1.0)"\n}\n'
   const run = fakeRun({ 'skill update': { stdout: out } })

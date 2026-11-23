@@ -105,7 +105,7 @@ declare module 'orca' {
     'yt.env': {
       input: Record<string, never>
       output: Result<{
-        cli: { found: boolean; version?: string; installCommand?: string }
+        cli: { found: boolean; version?: string }
         orcaCli: { found: boolean }
         servers: Server[]
         server: string | null
@@ -136,6 +136,15 @@ declare module 'orca' {
     'yt.issue.command': { input: { server: string; id: string; command: string }; output: Result<Record<string, never>> }
     /** Installs or updates the YouTrack CLI's skill for every coding agent found; `messages`: what the CLI did. */
     'yt.skill.install': { input: Record<string, never>; output: Result<{ messages: string[] }> }
+    /** A newer YouTrack CLI release than the installed one, checked at most once a day; skipped releases are left out. */
+    'yt.cli.update': {
+      input: Record<string, never>
+      output: Result<{ available: false } | { available: true; current: string; latest: string; url: string }>
+    }
+    /** Stops offering this release until a newer one comes out. */
+    'yt.cli.update.skip': { input: { version: string }; output: Result<Record<string, never>> }
+    /** Starts `youtrack update`; the outcome arrives as 'yt.cli.upgraded'. */
+    'yt.cli.upgrade': { input: Record<string, never>; output: Result<{ started: true }> }
     /** The projects of the server the account can see (at most 500). */
     'yt.projects': { input: { server: string }; output: Result<{ projects: { shortName: string; name: string }[] }> }
     /**
@@ -218,6 +227,8 @@ declare module 'orca' {
     'yt.linksChanged': Record<string, never>
     /** The focused workspace or its branch changed; load 'yt.current' again. */
     'yt.currentChanged': Record<string, never>
+    /** Outcome of 'yt.cli.upgrade': the version now installed ('' when it cannot be read). */
+    'yt.cli.upgraded': Result<{ version: string }>
     /** An agent started by the plugin finished. */
     'yt.agentFinished': { server: string; issueId: string; workspaceId: string | null }
   }

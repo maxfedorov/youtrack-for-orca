@@ -1,4 +1,4 @@
-import { atom, Button, Callout, Code, EmptyState, Input, Link, Row, Stack, Text, read, set } from 'orca'
+import { atom, Button, Callout, EmptyState, Input, Link, Row, Stack, Text, read, set } from 'orca'
 import { call, env, loadEnv, panelError, server, unwrap, view } from '../state'
 import { onServerChanged } from '../listState'
 import { TerminalSignIn } from './TerminalSignIn'
@@ -130,12 +130,13 @@ async function add(): Promise<void> {
   }
 }
 
+const INSTALL_GUIDE = 'https://github.com/JetBrains/youtrack-cli#install'
+
 function InstallScreen() {
-  const command = read(env)?.cli.installCommand
   return (
     <EmptyState title="Install YouTrack CLI" icon="terminal" description="The plugin talks to YouTrack through the YouTrack command line tool.">
-      {command ? <Text>Run this in a terminal, then press Check again:</Text> : null}
-      {command ? <Code block>{command}</Code> : null}
+      <Text>Install it as its README describes, then press Check again:</Text>
+      <Link href={INSTALL_GUIDE}>YouTrack CLI install instructions</Link>
       <Row gap="xs">
         <Button variant="outline" onPress={() => void loadEnv()}>
           Check again

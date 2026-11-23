@@ -3,7 +3,7 @@ import { ok, fail, CODES } from '../result.mjs'
 import { customFields, parseColumns } from '../query.mjs'
 import { toValues, pickable, typed, TYPED, MAX_FIELD_NAME, MAX_VALUE_NAME, MAX_VALUES } from '../project-fields.mjs'
 import { toListedFields, toIssueRow, toIssueDetail, toComments, toLinks, toSavedQuery, toSavedQueries, toServers } from '../mapping.mjs'
-import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, MAX_COMMAND, MAX_NEW_COMMENT, MAX_SUMMARY, MAX_NEW_DESCRIPTION, isPlainUrl, normalizeUrl, settingString, capDetail, attempt, fallback, readSetting, INSTALL } from './common.mjs'
+import { safeHandle, safePost, shortMessage, unexpected, hasId, invalid, ISSUE_ID, MAX_QUERY, MAX_NAME, MAX_COMMAND, MAX_NEW_COMMENT, MAX_SUMMARY, MAX_NEW_DESCRIPTION, isPlainUrl, normalizeUrl, settingString, capDetail, attempt, fallback, readSetting } from './common.mjs'
 
 const MAX_LIMIT = 50
 /** A YouTrack project short name, as it starts an issue id. */
@@ -64,9 +64,7 @@ export function registerYoutrackHandlers(ctx) {
   handle('yt.env', async () => {
     const defaultQuery = settingString(await readSetting(orca, 'defaultQuery'), '')
     const base = { orcaCli: { found: orcaCli != null }, query: defaultQuery, defaultQuery }
-    const installCommand = INSTALL[ctx.platform]
-    const withInstall = (cli) => (installCommand ? { ...cli, installCommand } : cli)
-    const notFound = () => ok({ cli: withInstall({ found: false }), servers: [], server: null, ...base })
+    const notFound = () => ok({ cli: { found: false }, servers: [], server: null, ...base })
     await ctx.refreshYoutrack()
     const youtrack = ctx.youtrack
     if (!youtrack) return notFound()
@@ -77,12 +75,12 @@ export function registerYoutrackHandlers(ctx) {
         await ctx.refreshYoutrack()
         return notFound()
       }
-      return ok({ ...base, cli: withInstall({ found: true }), servers: [], server: null, error: shortMessage(inst.error.message) })
+      return ok({ ...base, cli: { found: true }, servers: [], server: null, error: shortMessage(inst.error.message) })
     }
     const servers = toServers(inst.data)
     const stored = await fallback(() => state.getServer(), null)
     const chosen = servers.find((s) => s.alias === stored) ?? servers.find((s) => s.active) ?? servers[0]
-    const cli = withInstall({ found: true })
+    const cli = { found: true }
     if (version.ok) cli.version = version.data
     const server = chosen ? chosen.alias : null
     return ok({ ...base, cli, servers, server, query: server ? await fallback(() => state.getQuery(server, defaultQuery), defaultQuery) : defaultQuery })
@@ -200,6 +198,20 @@ export function registerYoutrackHandlers(ctx) {
   handle('yt.skill.install', async () => {
     if (!ctx.youtrack) return fail(CODES.CLI_NOT_FOUND, 'The YouTrack CLI was not found.')
     return ctx.youtrack.updateSkill()
+  })
+
+  // A newer YouTrack CLI release, checked at most once a day; nothing is installed until Update is pressed.
+  handle('yt.cli.update', () => ctx.cliUpdates.status())
+  handle('yt.cli.update.skip', ({ version }) => ctx.cliUpdates.skip(version))
+  // The upgrade can take minutes, longer than a panel request may wait: its outcome is posted.
+  handle('yt.cli.upgrade', async () => {
+    if (!ctx.youtrack) return fail(CODES.CLI_NOT_FOUND, 'The YouTrack CLI was not found.')
+    if (ctx.cliUpdates.upgrading()) return invalid('The YouTrack CLI is already being updated.')
+    ctx.cliUpdates
+      .upgrade()
+      .catch((e) => fail(CODES.UNKNOWN, e instanceof Error ? e.message : String(e)))
+      .then((result) => safePost(orca, 'yt.cli.upgraded', result))
+    return ok({ started: true })
   })
 
   handle('yt.projects', async ({ server }) => {

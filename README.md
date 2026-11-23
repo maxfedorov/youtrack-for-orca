@@ -53,15 +53,9 @@ now, run `orca plugin update maxfedorov.youtrack-for-orca`. **Remove:** Settings
 ## Requirements
 
 - Orca 1.4.248 or newer.
-- The [YouTrack CLI](https://github.com/JetBrains/youtrack-cli) (`youtrack`):
-
-  | OS            | Install                                   |
-  | ------------- | ----------------------------------------- |
-  | macOS / Linux | `brew install jetbrains/utils/youtrack`   |
-  | Windows       | `winget install JetBrains.YouTrackCLI`    |
-
-  Changing fields, the new-issue form and the when-done field in Start need a CLI with
-  `youtrack issue field list`.
+- The [YouTrack CLI](https://github.com/JetBrains/youtrack-cli) (`youtrack`): install it as described in
+  [its README](https://github.com/JetBrains/youtrack-cli#install). Changing fields, the new-issue form
+  and the when-done field in Start need a CLI with `youtrack issue field list`.
 
 - A YouTrack server known to the CLI. Add one with `youtrack auth login <url>`, or in the panel
   ("Add a YouTrack server"), which signs you in through the browser. If browser sign-in fails, or you
@@ -69,7 +63,7 @@ now, run `orca plugin update maxfedorov.youtrack-for-orca`. **Remove:** Settings
   your own terminal; then press **I've signed in**. A signed-out server offers **Sign in again** the same
   way. The CLI asks for a permanent token there and keeps it; the plugin never sees it.
 
-If the CLI is missing, the panel shows the install command for your system to run in a terminal.
+If the CLI is missing, the panel links to its install instructions.
 
 Tested on macOS. Linux and Windows are supported (the CLI paths and shims of each are handled) but have
 seen less use.
@@ -125,6 +119,12 @@ seen less use.
   project.
 - **Skill for coding agents** (the gear): installs or updates the YouTrack CLI's skill for every coding
   agent found on your computer (`youtrack skill update`), so agents know how to read and update issues.
+- **YouTrack CLI updates**: when a newer YouTrack CLI release is out, a download button appears in
+  the header. It opens a note with both versions: **Update** runs `youtrack update --yes`, which
+  upgrades the CLI the way it was installed; for installs it cannot upgrade (such as apt or rpm), the
+  note shows what to run yourself. **What's new** opens
+  the release page, and **Skip this version** hides the button until the next release. The check runs
+  `youtrack update --json` when the panel opens, at most once a day; builds from source are not checked.
 - **Prompt templates** (the gear button, "Prompt templates and servers"): named templates for the prompt. Five come built in —
   Implement feature, Investigate and fix bug, Cover with automated tests, Review and plan (no code
   changes), Refactor safely. Create, edit, delete and choose the default (up to 30 templates, 8000
@@ -146,7 +146,7 @@ seen less use.
 | Permission           | Used for                                                                                 |
 | -------------------- | ---------------------------------------------------------------------------------------- |
 | `settings:own`       | Reading the plugin's settings below.                                                     |
-| `storage:own`        | The chosen server, the last query and the quick views of each server, prompt templates, which workspace was started for which issue, and the project and when-done field and value remembered for each YouTrack project. |
+| `storage:own`        | The chosen server, the last query and the quick views of each server, prompt templates, which workspace was started for which issue, the project and when-done field and value remembered for each YouTrack project, and the last YouTrack CLI update check and a skipped release. |
 | `workspace:read`     | Listing workspaces for Start and Open, finding the focused one and the issue its branch names, and forgetting links to removed workspaces. |
 | `workspace:write`    | The Open button (switches to the issue's workspace) and opening the right sidebar.        |
 | `agent:read`         | Noticing when an agent started from an issue has finished.                               |
@@ -161,14 +161,15 @@ because it starts the `youtrack` and `orca` command-line tools.
 Only two programs, always with an argument list and never through a shell:
 
 - `youtrack`, to read issues, comments, projects and saved searches, save a search, apply a command,
-  add a comment, change a field, remove a tag, edit and create issues, install the agent skill, add a server through
-  the browser and remove a server. Fields come from `youtrack issue field list` and their values from
+  add a comment, change a field, remove a tag, edit and create issues, install the agent skill, check for and install a
+  newer YouTrack CLI, add a server through the browser and remove a server. Fields come from `youtrack issue field list` and their values from
   `youtrack issue field list-values`, so each user sees what YouTrack lets them pick; no admin rights
   are needed;
 - `orca`, to list projects and branches, create worktrees and launch agents.
 
 The plugin makes no network requests of its own, stores no tokens and collects no data about you;
-everything that talks to YouTrack goes through the CLI.
+everything that talks to YouTrack goes through the CLI. So does the update check: the CLI asks
+GitHub for its latest release.
 
 ## Security notes
 

@@ -8,6 +8,9 @@ const READ_MS = 15_000
 const WRITE_MS = 30_000
 const LOGIN_MS = 10 * 60_000
 const SKILL_MS = 60_000
+const UPDATE_CHECK_MS = 30_000
+// The CLI gives an upgrade up to 10 minutes.
+const UPGRADE_MS = 11 * 60_000
 const ISSUE_FIELDS = 'idReadable,summary,created,updated,resolved,State,Priority,Assignee'
 /** The list's fields plus the columns' custom fields, each once (names compare without case). */
 const listFields = (columns) => {
@@ -181,6 +184,13 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
      * an older copy up to date; already current copies are left alone.
      */
     updateSkill: () => exec(['skill', 'update', ...tail], SKILL_MS, (s) => ({ messages: messagesOf(s) })),
+    /** The installed and the latest release of the YouTrack CLI; the CLI asks GitHub and installs nothing. */
+    updateStatus: () => exec(['update', ...tail], UPDATE_CHECK_MS, json),
+    /**
+     * Upgrades the YouTrack CLI through the way it was installed (install script, Homebrew, WinGet...);
+     * `--yes` lets it run without a terminal, and makes it fail with the manual steps when it cannot.
+     */
+    upgrade: () => exec(['update', '--yes', ...tail], UPGRADE_MS, json),
     /** Projects the account can see, by short name. */
     listProjects: (server) =>
       read(server, ['project', 'list'], (s) =>

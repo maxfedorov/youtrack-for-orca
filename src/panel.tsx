@@ -9,6 +9,7 @@ import { StartView } from './views/StartView'
 import { Settings } from './views/Settings'
 import { CreateIssue } from './views/CreateIssue'
 import { onAdded, authUrl, AddServer, Setup } from './views/Setup'
+import { loadCliUpdate, onUpgraded } from './views/CliUpdate'
 
 /** Runs once before the first render. */
 export function setup(ctx: PanelContext): void {
@@ -18,12 +19,13 @@ export function setup(ctx: PanelContext): void {
       if (url) set(authUrl, url)
     }),
     plugin.on('yt.servers.added', (result) => onAdded(result)),
+    plugin.on('yt.cli.upgraded', (result) => onUpgraded(result)),
     plugin.on('yt.agentFinished', () => void loadLinks()),
     plugin.on('yt.linksChanged', () => void loadLinks()),
     plugin.on('yt.currentChanged', () => void Promise.all([loadCurrent(), loadLinks()]))
   )
   visible = ctx.visible
-  void loadEnv()
+  void loadEnv().then(loadCliUpdate)
 }
 
 /** Whether the person can see the panel; a workspace may have been removed while it was hidden. */
