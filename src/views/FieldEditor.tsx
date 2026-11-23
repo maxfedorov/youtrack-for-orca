@@ -166,13 +166,30 @@ function FieldCell({ issue, field }: { issue: IssueDetail; field: IssueDetail['f
       ) : typed(field) ? (
         <FieldInput issue={issue} field={field} />
       ) : (
-        <Box paddingX="sm" paddingY="xs">
-          <Text key={`field-value:${field.name}`} size="sm">
-            {field.value}
-          </Text>
-        </Box>
+        <FieldText field={field} />
       )}
     </Stack>
+  )
+}
+
+/** Values longer than this, or on several lines, get the info button with the whole text. */
+const SHORT_VALUE = 24
+/** Orca refuses a label over 1024 characters. */
+const MAX_TOOLTIP = 1000
+
+/** A value changed only by a command: one line, cut to the cell; a long one has its whole text in the tooltip of an info button. */
+function FieldText({ field }: { field: IssueDetail['fields'][number] }) {
+  const long = field.value.length > SHORT_VALUE || field.value.includes('\n')
+  const tooltip = field.value.length > MAX_TOOLTIP ? `${field.value.slice(0, MAX_TOOLTIP)}…` : field.value
+  return (
+    <Box direction="row" align="center" gap="xs" paddingX="sm">
+      <Box grow shrink minWidth={0} paddingY="xs">
+        <Text key={`field-value:${field.name}`} size="sm" truncate>
+          {field.value}
+        </Text>
+      </Box>
+      {long ? <IconButton icon="info" label={tooltip} variant="ghost" size="sm" /> : null}
+    </Box>
   )
 }
 

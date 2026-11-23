@@ -174,3 +174,27 @@ test('a typed value the issue refuses keeps the input and the text, and says why
   assert.equal(view.find({ type: 'Input', label: 'Points' }).props.value, '1.5')
   await view.unmount()
 })
+
+test('a long read-only value stays on one line, with the whole text in the tooltip of an info button', async () => {
+  const long = 'The fix ships with the next version, and this note gets its number then.'
+  const huge = 'x'.repeat(3000)
+  const fields = [
+    { name: 'Ship note', value: long, kind: 'text', multi: false, required: false },
+    { name: 'Notes', value: huge, kind: 'text', multi: false, required: false },
+    { name: 'Lines', value: 'one\ntwo', kind: 'text', multi: false, required: false },
+    { name: 'Estimation', value: '1h', kind: 'other', multi: false, required: false }
+  ]
+  const view = await opened(host({ 'yt.issue.get': ok({ ...detail, fields }) }))
+  const value = view.find({ testId: 'field-value:Ship note' })
+  assert.equal(value.text, long)
+  assert.equal(value.props.truncate, true)
+  assert.equal(view.find({ role: 'button', label: long }).props.icon, 'info')
+  const cut = view.findAll({ type: 'IconButton' }).find((b: any) => String(b.props.label).startsWith('xxx'))
+  assert.ok(cut.props.label.length <= 1024)
+  assert.ok(cut.props.label.endsWith('…'))
+  assert.ok(view.find({ role: 'button', label: 'one\ntwo' }))
+  assert.equal(view.find({ testId: 'field-value:Estimation' }).props.truncate, true)
+  assert.equal(view.findAll({ type: 'IconButton' }).filter((b: any) => b.props.icon === 'info').length, 3)
+  assert.deepEqual(view.refusals, [])
+  await view.unmount()
+})
