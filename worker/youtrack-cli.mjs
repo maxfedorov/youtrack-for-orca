@@ -89,6 +89,14 @@ function messagesOf(stdout) {
  * @param {{ exitCode?: number | null, stderr?: string, timedOut?: boolean, spawnError?: string, tooLarge?: boolean }} r
  * @returns {{ code: string, message: string }}
  */
+/** The command or flag an older CLI does not know, from its error text ("unknown command "list" for "youtrack issue field""); null otherwise. */
+function missingInCli(text) {
+  const command = /unknown command "([\w-]{1,40})" for "([\w -]{1,80})"/.exec(text)
+  if (command) return `${command[2]} ${command[1]}`
+  return /unknown flag: (--?[\w-]{1,40})/.exec(text)?.[1] ?? null
+}
+const newerCli = (what) => ({ code: CODES.UNKNOWN, message: `This needs a newer YouTrack CLI (it has no "${what}"). Update the YouTrack CLI and try again.` })
+
 export function classifyCliError({ stderr, timedOut, spawnError, tooLarge }) {
   if (spawnError === 'ENOENT') return { code: CODES.CLI_NOT_FOUND, message: 'The YouTrack CLI was not found.' }
   if (spawnError) {
@@ -100,9 +108,13 @@ export function classifyCliError({ stderr, timedOut, spawnError, tooLarge }) {
   const err = parseCliError(stderr)
   if (!err) {
     const text = String(stderr ?? '').trim().split(/\r?\n/).filter(Boolean).pop()
+    const missing = missingInCli(text ?? '')
+    if (missing) return newerCli(missing)
     return { code: CODES.UNKNOWN, message: text || 'The YouTrack CLI failed.' }
   }
   const message = String(err.message ?? 'The YouTrack CLI failed.')
+  const missing = missingInCli(message)
+  if (missing) return newerCli(missing)
   const c = err.code
   const http = /HTTP (\d{3})/.exec(message)?.[1]
   if (c === 'unauthorized' || http === '401') return { code: CODES.AUTH_FAILED, message }

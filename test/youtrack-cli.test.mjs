@@ -119,6 +119,15 @@ test('classifies CLI errors by code', () => {
   assert.equal(classifyCliError({ exitCode: 1, stderr: '{"error":{"code":"api_error","message":"HTTP 401: x"}}' }).code, 'AUTH_FAILED')
 })
 
+test('a command an older CLI lacks asks for a newer YouTrack CLI', () => {
+  const stderr = JSON.stringify({ error: { code: 'internal_error', message: 'unknown command "list" for "youtrack issue field"' } })
+  const r = classifyCliError({ exitCode: 1, stderr })
+  assert.equal(r.code, 'UNKNOWN')
+  assert.equal(r.message, 'This needs a newer YouTrack CLI (it has no "youtrack issue field list"). Update the YouTrack CLI and try again.')
+  const plain = classifyCliError({ exitCode: 1, stderr: 'Error: unknown flag: --paginate' })
+  assert.equal(plain.message, 'This needs a newer YouTrack CLI (it has no "--paginate"). Update the YouTrack CLI and try again.')
+})
+
 test('duplicate saved search keeps the CLI message', () => {
   const r = classifyCliError({ exitCode: 1, stderr: errText('saved-search-duplicate') })
   assert.equal(r.message, errors['saved-search-duplicate'].stderr.error.message)
