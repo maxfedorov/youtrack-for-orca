@@ -53,9 +53,10 @@ now, run `orca plugin update maxfedorov.youtrack-for-orca`. **Remove:** Settings
 ## Requirements
 
 - Orca 1.4.248 or newer.
-- The [YouTrack CLI](https://github.com/JetBrains/youtrack-cli) (`youtrack`): install it as described in
-  [its README](https://github.com/JetBrains/youtrack-cli#install). Changing fields, the new-issue form
-  and the when-done field in Start need a CLI with `youtrack issue field list`.
+- The [YouTrack CLI](https://github.com/JetBrains/youtrack-cli) (`youtrack`) 1.0.0 or newer: install it as
+  described in [its README](https://github.com/JetBrains/youtrack-cli#install). With an older CLI the
+  issues and Start work, but changing fields, the new-issue form and the when-done field in Start do not;
+  the panel offers the update.
 
 - A YouTrack server known to the CLI. Add one with `youtrack auth login <url>`, or in the panel
   ("Add a YouTrack server"), which signs you in through the browser. If browser sign-in fails, or you
@@ -91,10 +92,11 @@ seen less use.
   list field (State, Priority, Assignee, versions, subsystems, builds and others) to pick from the values
   YouTrack lets you set on that issue; the choice is saved at once. "No value" empties a field that may
   be empty. String, whole-number and period fields (such as `2h 30m`) open an input when you press their
-  value: type a new one and press Enter, empty it to clear the field, or press × to leave
-  it as it was. Multi-value, text, float and date fields
-  show their value and are changed with a command. Without permission to change the issue, the panel
-  says so.
+  value: type a new one and press Enter, empty it to clear the field, or press × to leave it as it
+  was. Multi-value, text, float and date fields show their value and are changed with a command; a long
+  value stays on one line, and the ⓘ next to it shows the whole text. A State moved by a workflow state
+  machine has no list of values to pick from, so its drop-down asks for a command too. Without
+  permission to change the issue, the panel says so.
 - **Edit** the summary and the description of an issue (the pencil next to its id).
 - **New issue**: choose the project, write the summary and description, and set its fields; the
   required ones come first, with the defaults YouTrack fills in. The form works on a YouTrack draft, like
@@ -104,8 +106,8 @@ seen less use.
   detail. It runs only when you press Apply or Enter.
 - **Add comment**: write a comment in the issue detail and press Send (or Cmd+Enter, Ctrl+Enter off macOS);
   it gets the server's default visibility. Applying a command, adding a comment, changing a field,
-  editing or creating an issue and saving a search are the plugin's only YouTrack writes, and each runs
-  only when you press its button or choose a value.
+  removing a tag, editing or creating an issue and saving a search are the plugin's only YouTrack
+  writes, and each runs only when you press its button or choose a value.
 - **Start**: choose **Run in** (New worktree or Current workspace); for a new worktree the project,
   the name of the new workspace and branch, and the branch to create it from ("Create from"), otherwise
   the workspace; and the agent. Then either **Start without a prompt** (the agent waits for you in its
@@ -122,9 +124,9 @@ seen less use.
 - **YouTrack CLI updates**: when a newer YouTrack CLI release is out, a download button appears in
   the header. It opens a note with both versions: **Update** runs `youtrack update --yes`, which
   upgrades the CLI the way it was installed; for installs it cannot upgrade (such as apt or rpm), the
-  note shows what to run yourself. **What's new** opens
-  the release page, and **Skip this version** hides the button until the next release. The check runs
-  `youtrack update --json` when the panel opens, at most once a day; builds from source are not checked.
+  note shows what to run yourself. **What's new** opens the release page, and **Skip this version**
+  hides the button until the next release. The check runs `youtrack update --json` when the panel opens,
+  at most once a day; builds from source are not checked.
 - **Prompt templates** (the gear button, "Prompt templates and servers"): named templates for the prompt. Five come built in —
   Implement feature, Investigate and fix bug, Cover with automated tests, Review and plan (no code
   changes), Refactor safely. Create, edit, delete and choose the default (up to 30 templates, 8000
@@ -161,10 +163,10 @@ because it starts the `youtrack` and `orca` command-line tools.
 Only two programs, always with an argument list and never through a shell:
 
 - `youtrack`, to read issues, comments, projects and saved searches, save a search, apply a command,
-  add a comment, change a field, remove a tag, edit and create issues, install the agent skill, check for and install a
-  newer YouTrack CLI, add a server through the browser and remove a server. Fields come from `youtrack issue field list` and their values from
-  `youtrack issue field list-values`, so each user sees what YouTrack lets them pick; no admin rights
-  are needed;
+  add a comment, change a field, remove a tag, edit and create issues, install the agent skill, check
+  for and install a newer YouTrack CLI, add a server through the browser and remove a server. Fields
+  come from `youtrack issue field list` and their values from `youtrack issue field list-values`, so
+  each user sees what YouTrack lets them pick; no admin rights are needed;
 - `orca`, to list projects and branches, create worktrees and launch agents.
 
 The plugin makes no network requests of its own, stores no tokens and collects no data about you;
