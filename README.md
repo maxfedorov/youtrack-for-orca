@@ -5,11 +5,11 @@ of them: in a new worktree or in the workspace you are in, with a prompt built f
 
 This is an unofficial plugin.
 
-![The issue list for a YouTrack query, with saved searches, sortable columns and the actions of the selected issue](images/issues.png)
+![The issue list: the issue of this workspace, quick views, the query, starred saved searches, sortable columns and the actions of the selected issue](images/issues.png)
 
-| Issue details | Start work on an issue |
-| --- | --- |
-| ![The detail of an issue: creator, tags, Apply command, fields, description, linked issues and comments](images/issue-detail.png) | ![The Start view: Run in New worktree, project, name, Create from, workspace, agent, the prompt switches, template and the editable prompt](images/start.png) |
+| Issue details | Start work on an issue | New issue |
+| --- | --- | --- |
+| ![The detail of an issue: creator, its blockers, Apply command, the fields grid with drop-downs, description, linked issues and comments](images/issue-detail.png) | ![The Start view: where to run, project, name, workspace, agent, the prompt switches, template, what the agent does when done and the editable prompt](images/start.png) | ![The New issue form: project, summary, description, the required fields of the project with their defaults, and More fields](images/create.png) |
 
 ## Install
 
