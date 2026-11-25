@@ -5,6 +5,10 @@ export const ISSUE_ID = /^[A-Za-z0-9_]+-\d+$/
 export const MAX_QUERY = 2000
 export const MAX_NAME = 60
 export const MAX_COMMAND = 500
+/** Longest summary: YouTrack keeps one line of text. */
+export const MAX_SUMMARY = 255
+/** Longest description the panel can write; it also has to fit the Markdown limit when drawn. */
+export const MAX_NEW_DESCRIPTION = 60_000
 /** Longest comment the panel can add. */
 export const MAX_NEW_COMMENT = 10_000
 const MAX_TOKEN = 500
@@ -199,9 +203,3 @@ export function capDetail(detail) {
   return out
 }
 
-/** Shell line that installs the YouTrack CLI, per platform; shown by `yt.env` for the person to run. */
-export const INSTALL = {
-  darwin: 'brew install jetbrains/utils/youtrack',
-  linux: 'brew install jetbrains/utils/youtrack',
-  win32: 'winget install JetBrains.YouTrackCLI'
-}

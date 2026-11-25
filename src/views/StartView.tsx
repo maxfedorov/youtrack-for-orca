@@ -2,13 +2,16 @@ import { Button, Callout, Field, Heading, Input, Row, Select, Skeleton, Stack, S
 import {
   back, canStart, editPrompt, failure, includeDescription, load, loadedFor, mode, name, prep, prompt, PROMPT_LIMIT, resetPrompt,
   repoId, runError, running, setProject, status, submit, sync, toggleDescription, workspaceId, chosenAgent, currentAvailable, usableMode,
-  worktreeAvailable, workspaceOptions, templateId, chooseTemplate, withoutPrompt, clearPrompt
+  worktreeAvailable, workspaceOptions, templateId, chooseTemplate, withoutPrompt, clearPrompt, finishComment, finishState, setFinish, chosenFinishField
 } from '../startState'
 import { AgentPicker } from './start/AgentPicker'
 import { BranchPicker } from './start/BranchPicker'
 import { Combobox } from './Combobox'
 import { server, view } from '../state'
 import type { StartPrepare } from '../protocol'
+
+/** Option value of "Don't change" (an option cannot have an empty value). */
+const NO_STATE = '__none__'
 
 /** Back one screen (the issue Start was opened from, if any), or straight to the list. */
 const BackButton = () => (
@@ -32,6 +35,7 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
   const noPrompt = read(withoutPrompt)
   /** The prompt and the controls that build it: off without an agent or without a prompt. */
   const promptOff = !agent || noPrompt
+  const finishField = chosenFinishField(p)
   const tooLong = !promptOff && length > PROMPT_LIMIT
   const gate = canStart()
   const error = read(runError)
@@ -110,6 +114,36 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
           options={p.templates.map((t) => ({ value: t.id, label: t.name }))}
           onChange={chooseTemplate}
         />
+      ) : null}
+      <Switch
+        label="Comment on the issue when done"
+        checked={read(finishComment)}
+        disabled={promptOff}
+        onChange={(on) => setFinish({ comment: on })}
+      />
+      {finishField && (p.finish?.fields.length ?? 0) > 1 ? (
+        <Field label="Field to set when done">
+          <Select
+            label="Field to set when done"
+            labelHidden
+            value={finishField.name}
+            disabled={promptOff}
+            options={(p.finish?.fields ?? []).map((f) => ({ value: f.name, label: f.name }))}
+            onChange={(value) => setFinish({ field: value })}
+          />
+        </Field>
+      ) : null}
+      {finishField ? (
+        <Field label={`Then set ${finishField.name} to`}>
+          <Select
+            label={`Then set ${finishField.name} to`}
+            labelHidden
+            value={read(finishState) || NO_STATE}
+            disabled={promptOff}
+            options={[{ value: NO_STATE, label: "Don't change" }, ...finishField.values.map((s) => ({ value: s, label: s }))]}
+            onChange={(value) => setFinish({ state: value === NO_STATE ? '' : value })}
+          />
+        </Field>
       ) : null}
       <Field label="Prompt">
         <Textarea label="Prompt" labelHidden rows={8} value={read(prompt)} disabled={promptOff} onChange={editPrompt} />

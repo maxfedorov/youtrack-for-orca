@@ -53,6 +53,13 @@ const table = { type: 'Table' }
 const commandInput = { type: 'Input', label: 'Command' }
 const apply = { role: 'button', text: 'Apply' }
 
+/** The detail's fields as [name, value] pairs, read from their value texts. */
+const fieldPairs = (view: any) =>
+  view
+    .findAll({ type: 'Text' })
+    .filter((t: any) => String(t.key ?? '').startsWith('field-value:'))
+    .map((t: any) => [String(t.key).slice('field-value:'.length), String(t.text ?? '')])
+
 test('the row actions apply a command to the selected issue and reload the results', async () => {
   const { host } = setup()
   const view = await mount(panel, { host })
@@ -80,7 +87,7 @@ test('the detail applies a command and loads the issue again', async () => {
   const { host } = setup()
   const view = await mount(panel, { host })
   await view.activateRow(view.find(table), 'DEMO-1')
-  const stateField = () => view.find({ type: 'KeyValue' }).props.items.find((i: any) => i.label === 'State').value
+  const stateField = () => Object.fromEntries(fieldPairs(view)).State
   assert.equal(stateField(), 'Open')
   await view.type(commandInput, 'State Fixed')
   await view.press(apply)

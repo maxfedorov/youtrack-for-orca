@@ -76,18 +76,20 @@ test('other methods build argv', async () => {
   await yt.viewIssue('work', 'DEMO-1')
   await yt.listComments('work', 'DEMO-1')
   await yt.savedSearches('work')
+  await yt.issueFields('work', '-3-9')
   await yt.createSavedSearch('work', 'My "s"', 'for: me')
   await yt.version()
   await yt.instances()
   assert.deepEqual(run.calls.map((c) => c.args), [
-    ['--server', 'work', 'issue', 'view', 'DEMO-1', '-f', 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText))', '--json', '--quiet'],
+    ['--server', 'work', 'issue', 'view', 'DEMO-1', '-f', 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText,canBeEmpty,field(fieldType(id))))', '--json', '--quiet'],
     ['--server', 'work', 'issue', 'comment', 'list', 'DEMO-1', '--json', '--quiet'],
-    ['--server', 'work', 'search', 'list', '--json', '--quiet'],
+    ['--server', 'work', 'raw', '/api/savedQueries', '--fields', 'id,name,query,pinned', '--paginate', '--json', '--quiet'],
+    ['--server', 'work', 'issue', 'field', 'list', '--json', '--quiet', '--', '-3-9'],
     ['--server', 'work', 'search', 'create', '--name', 'My "s"', '--query', 'for: me', '--json', '--quiet'],
     ['--version'],
     ['instance', 'list', '--json', '--quiet']
   ])
-  assert.equal(run.calls[3].opts.timeoutMs, 30000)
+  assert.equal(run.calls[4].opts.timeoutMs, 30000)
 })
 
 test('instances returns parsed list', async () => {
@@ -115,6 +117,15 @@ test('classifies CLI errors by code', () => {
   assert.equal(classifyCliError({ exitCode: 1, stderr: '{"error":{"code":"forbidden","message":"HTTP 403: nope"}}' }).code, 'FORBIDDEN')
   assert.equal(classifyCliError({ exitCode: 1, stderr: '{"error":{"code":"api_error","message":"HTTP 403: nope"}}' }).code, 'FORBIDDEN')
   assert.equal(classifyCliError({ exitCode: 1, stderr: '{"error":{"code":"api_error","message":"HTTP 401: x"}}' }).code, 'AUTH_FAILED')
+})
+
+test('a command an older CLI lacks asks for a newer YouTrack CLI', () => {
+  const stderr = JSON.stringify({ error: { code: 'internal_error', message: 'unknown command "list" for "youtrack issue field"' } })
+  const r = classifyCliError({ exitCode: 1, stderr })
+  assert.equal(r.code, 'UNKNOWN')
+  assert.equal(r.message, 'This needs a newer YouTrack CLI (it has no "youtrack issue field list"). Update the YouTrack CLI and try again.')
+  const plain = classifyCliError({ exitCode: 1, stderr: 'Error: unknown flag: --paginate' })
+  assert.equal(plain.message, 'This needs a newer YouTrack CLI (it has no "--paginate"). Update the YouTrack CLI and try again.')
 })
 
 test('duplicate saved search keeps the CLI message', () => {
@@ -276,7 +287,7 @@ test('deleteInstance reports the CLI warning that the stored token could not be 
 })
 
 test('empty lists the CLI answers as null read as no items', async () => {
-  const run = fakeRun({ '--server work issue comment list': { stdout: 'null\n' }, '--server work search list': { stdout: 'null' }, 'instance list': { stdout: 'null' }, '--server work issue list': { stdout: 'null' } })
+  const run = fakeRun({ '--server work issue comment list': { stdout: 'null\n' }, '--server work raw /api/savedQueries': { stdout: 'null' }, 'instance list': { stdout: 'null' }, '--server work issue list': { stdout: 'null' } })
   const yt = createYoutrack({ bin: 'youtrack', run })
   assert.deepEqual(await yt.listComments('work', 'DEMO-1'), { ok: true, data: [] })
   assert.deepEqual(await yt.savedSearches('work'), { ok: true, data: [] })
@@ -315,4 +326,103 @@ test('listIssues reads the column fields after the fixed ones', async () => {
   const yt = createYoutrack({ bin: 'youtrack', run })
   await yt.listIssues('work', 'q', 0, 5, ['Fix versions', 'State'])
   assert.equal(run.calls[0].args[run.calls[0].args.indexOf('--fields') + 1], 'idReadable,summary,created,updated,resolved,State,Priority,Assignee,Fix versions')
+})
+
+test('updateIssue sends the summary as one argument and the description on standard input', async () => {
+  const run = fakeRun({ '--server work issue update': { stdout: '{}' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.updateIssue('work', 'DEMO-1', { summary: '-not a flag', description: '--x\nline' }), { ok: true, data: {} })
+  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'update', '--summary=-not a flag', '--description-file', '-', '--json', '--quiet', '--', 'DEMO-1'])
+  assert.equal(run.calls[0].opts.input, '--x\nline')
+  assert.equal(run.calls[0].opts.timeoutMs, 30_000)
+  await yt.updateIssue('work', 'DEMO-1', { summary: 'Only this' })
+  assert.deepEqual(run.calls[1].args, ['--server', 'work', 'issue', 'update', '--summary=Only this', '--json', '--quiet', '--', 'DEMO-1'])
+  await yt.updateIssue('work', 'DEMO-1', { description: '' })
+  assert.deepEqual(run.calls[2].args, ['--server', 'work', 'issue', 'update', '--description-file', '-', '--json', '--quiet', '--', 'DEMO-1'])
+  assert.equal(run.calls[2].opts.input, '')
+})
+
+test('setField puts the field and value after --, with the user type for users and --clear to empty it', async () => {
+  const run = fakeRun({ '--server work issue field set': { stdout: '{}' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  await yt.setField('work', 'DEMO-1', 'Priority', { value: '-Major' })
+  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'field', 'set', '--json', '--quiet', '--', 'DEMO-1', 'Priority', '-Major'])
+  await yt.setField('work', 'DEMO-1', 'Assignee', { value: 'jane', user: true })
+  assert.deepEqual(run.calls[1].args, ['--server', 'work', 'issue', 'field', 'set', '--type', 'user', '--json', '--quiet', '--', 'DEMO-1', 'Assignee', 'jane'])
+  await yt.setField('work', 'DEMO-1', 'Assignee', { clear: true })
+  assert.deepEqual(run.calls[2].args, ['--server', 'work', 'issue', 'field', 'set', '--clear', '--json', '--quiet', '--', 'DEMO-1', 'Assignee'])
+  assert.equal(run.calls[0].opts.timeoutMs, 30_000)
+  await yt.setField('work', 'DEMO-1', 'Points', { value: '-5', type: 'int' })
+  assert.deepEqual(run.calls[3].args, ['--server', 'work', 'issue', 'field', 'set', '--type', 'int', '--json', '--quiet', '--', 'DEMO-1', 'Points', '-5'])
+})
+
+test('listProjects answers short names and names', async () => {
+  const run = fakeRun({ '--server work project list': { stdout: '[{"shortName":"DEMO","name":"Demo","id":"0-0","leader":{}},{"name":"no key"}]' } })
+  const r = await createYoutrack({ bin: 'youtrack', run }).listProjects('work')
+  assert.deepEqual(r.data, [{ shortName: 'DEMO', name: 'Demo' }])
+})
+
+test('updateStatus asks the CLI for the latest release; upgrade runs it without a terminal, with a long wait', async () => {
+  const answer = '{"currentVersion":"0.8.2","latestVersion":"0.9.0","updateAvailable":true,"releaseUrl":"https://github.com/JetBrains/youtrack-cli/releases/tag/v0.9.0"}'
+  const run = fakeRun({ update: { stdout: answer } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.equal((await yt.updateStatus()).data.latestVersion, '0.9.0')
+  assert.deepEqual(run.calls[0].args, ['update', '--json', '--quiet'])
+  assert.equal(run.calls[0].opts.timeoutMs, 30_000)
+  await yt.upgrade()
+  assert.deepEqual(run.calls[1].args, ['update', '--yes', '--json', '--quiet'])
+  assert.equal(run.calls[1].opts.timeoutMs, 11 * 60_000)
+})
+
+test('updateSkill installs or updates the skill for the agents the CLI finds, and reports each line', async () => {
+  const out = '{\n  "status": "ok",\n  "message": "installed youtrack-cli for codex (2.1.0)"\n}\n{\n  "status": "ok",\n  "message": "skill youtrack-cli already up to date (2.1.0)"\n}\n'
+  const run = fakeRun({ 'skill update': { stdout: out } })
+  const r = await createYoutrack({ bin: 'youtrack', run }).updateSkill()
+  assert.deepEqual(r, { ok: true, data: { messages: ['installed youtrack-cli for codex (2.1.0)', 'skill youtrack-cli already up to date (2.1.0)'] } })
+  assert.deepEqual(run.calls[0].args, ['skill', 'update', '--json', '--quiet'])
+  assert.equal(run.calls[0].opts.timeoutMs, 60_000)
+})
+
+
+test('fieldValues lists the values of one field from the issue context, after --', async () => {
+  const run = fakeRun({ '--server work issue field list-values': { stdout: '[{"name":"Major"}]' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.fieldValues('work', 'DEMO-1', '-Priority'), { ok: true, data: [{ name: 'Major' }] })
+  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'field', 'list-values', '--limit', '500', '--json', '--quiet', '--', 'DEMO-1', '-Priority'])
+})
+
+test('drafts are created, filled, submitted and deleted with their values off the flags', async () => {
+  const run = fakeRun({
+    '--server work issue draft create': { stdout: '{"id":"3-9"}' },
+    '--server work issue draft update': { stdout: '{}' },
+    '--server work issue draft submit': { stdout: '{"idReadable":"DEMO-12"}' },
+    '--server work issue draft delete': { stdout: '' }
+  })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.draftCreate('work', 'DEMO'), { ok: true, data: { id: '3-9' } })
+  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'draft', 'create', '--project', 'DEMO', '--json', '--quiet'])
+  await yt.draftUpdate('work', '3-9', { summary: '-x', description: '--body', fields: { Severity: 'Low' } })
+  assert.deepEqual(run.calls[1].args, ['--server', 'work', 'issue', 'draft', 'update', '--summary=-x', '--description-file', '-', '--custom-fields={"Severity":"Low"}', '--json', '--quiet', '--', '3-9'])
+  assert.equal(run.calls[1].opts.input, '--body')
+  await yt.draftUpdate('work', '3-9', { summary: 'S', description: '', fields: {} })
+  assert.deepEqual(run.calls[2].args, ['--server', 'work', 'issue', 'draft', 'update', '--summary=S', '--description-file', '-', '--json', '--quiet', '--', '3-9'])
+  assert.deepEqual(await yt.draftSubmit('work', '3-9'), { ok: true, data: { id: 'DEMO-12' } })
+  assert.deepEqual(run.calls[3].args, ['--server', 'work', 'issue', 'draft', 'submit', '--json', '--quiet', '--', '3-9'])
+  await yt.draftDelete('work', '3-9')
+  assert.deepEqual(run.calls[4].args, ['--server', 'work', 'issue', 'draft', 'delete', '--force', '--json', '--quiet', '--', '3-9'])
+})
+
+test('the issue view asks for the type of each field and whether it may be empty', async () => {
+  const run = fakeRun({ '--server work issue view': { stdout: '{"idReadable":"DEMO-1"}' } })
+  await createYoutrack({ bin: 'youtrack', run }).viewIssue('work', 'DEMO-1')
+  const f = run.calls[0].args[run.calls[0].args.indexOf('-f') + 1]
+  assert.match(f, /projectCustomField\(emptyFieldText,canBeEmpty,field\(fieldType\(id\)\)\)/)
+})
+
+test('removeTag puts the issue and the tag after --, as a write', async () => {
+  const run = fakeRun({ '--server work issue tag remove': { stdout: '{}' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.removeTag('work', 'DEMO-1', '-ui'), { ok: true, data: {} })
+  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'tag', 'remove', '--json', '--quiet', '--', 'DEMO-1', '-ui'])
+  assert.equal(run.calls[0].opts.timeoutMs, 30_000)
 })

@@ -1,9 +1,9 @@
 import { atom, read, set } from 'orca'
-import { buildPrompt, issueVars, PROMPT_LIMIT } from '../worker/prompt.mjs'
+import { buildPrompt, finishBlock, issueVars, PROMPT_LIMIT } from '../worker/prompt.mjs'
 import { loadLinks } from './listState'
 import { call, goBack, notice, server, view } from './state'
 import { closeComboboxes } from './views/Combobox'
-import type { Repo, StartPrepare, WorkspaceItem } from './protocol'
+import type { FinishField, Repo, StartPrepare, WorkspaceItem } from './protocol'
 
 export const OTHER = '__other__'
 export const NONE = '__none__'
@@ -41,6 +41,14 @@ export const withoutPrompt = atom(false)
 /** The chosen prompt template; null when the answer listed none (the prompt template text is used). */
 export const templateId = atom<string | null>(null)
 export const prompt = atom('')
+/** The prompt asks the agent to comment a summary on the issue when done. */
+export const finishComment = atom(false)
+/** The field the prompt asks the agent to set when done; null when the issue offers none. */
+export const finishField = atom<string | null>(null)
+/** The value the prompt asks the agent to set that field to; '' for none. */
+export const finishState = atom('')
+/** The finish steps the prompt ends with now, so a change can replace them in a prompt edited by hand. */
+let appliedSuffix = ''
 export const promptEdited = atom(false)
 export const running = atom(false)
 export const runError = atom('')
@@ -83,7 +91,9 @@ const templateText = (p: StartPrepare, id: string | null) => (p.templates ?? [])
 
 export function templatePrompt(p: StartPrepare, include: boolean, id: string | null = read(templateId)): string {
   const vars = { ...EMPTY_VARS, ...p.vars }
-  return buildPrompt({ template: templateText(p, id), vars, includeDescription: include, description: vars.description })
+  const suffix = finishSuffix(p)
+  appliedSuffix = suffix
+  return buildPrompt({ template: templateText(p, id), vars, includeDescription: include, description: vars.description, suffix })
 }
 
 /** Another template: the prompt is built from it again, unless it was edited by hand. */
@@ -167,6 +177,38 @@ export function chooseRef(ref: string): void {
   set(baseBranch, ref)
 }
 
+const finishSuffix = (p: StartPrepare) =>
+  finishBlock({ server: p.vars?.server ?? '', id: p.vars?.id ?? '', comment: read(finishComment), stateField: read(finishField), state: read(finishState) })
+
+/** The field the finish choices are about now, with its values. */
+export const chosenFinishField = (p: StartPrepare): FinishField | undefined => p.finish?.fields.find((f) => f.name === read(finishField))
+
+/**
+ * A finish choice changed. Another field starts at the value it offers first. A prompt built from the
+ * template is built again; in one edited by hand the old finish steps at its end are swapped for the
+ * new ones, so the switches always say what is sent.
+ */
+export function setFinish(next: { comment?: boolean; field?: string; state?: string }): void {
+  const p = read(prep)
+  if (next.comment !== undefined) set(finishComment, next.comment)
+  if (next.field !== undefined && p) {
+    const field = p.finish?.fields.find((f) => f.name === next.field)
+    if (field) {
+      set(finishField, field.name)
+      set(finishState, field.state)
+    }
+  }
+  if (next.state !== undefined) set(finishState, next.state)
+  if (!p) return
+  if (!read(promptEdited)) return set(prompt, templatePrompt(p, read(includeDescription)))
+  let text = read(prompt)
+  if (appliedSuffix && text.endsWith(`\n\n${appliedSuffix}`)) text = text.slice(0, -(appliedSuffix.length + 2))
+  else if (appliedSuffix && text === appliedSuffix) text = ''
+  const suffix = finishSuffix(p)
+  appliedSuffix = suffix
+  set(prompt, suffix ? (text ? `${text}\n\n${suffix}` : suffix) : text)
+}
+
 export function toggleDescription(include: boolean): void {
   set(includeDescription, include)
   const p = read(prep)
@@ -214,6 +256,10 @@ function init(p: StartPrepare): void {
   set(otherAgent, '')
   set(includeDescription, p.includeDescription)
   set(withoutPrompt, p.withoutPrompt === true)
+  set(finishComment, p.finish?.comment === true)
+  const field = p.finish?.fields.find((f) => f.name === p.finish?.field)
+  set(finishField, field ? field.name : null)
+  set(finishState, field ? field.state : '')
   const templates = p.templates ?? []
   const chosen = templates.find((t) => t.id === p.defaultTemplateId) ?? templates[0]
   set(templateId, chosen ? chosen.id : null)
@@ -271,6 +317,9 @@ export async function submit(id: string): Promise<void> {
   const agent = chosenAgent()
   // With no prompt the agent just starts and waits in its terminal.
   const text = read(withoutPrompt) ? '' : read(prompt)
+  // Remembered for the issue's project only when the prompt carried the choice.
+  const field = read(finishField)
+  const finish = agent && text && field ? { finish: { field, state: read(finishState) } } : {}
   const mine = seq
   set(running, true)
   set(runError, '')
@@ -280,10 +329,11 @@ export async function submit(id: string): Promise<void> {
     answer = await call('yt.start.run', {
       server: current, id, repoId: read(repoId) ?? '', name: read(name).trim(),
       ...(base ? { baseBranch: base } : {}),
-      ...(agent ? { agent, prompt: text } : {})
+      ...(agent ? { agent, prompt: text } : {}),
+      ...finish
     })
   } else {
-    answer = await call('yt.runInExisting', { server: current, id, workspaceId: read(workspaceId) ?? '', agent: agent ?? '', prompt: text })
+    answer = await call('yt.runInExisting', { server: current, id, workspaceId: read(workspaceId) ?? '', agent: agent ?? '', prompt: text, ...finish })
   }
   if (mine !== seq) return
   set(running, false)

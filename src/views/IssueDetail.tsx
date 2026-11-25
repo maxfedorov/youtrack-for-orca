@@ -1,11 +1,15 @@
 import {
-  Badge, Button, Callout, Heading, IconButton, KeyValue, List, ListItem, Markdown, Row, Separator, Skeleton, Stack, Text, atom, read, set
+  Button, Callout, Heading, IconButton, List, ListItem, Markdown, Row, Separator, Skeleton, Stack, Text, atom, read, set
 } from 'orca'
 import { links, loadLinks } from '../listState'
 import { call, goBack, refreshTick, server, view } from '../state'
 import { openInBrowser, openLinked, openWorkspace, start } from './IssueRowActions'
 import { CommandBar, onCommandApplied } from './CommandBar'
 import { CommentBox } from './CommentBox'
+import { IssueRelations } from './IssueRelations'
+import { IssueTags } from './IssueTags'
+import { FieldList, resetFieldEditor } from './FieldEditor'
+import { IssueEditForm, editing, startEdit, stopEdit } from './IssueEdit'
 import type { IssueComments, IssueDetail as Detail } from '../protocol'
 
 type Status = 'idle' | 'loading' | 'ok' | 'error'
@@ -109,6 +113,8 @@ function sync(id: string): void {
 /** Back to the screen the issue was opened from (another issue, or the list, whose rows, query and selection stay). */
 function back(toList = false): void {
   seq++
+  stopEdit()
+  resetFieldEditor()
   set(loadedFor, null)
   set(detail, null)
   if (toList) set(view, { kind: 'list' })
@@ -193,13 +199,13 @@ function LinkedIssues({ issue }: { issue: Detail }) {
 
 function Body({ issue }: { issue: Detail }) {
   const workspaceId = read(links)[issue.id]
-  const items = issue.fields.map((field) => ({ label: field.name, value: field.value }))
   const keys = commentKeys(issue)
   return (
     <Stack gap="sm">
       <Row gap="xs" align="center" justify="between">
         <Text weight="semibold">{issue.id}</Text>
         <Row gap="xs">
+          <IconButton icon="edit" label="Edit summary and description" variant="ghost" disabled={editing(issue)} onPress={() => startEdit(issue)} />
           <OpenInBrowser url={issue.url} />
           {workspaceId ? (
             <Button variant="solid" tone="accent" size="sm" onPress={() => void openWorkspace(workspaceId)}>
@@ -212,19 +218,14 @@ function Body({ issue }: { issue: Detail }) {
           )}
         </Row>
       </Row>
-      <Heading level={2}>{issue.summary}</Heading>
+      {editing(issue) ? <IssueEditForm issue={issue} /> : <Heading level={1}>{issue.summary}</Heading>}
       {issue.reporter || issue.created > 0 ? (
         <Text muted size="sm">
           {[issue.reporter ? `Created by ${issue.reporter.fullName || issue.reporter.login}` : 'Created', issue.created > 0 ? when(issue.created) : ''].filter(Boolean).join(' · ')}
         </Text>
       ) : null}
-      {issue.tags.length > 0 ? (
-        <Row gap="xs" wrap>
-          {issue.tags.map((tag, index) => (
-            <Badge key={`${tag}#${index}`}>{tag}</Badge>
-          ))}
-        </Row>
-      ) : null}
+      <IssueTags issue={issue} />
+      <IssueRelations issue={issue} />
       <CommandBar id={issue.id} />
       {issue.truncated || issue.commentsOmitted ? (
         <Callout tone="neutral">
@@ -236,8 +237,8 @@ function Body({ issue }: { issue: Detail }) {
           </Stack>
         </Callout>
       ) : null}
-      {items.length > 0 ? <KeyValue label="Fields" items={items} /> : null}
-      {issue.descriptionMd ? <Markdown content={issue.descriptionMd} /> : <Text muted>No description</Text>}
+      {issue.fields.length > 0 ? <FieldList issue={issue} /> : null}
+      {editing(issue) ? null : issue.descriptionMd ? <Markdown content={issue.descriptionMd} /> : <Text muted>No description</Text>}
       <LinkedIssues issue={issue} />
       <Separator />
       <Heading level={3}>Comments</Heading>

@@ -10,6 +10,8 @@ import { registerYoutrackHandlers } from './handlers/youtrack.mjs'
 import { registerStartHandlers } from './handlers/start.mjs'
 import { registerSettingsHandlers } from './handlers/settings.mjs'
 import { createTemplateStore } from './templates.mjs'
+import { createDraftStore } from './drafts.mjs'
+import { createCliUpdates } from './cli-update.mjs'
 
 /**
  * @param {any} orca the worker's `orca` object
@@ -50,7 +52,9 @@ export function registerHandlers(orca, deps) {
     return found ? ok(found) : fail(CODES.UNKNOWN, 'Unknown server')
   }
   const templates = deps.templates ?? createTemplateStore(orca.storage)
-  const ctx = { ...deps, templates, platform: deps.platform ?? process.platform, homedir: deps.homedir ?? os.homedir(), orca, resolveServer, refreshYoutrack }
+  const drafts = deps.drafts ?? createDraftStore(orca.storage)
+  const cliUpdates = createCliUpdates({ storage: orca.storage, getYoutrack: current, refreshYoutrack, now: deps.now })
+  const ctx = { ...deps, templates, drafts, cliUpdates, platform: deps.platform ?? process.platform, homedir: deps.homedir ?? os.homedir(), orca, resolveServer, refreshYoutrack }
   Object.defineProperty(ctx, 'youtrack', { get: current, enumerable: true })
   registerYoutrackHandlers(ctx)
   registerStartHandlers(ctx)

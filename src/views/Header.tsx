@@ -6,6 +6,7 @@ import { call, env, panelError, server } from '../state'
 import { askRemove } from '../removeServer'
 import { RemoveServerQuestion } from './RemoveServer'
 import { openSettings } from '../settingsState'
+import { CliUpdateButton, CliUpdateNote, loadCliUpdate } from './CliUpdate'
 
 /** The signed-out server whose terminal sign-in is shown. */
 const signingIn = atom<string | null>(null)
@@ -57,10 +58,12 @@ export function Header() {
           disabled={!current}
           onPress={() => (current ? askRemove(current.alias, 'header') : undefined)}
         />
-        <IconButton icon="refresh" variant="ghost" label="Refresh" onPress={() => void refreshAll()} />
+        <CliUpdateButton />
+        <IconButton icon="refresh" variant="ghost" label="Refresh" onPress={() => void refreshAll().then(loadCliUpdate)} />
         <IconButton icon="settings" variant="ghost" label="Prompt templates and servers" onPress={openSettings} />
       </Row>
       <RemoveServerQuestion from="header" />
+      <CliUpdateNote />
       {current && current.status !== 'authenticated' ? (
         <Row gap="xs">
           <Badge tone="warning">Signed out</Badge>

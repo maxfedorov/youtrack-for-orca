@@ -53,6 +53,20 @@ export function createLinkStore(storage) {
     },
 
     /** @returns {Promise<Record<string, string>>} issueId -> newest live workspaceId */
+    /** The servers whose issues each live workspace was started for. */
+    async owners(liveIds) {
+      const all = await read()
+      const out = new Map()
+      for (const [key, list] of Object.entries(all)) {
+        for (const e of entries(list)) {
+          if (!liveIds.has(e.workspaceId)) continue
+          if (!out.has(e.workspaceId)) out.set(e.workspaceId, new Set())
+          out.get(e.workspaceId).add(serverOf(key))
+        }
+      }
+      return out
+    },
+
     async forServer(server, liveIds) {
       const all = await read()
       const out = {}

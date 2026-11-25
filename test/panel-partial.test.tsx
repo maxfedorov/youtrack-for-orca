@@ -57,6 +57,13 @@ const openIssue = async (host: any, id = 'DEMO-1') => {
   return view
 }
 
+/** The detail's fields as [name, value] pairs, read from their value texts. */
+const fieldPairs = (view: any) =>
+  view
+    .findAll({ type: 'Text' })
+    .filter((t: any) => String(t.key ?? '').startsWith('field-value:'))
+    .map((t: any) => [String(t.key).slice('field-value:'.length), String(t.text ?? '')])
+
 test('an issue whose comments failed shows the issue, a comments note and a Retry for the comments only', async () => {
   let n = 0
   const host = mockHost({
@@ -69,7 +76,7 @@ test('an issue whose comments failed shows the issue, a comments note and a Retr
   clean(view)
   assert.ok(view.find({ type: 'Heading', text: 'Issue 1' }))
   assert.equal(view.find({ type: 'Markdown' }).props.content, 'Description of issue 1')
-  assert.ok(view.find({ type: 'KeyValue' }))
+  assert.ok(fieldPairs(view).length > 0)
   assert.equal(danger(view).length, 0)
   assert.ok(view.find({ text: 'Comments could not be loaded.' }))
   assert.equal(view.find({ text: 'No comments' }), null)
@@ -92,7 +99,7 @@ test('a field of an unexpected shape is n/a and the rest of the issue is shown',
   const view = await openIssue(host)
   clean(view)
   assert.equal(danger(view).length, 0)
-  assert.deepEqual(view.find({ type: 'KeyValue' }).props.items.map((i: any) => [i.label, i.value]), [
+  assert.deepEqual(fieldPairs(view), [
     ['State', 'Open'], ['Odd', 'n/a'], ['Estimation', '2h']
   ])
   assert.ok(view.find({ type: 'Markdown', content: 'Description of issue 1' }))
@@ -108,7 +115,7 @@ test('fields, description or comments of an unexpected shape do not hide the iss
   const view = await openIssue(host)
   clean(view)
   assert.ok(view.find({ type: 'Heading', text: 'Issue 1' }))
-  assert.equal(view.find({ type: 'KeyValue' }), null)
+  assert.deepEqual(fieldPairs(view), [])
   assert.ok(view.find({ text: 'No description' }))
   assert.ok(view.find({ type: 'Markdown', content: 'First comment' }))
   assert.ok(view.find({ type: 'Markdown', content: 'Odd comment' }))

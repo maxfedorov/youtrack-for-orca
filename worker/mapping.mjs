@@ -2,6 +2,7 @@
 // Output is strict JSON: absent values are omitted, never set to undefined.
 
 import { columnKey } from './query.mjs'
+import { toFieldMeta, toListedMeta, typed } from './project-fields.mjs'
 
 /** @typedef {{ name: string, color?: string }} Value */
 /** @typedef {{ login: string, fullName: string }} User */
@@ -120,6 +121,15 @@ function fieldText(v, type) {
   return String(v)
 }
 
+/**
+ * A field with its value as shown: an empty one shows the project's empty text. A field typed into also
+ * says it is empty, so its empty text is not taken for the value.
+ */
+function shownField(name, shown, emptyText, meta) {
+  const field = { name, value: clip(shown || (typeof emptyText === 'string' && emptyText ? emptyText : EMPTY)), ...meta }
+  return !shown && typed(meta) ? { ...field, empty: true } : field
+}
+
 /** One custom field as display strings; a value that cannot be read is n/a, the field stays. */
 function toField(f) {
   let shown
@@ -128,18 +138,39 @@ function toField(f) {
   } catch {
     shown = null
   }
-  if (shown === null) return { name: f.name, value: NOT_AVAILABLE }
-  const empty = f.projectCustomField?.emptyFieldText
-  return { name: f.name, value: clip(shown || (typeof empty === 'string' && empty ? empty : EMPTY)) }
+  const meta = toFieldMeta(f)
+  if (shown === null) return { name: f.name, value: NOT_AVAILABLE, ...meta }
+  return shownField(f.name, shown, f.projectCustomField?.emptyFieldText, meta)
 }
 
 /** All custom fields of an issue as display strings, in YouTrack order. @param {any} raw @returns {{ name: string, value: string }[]} */
-function toFields(raw) {
+export function toFields(raw) {
   const list = Array.isArray(raw?.customFields) ? raw.customFields : []
   return list
     .filter((f) => typeof f?.name === 'string' && f.name !== '')
     .slice(0, MAX_FIELDS)
     .map(toField)
+}
+
+/** The `$type` prefix `fieldText` reads dates by, for the value types of `issue field list`. */
+const DATE_TYPES = { date: 'Date', 'date and time': 'DateTime' }
+
+/** The fields of `issue field list --json` as display strings with their kind, in YouTrack order. @param {any} list */
+export function toListedFields(list) {
+  return (Array.isArray(list) ? list : [])
+    .filter((f) => typeof f?.name === 'string' && f.name !== '')
+    .slice(0, MAX_FIELDS)
+    .map((f) => {
+      let shown
+      try {
+        shown = fieldText(f.value, DATE_TYPES[f.valueType] ?? '')
+      } catch {
+        shown = null
+      }
+      const meta = toListedMeta(f)
+      if (shown === null) return { name: f.name, value: NOT_AVAILABLE, ...meta }
+      return shownField(f.name, shown, f.emptyText, meta)
+    })
 }
 
 /**
@@ -205,13 +236,17 @@ export function toLinks(rawLinks) {
     .filter((link) => link.issues.length > 0)
 }
 
-/** @param {any} raw @returns {{ id: string, name: string, query: string } | null} null when there is no query */
+/**
+ * `favorite`: starred by the user in YouTrack (`pinned`; CLIs that do not report it leave it out).
+ * @param {any} raw @returns {{ id: string, name: string, query: string, favorite?: true } | null} null when there is no query
+ */
 export function toSavedQuery(raw) {
   if (typeof raw?.query !== 'string') return null
-  return { id: text(raw.id), name: text(raw.name), query: raw.query }
+  const saved = { id: text(raw.id), name: text(raw.name), query: raw.query }
+  return raw.pinned === true ? { ...saved, favorite: true } : saved
 }
 
-/** Saved searches that can be offered: a query, an id and a name. @param {any} list `search list --json` */
+/** Saved searches that can be offered: a query, an id and a name. @param {any} list `raw /api/savedQueries --json` */
 export const toSavedQueries = (list) =>
   (Array.isArray(list) ? list : []).map(toSavedQuery).filter((q) => q !== null && q.id !== '' && q.name !== '')
 

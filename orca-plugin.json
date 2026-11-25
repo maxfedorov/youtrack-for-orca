@@ -2,7 +2,7 @@
   "manifestVersion": 2,
   "id": "youtrack-for-orca",
   "name": "YouTrack for Orca",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Browse YouTrack issues in the right sidebar and start coding agents on them.",
   "author": {
     "name": "maxfedorov",
@@ -34,6 +34,9 @@
       },
       {
         "on": "workspace.removed"
+      },
+      {
+        "on": "workspace.changed"
       }
     ],
     "commands": [
@@ -108,6 +111,20 @@
         "default": false
       },
       {
+        "key": "finishComment",
+        "title": "Agent comments when done",
+        "description": "Whether the \"Comment on the issue when done\" switch starts on in the Start view: the prompt then asks the agent to add a comment that sums up its work.",
+        "type": "boolean",
+        "default": false
+      },
+      {
+        "key": "finishState",
+        "title": "State when done",
+        "description": "Values the Start view offers first for the agent to set when done, separated by commas, such as In Review, Review: the first one the issue's field has is chosen. A choice made in Start for a YouTrack project is offered there instead.",
+        "type": "string",
+        "default": ""
+      },
+      {
         "key": "youtrackPath",
         "title": "YouTrack CLI path",
         "description": "Leave empty to find the YouTrack CLI automatically.",
@@ -146,18 +163,23 @@
   "screenshots": [
     {
       "path": "images/issues.png",
-      "alt": "The issue list for a YouTrack query, with saved searches, sortable columns and the actions of the selected issue",
+      "alt": "The issue list: the issue of this workspace, quick views, the query, starred saved searches, sortable columns and the actions of the selected issue",
       "caption": "Issues of a YouTrack query"
     },
     {
       "path": "images/issue-detail.png",
-      "alt": "The detail of an issue: creator, tags, Apply command, fields, description, linked issues and comments",
+      "alt": "The detail of an issue: creator, its blockers, Apply command, the fields grid with drop-downs, description, linked issues and comments",
       "caption": "Issue details, commands and comments"
     },
     {
       "path": "images/start.png",
-      "alt": "The Start view: Run in New worktree, project, name, Create from, workspace, agent, the prompt switches, template and the editable prompt",
+      "alt": "The Start view: where to run, project, name, workspace, agent, the prompt switches, template, what the agent does when done and the editable prompt",
       "caption": "Start an agent on an issue"
+    },
+    {
+      "path": "images/create.png",
+      "alt": "The New issue form: project, summary, description, the required fields of the project with their defaults, and More fields",
+      "caption": "Create an issue"
     }
   ]
 }

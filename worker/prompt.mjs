@@ -103,20 +103,50 @@ function untrustedBlock(description, room) {
  * either where `{{description}}` stands or appended when `includeDescription` is set
  * and the template has no such placeholder. The result never exceeds PROMPT_LIMIT,
  * unless the template alone does (then it is returned as rendered, for the caller to reject).
- * @param {{ template: string, vars: Record<string, string>, includeDescription: boolean, description?: string }} p
+ * `suffix` (the finish instructions) goes last, after any issue text, and counts towards the limit.
+ * @param {{ template: string, vars: Record<string, string>, includeDescription: boolean, description?: string, suffix?: string }} p
  * @returns {string}
  */
-export function buildPrompt({ template, vars, includeDescription, description = '' }) {
+export function buildPrompt({ template, vars, includeDescription, description = '', suffix = '' }) {
+  const tail = suffix ? `\n\n${suffix}` : ''
+  const limit = PROMPT_LIMIT - tail.length
   const bare = renderTemplate(template, { ...vars, description: '' }).text
-  if (bare.length >= PROMPT_LIMIT) return bare
+  if (bare.length >= limit) return bare + tail
 
   const uses = (String(template).match(/\{\{\s*description\s*\}\}/g) ?? []).length
   if (uses) {
-    const room = Math.floor((PROMPT_LIMIT - bare.length) / uses)
+    const room = Math.floor((limit - bare.length) / uses)
     const block = vars.description ? untrustedBlock(vars.description, room) : ''
-    return renderTemplate(template, { ...vars, description: block }).text
+    return renderTemplate(template, { ...vars, description: block }).text + tail
   }
-  if (!includeDescription || !description) return bare
-  const block = untrustedBlock(description, PROMPT_LIMIT - bare.length - 2)
-  return block ? `${bare}\n\n${block}` : bare
+  if (!includeDescription || !description) return bare + tail
+  const block = untrustedBlock(description, limit - bare.length - 2)
+  return (block ? `${bare}\n\n${block}` : bare) + tail
+}
+
+/**
+ * A field or state name that can stand, single-quoted, in the shell line the agent runs: letters, digits,
+ * spaces and `_ . -`, starting with a letter or digit (so never a flag).
+ */
+export const safeValue = (v) => typeof v === 'string' && v.length <= 100 && /^[\p{L}\p{N}][\p{L}\p{N} _.\-]*$/u.test(v)
+/** A server alias as the CLI names them. */
+const SAFE_ALIAS = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/
+const quoted = (v) => `'${v}'`
+
+/**
+ * What the agent does when it is done: comment a summary, then set the state. Trusted text built by
+ * the plugin from the server alias, the issue id and names from the project's own lists; '' for neither.
+ * @param {{ server: string, id: string, comment: boolean, stateField?: string | null, state?: string }} p
+ */
+export function finishBlock({ server, id, comment, stateField, state }) {
+  const steps = []
+  if (typeof server !== 'string' || !SAFE_ALIAS.test(server) || typeof id !== 'string' || !/^[A-Za-z0-9_]+-\d+$/.test(id)) return ''
+  const cli = `youtrack --server ${quoted(server)}`
+  if (comment) {
+    steps.push(`- Add a comment to ${id} that sums up your work, with the text on standard input:\n  ${cli} issue comment create --text-file - -- ${id}`)
+  }
+  if (state && stateField && safeValue(state) && safeValue(stateField)) {
+    steps.push(`- ${steps.length ? 'Then set' : 'Set'} its ${stateField} to "${state}":\n  ${cli} issue field set -- ${id} ${quoted(stateField)} ${quoted(state)}`)
+  }
+  return steps.length ? `When you are done:\n${steps.join('\n')}` : ''
 }

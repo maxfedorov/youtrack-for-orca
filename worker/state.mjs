@@ -1,5 +1,6 @@
-// Selected server, the last query used on each server, and which Orca project to offer when starting
-// work: the one last chosen for each YouTrack project, and an optional default for each server.
+// Selected server, the last query used on each server, the saved searches shown there as quick views,
+// and what to offer when starting work: the Orca project last chosen for each YouTrack project (and an
+// optional default for each server), and the field and value last chosen for the agent to set when done.
 
 import { createSerial } from './serial.mjs'
 
@@ -23,6 +24,10 @@ export function createStateStore(storage) {
   const projectRepos = async () => record(await storage.get('projectRepos'))
   /** `{ server: repoId }` */
   const serverRepos = async () => strings(await storage.get('serverRepos'))
+  /** `{ server: { shortName: { field, state } } }` */
+  const finishChoices = async () => record(await storage.get('finishChoices'))
+  /** `{ server: [savedSearchId] }` */
+  const quickViews = async () => record(await storage.get('quickViews'))
 
   return {
     /** @returns {Promise<string | null>} */
@@ -47,6 +52,19 @@ export function createStateStore(storage) {
         await storage.set('queries', all)
       }),
 
+    /** The ids of the saved searches shown as quick views on a server, in order. */
+    async quickViews(server) {
+      const v = (await quickViews())[server]
+      return Array.isArray(v) ? v.filter((id) => typeof id === 'string') : []
+    },
+    /** Replaces the quick views of a server; repeated ids count once. */
+    setQuickViews: (server, ids) =>
+      serial(async () => {
+        const all = await quickViews()
+        all[server] = [...new Set(ids)]
+        await storage.set('quickViews', all)
+      }),
+
     /** The Orca project last chosen for this YouTrack project on this server, or null. */
     async projectRepo(server, project) {
       const v = strings((await projectRepos())[server])[project]
@@ -61,6 +79,22 @@ export function createStateStore(storage) {
         mine[project] = repoId
         all[server] = Object.fromEntries(Object.entries(mine).slice(-MAX_PROJECTS))
         await storage.set('projectRepos', all)
+      }),
+
+    /** What the agent was last asked to set when done in a YouTrack project (`state` '' for no change), or null. */
+    async finishChoice(server, project) {
+      const v = record((await finishChoices())[server])[project]
+      return isRecord(v) && typeof v.field === 'string' && typeof v.state === 'string' ? { field: v.field, state: v.state } : null
+    },
+    /** Remembers the finish choice of a YouTrack project; the newest choice goes last. */
+    rememberFinishChoice: (server, project, { field, state }) =>
+      serial(async () => {
+        const all = await finishChoices()
+        const mine = record(all[server])
+        delete mine[project]
+        mine[project] = { field, state }
+        all[server] = Object.fromEntries(Object.entries(mine).slice(-MAX_PROJECTS))
+        await storage.set('finishChoices', all)
       }),
 
     /** The default Orca project of a server, or null. */
@@ -82,7 +116,7 @@ export function createStateStore(storage) {
     forgetServer: (server) =>
       serial(async () => {
         if ((await storage.get('server')) === server) await storage.set('server', null)
-        for (const key of ['queries', 'projectRepos', 'serverRepos']) {
+        for (const key of ['queries', 'quickViews', 'projectRepos', 'serverRepos', 'finishChoices']) {
           const all = record(await storage.get(key))
           if (!(server in all)) continue
           delete all[server]

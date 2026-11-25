@@ -27,6 +27,8 @@ export const listError = atom('')
 /** The query the rows belong to; `query` is the text being edited. */
 export const appliedQuery = atom('')
 export const savedQueries = atom<SavedQuery[]>([])
+/** The ids of the saved searches shown as quick view buttons, in order. */
+export const quickViewIds = atom<string[]>([])
 /** The saved searches could not be loaded; searching still works. */
 export const savedQueriesFailed = atom(false)
 /** Issue id -> workspace id. */
@@ -34,6 +36,8 @@ export const links = atom<Record<string, string>>({})
 /** The workspace links could not be loaded; rows then offer no Open. */
 export const linksFailed = atom(false)
 export const selectedIssue = atom<string | null>(null)
+/** The issue of the focused workspace; null when there is none or it could not be read. */
+export const currentIssue = atom<{ id: string; summary: string; url: string } | null>(null)
 export const loadingMore = atom(false)
 export const moreError = atom('')
 
@@ -117,13 +121,39 @@ export async function loadLinks(): Promise<void> {
   if (answer.ok) set(links, answer.data)
 }
 
+/** Reads the issue of the focused workspace; a failure only hides it. */
+let currentSeq = 0
+export async function loadCurrent(): Promise<void> {
+  const current = read(server)
+  if (!current) return
+  const mine = ++currentSeq
+  const answer = await call('yt.current', { server: current })
+  // Only the newest answer counts: focus may have moved on while an older one was read.
+  if (mine !== currentSeq || read(server) !== current) return
+  set(currentIssue, answer.ok ? answer.data.issue : null)
+}
+
 export async function loadSavedQueries(): Promise<void> {
   const current = read(server)
   if (!current) return
-  const answer = await call('yt.savedQueries', { server: current })
+  const [answer, quick] = await Promise.all([call('yt.savedQueries', { server: current }), call('yt.quickViews', { server: current })])
   if (read(server) !== current) return
   set(savedQueriesFailed, !answer.ok)
   if (answer.ok) set(savedQueries, answer.data.filter((item) => item.id && item.name))
+  if (quick.ok) set(quickViewIds, quick.data.ids)
+}
+
+/**
+ * Shows or hides a saved search as a quick view button. Ids of saved searches the server no longer
+ * lists are dropped on the way, while the list is known.
+ */
+export async function setQuickView(id: string, shown: boolean): Promise<void> {
+  const current = read(server)
+  if (!current) return
+  const known = read(savedQueriesFailed) ? null : new Set(read(savedQueries).map((item) => item.id))
+  const kept = read(quickViewIds).filter((other) => other !== id && (!known || known.has(other)))
+  const answer = await call('yt.quickViews.set', { server: current, ids: shown ? [...kept, id] : kept })
+  if (answer.ok && read(server) === current) set(quickViewIds, answer.data.ids)
 }
 
 /** First load of the list for the selected server: search with its stored query, saved searches, links. */
@@ -131,14 +161,14 @@ export async function startList(): Promise<void> {
   if (read(listStatus) !== 'idle' || !read(server)) return
   seenTick = read(refreshTick)
   set(listStatus, 'loading')
-  await Promise.all([runSearch(read(query)), loadSavedQueries(), loadLinks()])
+  await Promise.all([runSearch(read(query)), loadSavedQueries(), loadLinks(), loadCurrent()])
 }
 
 /** Re-runs the current search and reloads links and saved searches. */
 export async function refreshList(): Promise<void> {
   if (read(switchFailed)) return onServerChanged()
   if (!read(server)) return
-  await Promise.all([runSearch(read(appliedQuery) || read(query)), loadSavedQueries(), loadLinks()])
+  await Promise.all([runSearch(read(appliedQuery) || read(query)), loadSavedQueries(), loadLinks(), loadCurrent()])
 }
 
 /** Called while rendering the list: starts the first load, and reloads when the header's refresh was pressed. */
@@ -162,10 +192,12 @@ export async function onServerChanged(): Promise<void> {
   set(hasMore, false)
   set(lastPageFull, false)
   set(savedQueries, [])
+  set(quickViewIds, [])
   set(savedQueriesFailed, false)
   set(links, {})
   set(linksFailed, false)
   set(selectedIssue, null)
+  set(currentIssue, null)
   set(listError, '')
   set(listStatus, 'loading')
   const answer = await call('yt.env', {})

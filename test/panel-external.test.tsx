@@ -28,7 +28,8 @@ test('a browser link that fails to open shows an error and the panel keeps worki
   await new Promise((resolve) => setTimeout(resolve, 20))
   assert.equal(host.callsOf('shell.openExternal').length, 2)
   assert.deepEqual(view.errors, [])
-  assert.ok(view.find({ type: 'Heading', text: 'Issue 1' }))
+  // The summary is the largest heading Orca draws, so it reads as the title.
+  assert.equal(view.find({ type: 'Heading', text: 'Issue 1' }).props.level, 1)
   assert.ok(view.find({ text: 'Could not open the browser. Try again.' }))
   await view.unmount()
 })

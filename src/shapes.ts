@@ -23,7 +23,8 @@ const CHECKS: Record<string, Check> = {
   'yt.savedQueries.create': savedQuery,
   'yt.start.run': shape({ workspaceId: str, warning: optional(str) }),
   'yt.runInExisting': shape({ warning: optional(str) }),
-  'yt.servers.remove': shape({ warning: optional(str) })
+  'yt.servers.remove': shape({ warning: optional(str) }),
+  'yt.cli.update': (v) => isObj(v) && (v.available === false || (v.available === true && str(v.current) && str(v.latest) && str(v.url)))
 }
 
 /** Shown for a value of a shape the panel cannot read. */
@@ -61,11 +62,19 @@ const fixComments = (v: unknown[]) =>
     created: or(num, c.created, 0)
   }))
 
+const KINDS = ['enum', 'state', 'user', 'version', 'ownedField', 'build', 'string', 'integer', 'period', 'other']
+/** A field's name with how it is changed; an unknown kind is changed with a command. */
+const fixMeta = (f: Obj): Obj => {
+  const meta: Obj = { name: f.name, kind: KINDS.includes(f.kind as string) ? f.kind : 'other', multi: f.multi === true, required: f.required === true }
+  if (f.empty === true) meta.empty = true
+  return meta
+}
+
 function fixDetail(v: Obj): Obj {
   const out: Obj = { ...fixRow(v) }
   out.fields = (Array.isArray(v.fields) ? v.fields : [])
     .filter((f): f is Obj => isObj(f) && id(f.name))
-    .map((f) => ({ name: f.name, value: str(f.value) ? f.value : NOT_AVAILABLE }))
+    .map((f) => ({ ...fixMeta(f), value: str(f.value) ? f.value : NOT_AVAILABLE }))
   out.tags = (Array.isArray(v.tags) ? v.tags : []).filter((t): t is string => id(t))
   if (!user(v.reporter)) delete out.reporter
   if (Array.isArray(v.links)) {
@@ -114,7 +123,7 @@ function fixEnv(v: Obj): Obj {
   const cli = v.cli as Obj
   const out: Obj = {
     ...v,
-    cli: { found: cli.found, ...(str(cli.version) ? { version: cli.version } : {}), ...(str(cli.installCommand) ? { installCommand: cli.installCommand } : {}) },
+    cli: { found: cli.found, ...(str(cli.version) ? { version: cli.version } : {}) },
     orcaCli: { found: isObj(v.orcaCli) && v.orcaCli.found === true },
     servers: keep(v.servers, (x) => server(x) && id((x as Obj).alias)),
     server: or(str, v.server, null),
@@ -140,6 +149,16 @@ function fixPrepare(v: Obj): Obj {
   }
   const templates = out.templates as Obj[]
   out.defaultTemplateId = templates.some((t) => t.id === v.defaultTemplateId) ? v.defaultTemplateId : (templates[0]?.id ?? null)
+  const f = isObj(v.finish) ? v.finish : {}
+  const fields = keep(f.fields, shape({ name: id })).map((x) => {
+    const values = keep((x as Obj).values, id) as string[]
+    return { name: (x as Obj).name, values, state: values.includes((x as Obj).state as string) ? (x as Obj).state : '' }
+  }).filter((x) => x.values.length > 0)
+  out.finish = {
+    comment: f.comment === true,
+    field: fields.some((x) => x.name === f.field) ? f.field : (fields[0]?.name ?? null),
+    fields
+  }
   for (const key of ['reposError', 'workspacesError', 'agentsError']) if (!str(v[key])) delete out[key]
   if (!detected && !str(v.agentsError)) out.agentsError = 'Installed agents could not be detected.'
   return out
@@ -148,8 +167,23 @@ function fixPrepare(v: Obj): Obj {
 /** Answers whose parts can be repaired: the core the screen needs is checked, the rest is fixed. */
 const REPAIRS: Record<string, { core: Check; fix: (v: Obj) => unknown }> = {
   'yt.env': { core: shape({ cli: shape({ found: bool }), servers: Array.isArray }), fix: fixEnv },
-  'yt.savedQueries': { core: Array.isArray, fix: (v) => keep(v, savedQuery) },
+  'yt.savedQueries': {
+    core: Array.isArray,
+    fix: (v) => keep(v, savedQuery).map((q) => ({ id: (q as Obj).id, name: (q as Obj).name, query: (q as Obj).query, ...((q as Obj).favorite === true ? { favorite: true } : {}) }))
+  },
+  'yt.quickViews': { core: isObj, fix: (v) => ({ ids: keep(v.ids, id) }) },
+  'yt.quickViews.set': { core: isObj, fix: (v) => ({ ids: keep(v.ids, id) }) },
   'yt.links': { core: isObj, fix: strings },
+  'yt.current': {
+    core: isObj,
+    fix: (v) => {
+      const i = isObj(v.issue) ? v.issue : null
+      if (!i || !id(i.id) || !str(i.url)) return { issue: null }
+      const out: Obj = { issue: { id: i.id, summary: str(i.summary) ? i.summary : '', url: i.url } }
+      if (id(v.workspaceId)) out.workspaceId = v.workspaceId
+      return out
+    }
+  },
   'yt.refs.search': { core: shape({ refs: Array.isArray }), fix: (v) => ({ refs: keep(v.refs, id) }) },
   'yt.start.prepare': {
     core: shape({
@@ -169,6 +203,23 @@ const REPAIRS: Record<string, { core: Check; fix: (v: Obj) => unknown }> = {
       if (str(v.reposError)) out.reposError = v.reposError
       return out
     }
+  },
+  'yt.skill.install': { core: isObj, fix: (v) => ({ messages: keep(v.messages, id) }) },
+  'yt.projects': {
+    core: shape({ projects: Array.isArray }),
+    fix: (v) => ({ projects: (v.projects as unknown[]).filter((p): p is Obj => isObj(p) && id(p.shortName)).map((p) => ({ shortName: p.shortName, name: str(p.name) ? p.name : p.shortName })) })
+  },
+  'yt.issue.create': { core: shape({ id }), fix: (v) => ({ id: v.id }) },
+  'yt.issue.draft': {
+    core: shape({ draftId: id, fields: Array.isArray }),
+    fix: (v) => ({ draftId: v.draftId, fields: (v.fields as unknown[]).filter((f): f is Obj => isObj(f) && id(f.name)).map((f) => (str(f.value) ? { ...fixMeta(f), value: f.value } : fixMeta(f))) })
+  },
+  'yt.issue.fieldValues': {
+    core: shape({ values: Array.isArray }),
+    fix: (v) => ({
+      values: (v.values as unknown[]).filter((x): x is Obj => isObj(x) && id(x.name)).map((x) => (id(x.label) ? { name: x.name, label: x.label } : { name: x.name })),
+      cut: v.cut === true
+    })
   },
   'yt.issues.search': { core: shape({ issues: Array.isArray, hasMore: bool }), fix: fixIssues },
   'yt.issue.get': { core: shape({ id, url: str }), fix: fixDetail },

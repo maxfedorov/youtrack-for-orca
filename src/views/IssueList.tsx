@@ -7,6 +7,9 @@ import { query } from '../state'
 import { applySort, columnOf, parseSort } from '../../worker/query.mjs'
 import { IssueRowActions, openDetail } from './IssueRowActions'
 import { SearchBar } from './SearchBar'
+import { QuickViews } from './QuickViews'
+import { CurrentIssue } from './CurrentIssue'
+import { openCreate } from './CreateIssue'
 import { NOT_AVAILABLE } from '../shapes'
 import type { IssueRow } from '../protocol'
 
@@ -153,6 +156,13 @@ export function IssueList() {
   syncList()
   return (
     <Stack gap="sm">
+      <CurrentIssue />
+      <Row gap="xs" align="start" justify="between">
+        <QuickViews />
+        <Button variant="outline" size="sm" onPress={openCreate}>
+          New issue
+        </Button>
+      </Row>
       <SearchBar />
       <Results />
     </Stack>

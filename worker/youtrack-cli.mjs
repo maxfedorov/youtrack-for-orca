@@ -2,10 +2,15 @@
 import path from 'node:path'
 import { ok, fail, CODES } from './result.mjs'
 import { findOnPath, runProcess } from './exec.mjs'
+import { MAX_VALUES } from './project-fields.mjs'
 
 const READ_MS = 15_000
 const WRITE_MS = 30_000
 const LOGIN_MS = 10 * 60_000
+const SKILL_MS = 60_000
+const UPDATE_CHECK_MS = 30_000
+// The CLI gives an upgrade up to 10 minutes.
+const UPGRADE_MS = 11 * 60_000
 const ISSUE_FIELDS = 'idReadable,summary,created,updated,resolved,State,Priority,Assignee'
 /** The list's fields plus the columns' custom fields, each once (names compare without case). */
 const listFields = (columns) => {
@@ -14,7 +19,7 @@ const listFields = (columns) => {
   for (const c of columns) if (!seen.has(c.toLowerCase())) seen.add(c.toLowerCase()) && names.push(c)
   return names.join(',')
 }
-const VIEW_FIELDS = 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText))'
+const VIEW_FIELDS = 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText,canBeEmpty,field(fieldType(id))))'
 const CLI_ENV = Object.freeze({ YOUTRACK_NO_UPDATE: '1', NO_COLOR: '1' })
 
 /**
@@ -59,11 +64,39 @@ function parseCliError(stderr) {
   return null
 }
 
+/** The `message` of each JSON object the CLI printed one after another (one per agent). */
+function messagesOf(stdout) {
+  const lines = String(stdout ?? '').split(/\r?\n/)
+  const out = []
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].trim().startsWith('{')) continue
+    for (let j = i; j < lines.length; j++) {
+      try {
+        const m = JSON.parse(lines.slice(i, j + 1).join('\n'))?.message
+        if (typeof m === 'string' && m) out.push(m.slice(0, 300))
+        i = j
+        break
+      } catch {
+        // incomplete; try a longer slice
+      }
+    }
+  }
+  return out.slice(0, 50)
+}
+
 /**
  * Map a failed CLI run to a domain error.
  * @param {{ exitCode?: number | null, stderr?: string, timedOut?: boolean, spawnError?: string, tooLarge?: boolean }} r
  * @returns {{ code: string, message: string }}
  */
+/** The command or flag an older CLI does not know, from its error text ("unknown command "list" for "youtrack issue field""); null otherwise. */
+function missingInCli(text) {
+  const command = /unknown command "([\w-]{1,40})" for "([\w -]{1,80})"/.exec(text)
+  if (command) return `${command[2]} ${command[1]}`
+  return /unknown flag: (--?[\w-]{1,40})/.exec(text)?.[1] ?? null
+}
+const newerCli = (what) => ({ code: CODES.UNKNOWN, message: `This needs a newer YouTrack CLI (it has no "${what}"). Update the YouTrack CLI and try again.` })
+
 export function classifyCliError({ stderr, timedOut, spawnError, tooLarge }) {
   if (spawnError === 'ENOENT') return { code: CODES.CLI_NOT_FOUND, message: 'The YouTrack CLI was not found.' }
   if (spawnError) {
@@ -75,9 +108,13 @@ export function classifyCliError({ stderr, timedOut, spawnError, tooLarge }) {
   const err = parseCliError(stderr)
   if (!err) {
     const text = String(stderr ?? '').trim().split(/\r?\n/).filter(Boolean).pop()
+    const missing = missingInCli(text ?? '')
+    if (missing) return newerCli(missing)
     return { code: CODES.UNKNOWN, message: text || 'The YouTrack CLI failed.' }
   }
   const message = String(err.message ?? 'The YouTrack CLI failed.')
+  const missing = missingInCli(message)
+  if (missing) return newerCli(missing)
   const c = err.code
   const http = /HTTP (\d{3})/.exec(message)?.[1]
   if (c === 'unauthorized' || http === '401') return { code: CODES.AUTH_FAILED, message }
@@ -132,7 +169,11 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
     viewIssue: (server, id) => read(server, ['issue', 'view', id, '-f', VIEW_FIELDS]),
     listComments: (server, id) => read(server, ['issue', 'comment', 'list', id], list),
     listLinks: (server, id) => read(server, ['issue', 'link', 'list', id, '-f', 'issues(idReadable,summary,resolved)'], list),
-    savedSearches: (server) => read(server, ['search', 'list'], list),
+    /**
+     * Saved searches through `raw`: `search list` drops fields it has no column for, and `pinned`
+     * (in this user's favorites) is one of them.
+     */
+    savedSearches: (server) => read(server, ['raw', '/api/savedQueries', '--fields', 'id,name,query,pinned', '--paginate'], list),
     createSavedSearch: (server, name, query) =>
       exec(['--server', server, 'search', 'create', '--name', name, '--query', query, ...tail], WRITE_MS, json),
     /**
@@ -147,6 +188,79 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
      */
     addComment: (server, id, text) =>
       exec(['--server', server, 'issue', 'comment', 'create', '--text-file', '-', ...tail, '--', id], WRITE_MS, () => ({}), { input: text }),
+    /** Removes a tag from an issue by its exact name; issue and tag come after `--`. */
+    removeTag: (server, id, tag) =>
+      exec(['--server', server, 'issue', 'tag', 'remove', ...tail, '--', id, tag], WRITE_MS, () => ({})),
+    /**
+     * Installs the YouTrack CLI skill for every coding agent the CLI finds on this machine, or brings
+     * an older copy up to date; already current copies are left alone.
+     */
+    updateSkill: () => exec(['skill', 'update', ...tail], SKILL_MS, (s) => ({ messages: messagesOf(s) })),
+    /** The installed and the latest release of the YouTrack CLI; the CLI asks GitHub and installs nothing. */
+    updateStatus: () => exec(['update', ...tail], UPDATE_CHECK_MS, json),
+    /**
+     * Upgrades the YouTrack CLI through the way it was installed (install script, Homebrew, WinGet...);
+     * `--yes` lets it run without a terminal, and makes it fail with the manual steps when it cannot.
+     */
+    upgrade: () => exec(['update', '--yes', ...tail], UPGRADE_MS, json),
+    /** Projects the account can see, by short name. */
+    listProjects: (server) =>
+      read(server, ['project', 'list'], (s) =>
+        (JSON.parse(s) ?? [])
+          .filter((p) => typeof p?.shortName === 'string' && p.shortName)
+          .slice(0, 500)
+          .map((p) => ({ shortName: p.shortName, name: typeof p.name === 'string' ? p.name : p.shortName }))
+      ),
+    /** Every custom field of an issue or draft: value type, several values or one, required, current value. */
+    issueFields: (server, id) => exec(['--server', server, 'issue', 'field', 'list', ...tail, '--', id], READ_MS, list),
+    /** The values one field of an issue (or a draft) offers this user, from the issue's field context. */
+    fieldValues: (server, id, field) =>
+      exec(['--server', server, 'issue', 'field', 'list-values', '--limit', String(MAX_VALUES), ...tail, '--', id, field], READ_MS, list),
+    /** A new draft in a project: what the new-issue form reads its fields from, and submits at the end. */
+    draftCreate: (server, project) =>
+      exec(['--server', server, 'issue', 'draft', 'create', '--project', project, ...tail], WRITE_MS, (s) => {
+        const id = JSON.parse(s)?.id
+        if (typeof id !== 'string' || !id) throw new Error('no id')
+        return { id }
+      }),
+    /** Fills a draft: summary as one `--summary=` argument, fields as one JSON argument, description on standard input. */
+    draftUpdate: (server, draftId, { summary, description, fields }) => {
+      const args = ['--server', server, 'issue', 'draft', 'update', `--summary=${summary}`, '--description-file', '-']
+      if (Object.keys(fields).length > 0) args.push(`--custom-fields=${JSON.stringify(fields)}`)
+      return exec([...args, ...tail, '--', draftId], WRITE_MS, () => ({}), { input: description })
+    },
+    /** Turns the draft into an issue; answers its readable id. */
+    draftSubmit: (server, draftId) =>
+      exec(['--server', server, 'issue', 'draft', 'submit', ...tail, '--', draftId], WRITE_MS, (s) => {
+        const id = JSON.parse(s)?.idReadable
+        if (typeof id !== 'string' || !id) throw new Error('no id')
+        return { id }
+      }),
+    /** Deletes a draft without asking (the panel's Back or another project). */
+    draftDelete: (server, draftId) =>
+      exec(['--server', server, 'issue', 'draft', 'delete', '--force', ...tail, '--', draftId], WRITE_MS, () => ({})),
+    /**
+     * Sets one field of an issue, or empties it with `clear`; issue, field and value come after `--`.
+     * `type`: the CLI's `--type` for a typed-in value (`int`, `string`, `period`); `user` for a user.
+     */
+    setField: (server, id, field, { value, user = false, clear = false, type }) => {
+      const args = ['--server', server, 'issue', 'field', 'set']
+      if (user) args.push('--type', 'user')
+      else if (type) args.push('--type', type)
+      if (clear) args.push('--clear')
+      return exec([...args, ...tail, '--', id, field, ...(clear ? [] : [value])], WRITE_MS, () => ({}))
+    },
+    /**
+     * Changes the summary, the description or both. The summary is one `--summary=` argument, so it is
+     * never read as a flag; the description goes through standard input ('' clears it).
+     */
+    updateIssue: (server, id, { summary, description }) => {
+      const args = ['--server', server, 'issue', 'update']
+      if (summary !== undefined) args.push(`--summary=${summary}`)
+      if (description !== undefined) args.push('--description-file', '-')
+      const extra = description !== undefined ? { input: description } : {}
+      return exec([...args, ...tail, '--', id], WRITE_MS, () => ({}), extra)
+    },
     /**
      * Removes a configured server from the CLI, which signs it out; after `--`, so an alias starting
      * with a dash is not read as a flag. `--force` skips the CLI's own confirmation (the panel asks).

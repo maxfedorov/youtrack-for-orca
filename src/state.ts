@@ -3,7 +3,7 @@ import type { ErrorCode, Result, Server } from './protocol'
 import { fitAnswer } from './shapes'
 
 export type Env = {
-  cli: { found: boolean; version?: string; installCommand?: string }
+  cli: { found: boolean; version?: string }
   orcaCli: { found: boolean }
   servers: Server[]
   server: string | null
@@ -13,7 +13,7 @@ export type Env = {
   error?: string
 }
 /** `back`: the screen Back returns to (an issue opened from another issue's links, say); the list without one. */
-export type View = { kind: 'setup' | 'list' | 'detail' | 'start' | 'add' | 'settings'; issueId?: string; back?: View }
+export type View = { kind: 'setup' | 'list' | 'detail' | 'start' | 'add' | 'settings' | 'create'; issueId?: string; back?: View }
 
 export type Unwrapped<T> = { ok: true; data: T } | { ok: false; code: ErrorCode; message: string }
 
@@ -89,6 +89,12 @@ const TIMEOUTS: Partial<Record<string, number>> = {
   'yt.savedQueries.create': 120_000,
   'yt.issue.command': 120_000,
   'yt.issue.comment': 120_000,
+  'yt.issue.update': 120_000,
+  'yt.issue.setField': 120_000,
+  'yt.issue.create': 120_000,
+  'yt.skill.install': 120_000,
+  // The CLI may wait up to 30 seconds for GitHub.
+  'yt.cli.update': 60_000,
   'yt.settings.reset': 120_000,
   'yt.servers.remove': 120_000
 }

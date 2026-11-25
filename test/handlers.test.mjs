@@ -84,9 +84,7 @@ test('env reports CLI_NOT_FOUND when youtrack is null', async () => {
   assert.equal(r.data.cli.found, false)
   assert.equal(r.data.orcaCli.found, true)
   assert.deepEqual(r.data.servers, [])
-  assert.equal(r.data.cli.installCommand, 'brew install jetbrains/utils/youtrack')
-  assert.equal((await setup({ yt: null, platform: 'win32' }).call('yt.env')).data.cli.installCommand, 'winget install JetBrains.YouTrackCLI')
-  assert.equal('installCommand' in (await setup({ yt: null, platform: 'plan9' }).call('yt.env')).data.cli, false)
+  assert.deepEqual(r.data.cli, { found: false })
   const s = await call('yt.issues.search', { server: 'one', query: '', offset: 0, limit: 10 })
   assert.equal(s.error.code, 'CLI_NOT_FOUND')
 })
@@ -901,4 +899,352 @@ test('settings.reset writes every declared setting back to its manifest default'
     if (key === 'columns') throw new Error('denied')
   }
   assert.deepEqual(await call('yt.settings.reset', {}), fail('UNKNOWN', 'Some settings could not be reset: columns'))
+})
+
+test('current names the issue of the focused workspace from its branch', async () => {
+  const ws = [...WS, { id: 'identity:d4', kind: 'worktree', name: 'demo-4-fix', project: 'demo-repo', path: '/w/d4', branch: 'refs/heads/demo-4-fix', hostId: 'local' }]
+  const { call, yt } = setup({ host: { 'workspace.list': { workspaces: ws, truncated: false }, 'workspace.readContext': { branch: 'demo-4-fix', displayName: 'demo-4-fix', terminals: [] } } })
+  const r = await call('yt.current', { server: 'one' })
+  assert.deepEqual(r.data, { issue: { id: 'DEMO-4', summary: 'Fix DEMO-4', url: 'https://one.example.com/issue/DEMO-4' }, workspaceId: 'identity:d4' })
+  assert.deepEqual(yt.calls.find((c) => c.name === 'viewIssue').a.slice(0, 2), ['one', 'DEMO-4'])
+  strict(r)
+})
+
+test('current prefers the issue the plugin started in the focused workspace', async () => {
+  const { call, links } = setup()
+  await links.add('one', 'DEMO-9', 'identity:feat', 1)
+  const r = await call('yt.current', { server: 'one' })
+  assert.equal(r.data.issue.id, 'DEMO-9')
+  assert.equal(r.data.workspaceId, 'identity:feat')
+})
+
+test('current is empty when the branch names no issue on this server', async () => {
+  const none = await setup().call('yt.current', { server: 'one' })
+  assert.deepEqual(none.data, { issue: null })
+  const missing = setup({
+    host: { 'workspace.readContext': { branch: 'zz-1', displayName: 'zz', terminals: [] } },
+    yt: fakeYt({ viewIssue: async () => fail('NOT_FOUND', 'HTTP 404') })
+  })
+  assert.deepEqual((await missing.call('yt.current', { server: 'one' })).data, { issue: null })
+  const noContext = setup({ host: { 'workspace.readContext': () => { throw new Error('no window') } } })
+  assert.deepEqual((await noContext.call('yt.current', { server: 'one' })).data, { issue: null })
+})
+
+test('links also match live workspaces by the issue id in their branch', async () => {
+  const ws = [...WS, { id: 'identity:d7', kind: 'worktree', name: 'x', project: 'demo-repo', path: '/w/x', branch: 'refs/heads/demo-7-x', hostId: 'local' }]
+  const yt = () => fakeYt({ listProjects: async () => ok([{ shortName: 'DEMO', name: 'Demo' }]) })
+  const { call, links } = setup({ host: { 'workspace.list': { workspaces: ws, truncated: false } }, yt: yt() })
+  await links.add('one', 'DEMO-7', 'identity:feat', 1)
+  const r = await call('yt.links', { server: 'one' })
+  assert.equal(r.data['DEMO-7'], 'identity:feat')
+  const fresh = await setup({ host: { 'workspace.list': { workspaces: ws, truncated: false } }, yt: yt() }).call('yt.links', { server: 'one' })
+  assert.equal(fresh.data['DEMO-7'], 'identity:d7')
+})
+
+test('issue.update checks the summary and description before it writes', async () => {
+  const updates = []
+  const { call } = setup({ yt: fakeYt({ updateIssue: async (...a) => (updates.push(a), ok({})) }) })
+  for (const bad of [{}, { summary: '' }, { summary: '  ' }, { summary: 'a\nb' }, { summary: 'x'.repeat(256) }, { summary: 7 }, { description: 'x'.repeat(60_001) }, { description: null }]) {
+    assert.equal((await call('yt.issue.update', { server: 'one', id: 'DEMO-1', ...bad })).ok, false, JSON.stringify(bad).slice(0, 40))
+  }
+  assert.equal((await call('yt.issue.update', { server: 'one', id: 'bad id', summary: 'x' })).ok, false)
+  assert.equal(updates.length, 0)
+  assert.deepEqual(await call('yt.issue.update', { server: 'one', id: 'DEMO-1', summary: '  New  ', description: '' }), { ok: true, data: {} })
+  assert.deepEqual(updates[0], ['one', 'DEMO-1', { summary: 'New', description: '' }])
+})
+
+
+test('projects lists the projects of a server', async () => {
+  const { call } = setup({ yt: fakeYt({ listProjects: async () => ok([{ shortName: 'DEMO', name: 'Demo' }]) }) })
+  assert.deepEqual((await call('yt.projects', { server: 'one' })).data, { projects: [{ shortName: 'DEMO', name: 'Demo' }] })
+})
+
+test('skill.install runs the CLI skill update', async () => {
+  const { call } = setup({ yt: fakeYt({ updateSkill: async () => ok({ messages: ['installed youtrack-cli for codex (2.1.0)'] }) }) })
+  assert.deepEqual((await call('yt.skill.install', {})).data, { messages: ['installed youtrack-cli for codex (2.1.0)'] })
+  assert.equal((await setup({ yt: null }).call('yt.skill.install', {})).error.code, 'CLI_NOT_FOUND')
+})
+
+test('cli.update offers a newer YouTrack CLI, skip hides it, and upgrade reports through an event', async () => {
+  const yt = fakeYt({
+    version: async () => ok('youtrack 0.8.2 (abc, 2026-11-12)'),
+    updateStatus: async () => ok({ latestVersion: '0.9.0', releaseUrl: 'https://github.com/JetBrains/youtrack-cli/releases/tag/v0.9.0' }),
+    upgrade: async () => ok({ upgraded: true })
+  })
+  const { call, orca } = setup({ yt })
+  assert.deepEqual((await call('yt.cli.update', {})).data, {
+    available: true, current: '0.8.2', latest: '0.9.0', url: 'https://github.com/JetBrains/youtrack-cli/releases/tag/v0.9.0'
+  })
+  assert.deepEqual(await call('yt.cli.upgrade', {}), ok({ started: true }))
+  await posted(orca, 'yt.cli.upgraded')
+  assert.deepEqual(orca.posts.find((p) => p.name === 'yt.cli.upgraded').payload, ok({ version: '0.8.2' }))
+  assert.deepEqual(await call('yt.cli.update.skip', { version: '0.9.0' }), ok({}))
+  assert.deepEqual((await call('yt.cli.update', {})).data, { available: false })
+  assert.equal((await call('yt.cli.update.skip', { version: '--yes' })).ok, false)
+  assert.equal((await setup({ yt: null }).call('yt.cli.upgrade', {})).error.code, 'CLI_NOT_FOUND')
+})
+
+test('branch matches count only for projects of this server and workspaces no other server claimed', async () => {
+  const ws = [...WS,
+    { id: 'identity:d7', kind: 'worktree', name: 'x', project: 'demo-repo', path: '/w/x', branch: 'refs/heads/demo-7-x', hostId: 'local' },
+    { id: 'identity:dep', kind: 'worktree', name: 'd', project: 'demo-repo', path: '/w/d', branch: 'dependabot/npm/lodash-4.17.21', hostId: 'local' },
+    { id: 'identity:d8', kind: 'worktree', name: 'y', project: 'demo-repo', path: '/w/y', branch: 'demo-8-y', hostId: 'local' }]
+  const { call, links } = setup({
+    host: { 'workspace.list': { workspaces: ws, truncated: false } },
+    yt: fakeYt({ listProjects: async () => ok([{ shortName: 'DEMO', name: 'Demo' }]) })
+  })
+  await links.add('two', 'DEMO-8', 'identity:d8', 1)
+  const r = await call('yt.links', { server: 'one' })
+  assert.equal(r.data['DEMO-7'], 'identity:d7')
+  assert.equal('LODASH-4' in r.data, false)
+  assert.equal('DEMO-8' in r.data, false)
+  const none = await setup({ host: { 'workspace.list': { workspaces: ws, truncated: false } }, yt: fakeYt({ listProjects: async () => fail('NETWORK', 'x') }) }).call('yt.links', { server: 'one' })
+  assert.equal(none.ok, true)
+  assert.equal('DEMO-7' in none.data, false)
+})
+
+test('current names no issue for a workspace another server started', async () => {
+  const ws = [...WS, { id: 'identity:d4', kind: 'worktree', name: 'demo-4-fix', project: 'demo-repo', path: '/w/d4', branch: 'refs/heads/demo-4-fix', hostId: 'local' }]
+  const { call, links } = setup({ host: { 'workspace.list': { workspaces: ws, truncated: false }, 'workspace.readContext': { branch: 'demo-4-fix', displayName: 'demo-4-fix', terminals: [] } } })
+  await links.add('two', 'DEMO-4', 'identity:d4', 1)
+  assert.deepEqual((await call('yt.current', { server: 'one' })).data, { issue: null })
+})
+
+const meta = (name, type, canBeEmpty, value = null) => ({ name, value, $type: 'X', projectCustomField: { canBeEmpty, field: { fieldType: { id: type } } } })
+const FIELDED = (id) => ({
+  ...rawIssue(id),
+  customFields: [meta('Priority', 'enum[1]', false, { name: 'Major' }), meta('Assignee', 'user[1]', true), meta('Sprints', 'version[*]', true), meta('Estimation', 'period', true), meta('Stage', 'state[1]', false, { name: 'Open' })]
+})
+/** One entry of `issue field list`. */
+const listed = (name, valueType, required, value = null, multiValue = false) => ({ id: name, name, valueType, multiValue, required, hasChoices: true, value })
+const LISTED = [listed('Priority', 'enum', true, { name: 'Major' }), listed('Assignee', 'user', false), listed('Sprints', 'version', false, [], true), listed('Estimation', 'period', false), listed('Stage', 'state', true, { name: 'Open' }),
+  listed('Points', 'integer', false), listed('Label', 'string', true, 'x'), listed('Notes', 'text', false)]
+const VALUES = { Priority: [{ name: 'Major' }, { name: 'Minor' }], Assignee: [{ login: 'jane', fullName: 'Jane Doe' }], Stage: [{ name: 'Open' }, { name: 'In Review' }, { name: 'Bad"one' }] }
+const fielded = (over = {}) => fakeYt({
+  viewIssue: async (s, id) => ok(FIELDED(id)),
+  issueFields: async () => ok(LISTED),
+  fieldValues: async (s, id, field) => (VALUES[field] ? ok(VALUES[field]) : fail('UNKNOWN', 'field does not expose selectable values')),
+  ...over
+})
+
+test('issue.fieldValues answers the values a field offers on an issue or a draft', async () => {
+  const { call } = setup({ yt: fielded() })
+  assert.deepEqual((await call('yt.issue.fieldValues', { server: 'one', id: 'DEMO-1', field: 'Assignee' })).data, { values: [{ name: 'jane', label: 'Jane Doe' }], cut: false })
+  assert.equal((await call('yt.issue.fieldValues', { server: 'one', id: '3-9', field: 'Priority' })).ok, true)
+  for (const bad of [{ id: '-x', field: 'P' }, { id: 'DEMO-1', field: '' }, { id: 'DEMO-1', field: 'x'.repeat(101) }, { id: 'a b', field: 'P' }]) {
+    assert.equal((await call('yt.issue.fieldValues', { server: 'one', ...bad })).ok, false, JSON.stringify(bad))
+  }
+})
+
+test('issue.setField writes only values the field offers for a single-value field', async () => {
+  const sets = []
+  const { call } = setup({ yt: fielded({ setField: async (...a) => (sets.push(a), ok({})) }) })
+  const set = (field, value, id = 'DEMO-1') => call('yt.issue.setField', { server: 'one', id, field, value })
+  assert.equal((await set('Priority', 'Minor')).ok, true)
+  assert.deepEqual(sets.at(-1), ['one', 'DEMO-1', 'Priority', { value: 'Minor' }])
+  assert.equal((await set('Assignee', 'jane')).ok, true)
+  assert.deepEqual(sets.at(-1), ['one', 'DEMO-1', 'Assignee', { value: 'jane', user: true }])
+  assert.equal((await set('Assignee', null)).ok, true)
+  assert.deepEqual(sets.at(-1), ['one', 'DEMO-1', 'Assignee', { clear: true }])
+  const count = sets.length
+  for (const [field, value] of [['Priority', 'Blocker'], ['Priority', null], ['Sprints', '1'], ['Notes', 'x'], ['Nope', 'x'], ['', 'x'], ['Priority', 7]]) {
+    assert.equal((await set(field, value)).ok, false, `${field}=${value}`)
+  }
+  assert.equal((await set('Priority', 'Major', 'not an id')).ok, false)
+  assert.equal(sets.length, count)
+})
+
+test('issue.setField types a string, a whole number or a period into a field that takes one', async () => {
+  const sets = []
+  const { call } = setup({ yt: fielded({ setField: async (...a) => (sets.push(a), ok({})) }) })
+  const set = (field, value) => call('yt.issue.setField', { server: 'one', id: 'DEMO-1', field, value })
+  for (const [field, value, how] of [
+    ['Points', '-12', { value: '-12', type: 'int' }], ['Points', null, { clear: true }], ['Label', 'a b', { value: 'a b', type: 'string' }],
+    ['Estimation', '1w 2d 3h 30m', { value: '1w 2d 3h 30m', type: 'period' }], ['Estimation', '2h', { value: '2h', type: 'period' }]
+  ]) {
+    assert.equal((await set(field, value)).ok, true, `${field}=${value}`)
+    assert.deepEqual(sets.at(-1), ['one', 'DEMO-1', field, how])
+  }
+  const count = sets.length
+  for (const [field, value] of [['Points', '1.5'], ['Points', 'x'], ['Points', '1'.repeat(19)], ['Label', null], ['Label', 'a\nb'], ['Label', 'x'.repeat(1001)], ['Estimation', 'soon'], ['Points', '']]) {
+    const r = await set(field, value)
+    assert.equal(r.ok, false, `${field}=${value}`)
+  }
+  assert.equal((await set('Points', 'x')).error.message, 'Points takes a whole number')
+  assert.equal((await set('Estimation', 'soon')).error.message, 'Estimation takes a period such as 1w 2d 3h 30m')
+  assert.equal(sets.length, count)
+})
+
+test('issue.draft starts a draft in a project and answers its fields, and reuses it next time', async () => {
+  let made = 0
+  // The fields come from `issue field list`, which needs only permission to read the draft.
+  const { call } = setup({ yt: fielded({ draftCreate: async () => (made++, ok({ id: '3-9' })), viewIssue: async () => fail('UNKNOWN', 'not used') }) })
+  const r = await call('yt.issue.draft', { server: 'one', project: 'DEMO' })
+  assert.deepEqual(r.data, {
+    draftId: '3-9',
+    fields: [
+      { name: 'Priority', value: 'Major', kind: 'enum', multi: false, required: true },
+      { name: 'Assignee', value: '\u2014', kind: 'user', multi: false, required: false },
+      { name: 'Sprints', value: '\u2014', kind: 'version', multi: true, required: false },
+      { name: 'Estimation', value: '\u2014', kind: 'period', multi: false, required: false, empty: true },
+      { name: 'Stage', value: 'Open', kind: 'state', multi: false, required: true },
+      { name: 'Points', value: '\u2014', kind: 'integer', multi: false, required: false, empty: true },
+      { name: 'Label', value: 'x', kind: 'string', multi: false, required: true },
+      { name: 'Notes', value: '\u2014', kind: 'other', multi: false, required: false }
+    ]
+  })
+  assert.equal((await call('yt.issue.draft', { server: 'one', project: 'DEMO' })).data.draftId, '3-9')
+  assert.equal(made, 1)
+  for (const project of ['', '-x', 'a/b', 7]) assert.equal((await call('yt.issue.draft', { server: 'one', project })).ok, false)
+})
+
+test('issue.draft makes a new draft when the stored one is gone, and says when issues cannot be created', async () => {
+  let n = 0
+  const { call } = setup({ yt: fielded({ draftCreate: async () => ok({ id: `3-${++n}` }), issueFields: async (s, id) => (id === '3-1' && n > 1 ? fail('NOT_FOUND', 'HTTP 404') : ok(LISTED)) }) })
+  assert.equal((await call('yt.issue.draft', { server: 'one', project: 'DEMO' })).data.draftId, '3-1')
+  n = 1
+  const again = await setup({ yt: fielded({ draftCreate: async () => fail('FORBIDDEN', 'HTTP 403: HTTP 403 Forbidden') }) }).call('yt.issue.draft', { server: 'one', project: 'DEMO' })
+  assert.equal(again.error.code, 'FORBIDDEN')
+  assert.equal(again.error.message, 'You cannot create issues in DEMO.')
+})
+
+test('issue.create fills the draft, submits it and forgets it; fields must be ones the draft offers', async () => {
+  const calls = []
+  const { call } = setup({
+    yt: fielded({
+      draftCreate: async () => ok({ id: '3-9' }),
+      draftUpdate: async (...a) => (calls.push(['update', ...a]), ok({})),
+      draftSubmit: async (...a) => (calls.push(['submit', ...a]), ok({ id: 'DEMO-77' }))
+    })
+  })
+  await call('yt.issue.draft', { server: 'one', project: 'DEMO' })
+  const create = (over) => call('yt.issue.create', { server: 'one', draftId: '3-9', summary: 'New', description: 'Body', fields: {}, ...over })
+  for (const bad of [{ draftId: '3-8' }, { summary: '' }, { summary: 'a\nb' }, { description: 'x'.repeat(60_001) }, { fields: { Priority: 'Blocker' } },
+    { fields: { Sprints: '1' } }, { fields: { Nope: 'x' } }, { fields: 'x' }]) {
+    assert.equal((await create(bad)).ok, false, JSON.stringify(bad).slice(0, 50))
+  }
+  assert.equal(calls.length, 0)
+  const r = await create({ summary: '  New one ', fields: { Priority: 'Minor', Assignee: 'jane' } })
+  assert.deepEqual(r, { ok: true, data: { id: 'DEMO-77' } })
+  assert.deepEqual(calls, [
+    ['update', 'one', '3-9', { summary: 'New one', description: 'Body', fields: { Priority: 'Minor', Assignee: 'jane' } }],
+    ['submit', 'one', '3-9']
+  ])
+  assert.equal((await create({})).ok, false)
+})
+
+test('issue.draft.discard deletes only a draft the plugin started', async () => {
+  const deleted = []
+  const { call } = setup({ yt: fielded({ draftCreate: async () => ok({ id: '3-9' }), draftDelete: async (...a) => (deleted.push(a), ok({})) }) })
+  assert.equal((await call('yt.issue.draft.discard', { server: 'one', draftId: '3-9' })).ok, true)
+  assert.equal(deleted.length, 0)
+  await call('yt.issue.draft', { server: 'one', project: 'DEMO' })
+  assert.equal((await call('yt.issue.draft.discard', { server: 'one', draftId: '3-9' })).ok, true)
+  assert.deepEqual(deleted, [['one', '3-9']])
+})
+
+test('start.prepare offers the single-value state and enum fields to set when done, state fields first', async () => {
+  const { call } = setup({ yt: fielded(), settings: { finishComment: true, finishState: 'Review, In Review' } })
+  const r = await call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.deepEqual(r.data.finish, {
+    comment: true,
+    field: 'Stage',
+    fields: [{ name: 'Stage', values: ['Open', 'In Review'], state: 'In Review' }, { name: 'Priority', values: ['Major', 'Minor'], state: '' }]
+  })
+  const plain = await setup({ settings: { finishState: 'Done' } }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.deepEqual(plain.data.finish, { comment: false, field: null, fields: [] })
+})
+
+test('start.prepare picks the field that has a value from the setting, else the first state field', async () => {
+  const enums = fielded({
+    issueFields: async () => ok([listed('Priority', 'enum', true), listed('Status', 'enum', true), listed('Tags', 'enum', false, [], true)]),
+    fieldValues: async (s, id, field) => ok(field === 'Status' ? [{ name: 'Open' }, { name: 'Done' }] : [{ name: 'Major' }])
+  })
+  const r = await setup({ yt: enums, settings: { finishState: 'Done' } }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.equal(r.data.finish.field, 'Status')
+  assert.deepEqual(r.data.finish.fields.map((f) => [f.name, f.state]), [['Priority', ''], ['Status', 'Done']])
+  const none = await setup({ yt: fielded(), settings: { finishState: '' } }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.equal(none.data.finish.field, 'Stage')
+  assert.deepEqual(none.data.finish.fields.map((f) => f.state), ['', ''])
+})
+
+test('start.prepare leaves out fields whose values cannot be read, and offers none when the fields cannot be read', async () => {
+  const some = fielded({ fieldValues: async (s, id, field) => (field === 'Stage' ? fail('FORBIDDEN', 'HTTP 403') : ok(VALUES[field] ?? [])) })
+  const r = await setup({ yt: some }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.deepEqual(r.data.finish.fields.map((f) => f.name), ['Priority'])
+  const broken = await setup({ yt: fielded({ issueFields: async () => fail('UNKNOWN', 'unknown command "list"') }) }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.equal(broken.ok, true)
+  assert.deepEqual(broken.data.finish.fields, [])
+})
+
+test('the finish field and value chosen at start are offered first next time for that YouTrack project', async () => {
+  const { call } = setup({ yt: fielded(), settings: { finishState: 'In Review' } })
+  const run = (id, finish) => call('yt.start.run', { server: 'one', id, repoId: 'r1', name: 'n', agent: 'claude', prompt: 'p', finish })
+  assert.equal((await run('DEMO-3', { field: 'Priority', state: 'Minor' })).ok, true)
+  let f = (await call('yt.start.prepare', { server: 'one', id: 'DEMO-9' })).data.finish
+  assert.equal(f.field, 'Priority')
+  assert.deepEqual(f.fields.map((x) => [x.name, x.state]), [['Stage', 'In Review'], ['Priority', 'Minor']])
+  // "Don't change" is remembered too.
+  await call('yt.runInExisting', { server: 'one', id: 'DEMO-3', workspaceId: 'identity:feat', agent: 'claude', prompt: 'p', finish: { field: 'Stage', state: '' } })
+  f = (await call('yt.start.prepare', { server: 'one', id: 'DEMO-9' })).data.finish
+  assert.equal(f.field, 'Stage')
+  assert.deepEqual(f.fields.map((x) => x.state), ['', ''])
+  // Another project, and choices that are not names, change nothing.
+  assert.equal((await call('yt.start.prepare', { server: 'one', id: 'OTHER-1' })).data.finish.fields[0].state, 'In Review')
+  for (const bad of [{ field: "x' y", state: 'Minor' }, { field: 'Priority', state: '-x' }, 'Priority', { field: 7 }]) {
+    assert.equal((await run('DEMO-3', bad)).ok, true, JSON.stringify(bad))
+  }
+  assert.equal((await call('yt.start.prepare', { server: 'one', id: 'DEMO-9' })).data.finish.field, 'Stage')
+})
+
+test('a remembered finish value the field no longer has falls back to the setting', async () => {
+  const { call } = setup({ yt: fielded(), settings: { finishState: 'In Review' } })
+  await call('yt.start.run', { server: 'one', id: 'DEMO-3', repoId: 'r1', name: 'n', finish: { field: 'Stage', state: 'Gone' } })
+  const f = (await call('yt.start.prepare', { server: 'one', id: 'DEMO-9' })).data.finish
+  assert.deepEqual(f.fields.map((x) => x.state), ['In Review', ''])
+})
+
+test('branch matches tell DEMO-1 and DEMO-10 apart', async () => {
+  const ws = [...WS,
+    { id: 'identity:d1', kind: 'worktree', name: 'a', project: 'demo-repo', path: '/w/a', branch: 'demo-1-login', hostId: 'local' },
+    { id: 'identity:d10', kind: 'worktree', name: 'b', project: 'demo-repo', path: '/w/b', branch: 'demo-10-logout', hostId: 'local' }]
+  const { call } = setup({
+    host: { 'workspace.list': { workspaces: ws, truncated: false } },
+    yt: fakeYt({ listProjects: async () => ok([{ shortName: 'DEMO', name: 'Demo' }]) })
+  })
+  const r = await call('yt.links', { server: 'one' })
+  assert.equal(r.data['DEMO-1'], 'identity:d1')
+  assert.equal(r.data['DEMO-10'], 'identity:d10')
+})
+
+test('quick views are read and set per server, only as saved search ids', async () => {
+  const { call } = setup()
+  assert.deepEqual((await call('yt.quickViews', { server: 'one' })).data, { ids: [] })
+  assert.deepEqual((await call('yt.quickViews.set', { server: 'one', ids: ['0-1', '0-2'] })).data, { ids: ['0-1', '0-2'] })
+  assert.deepEqual((await call('yt.quickViews', { server: 'one' })).data, { ids: ['0-1', '0-2'] })
+  assert.deepEqual((await call('yt.quickViews', { server: 'two' })).data, { ids: [] })
+  for (const ids of ['0-1', [7], ['--x'], ['a b'], ['x'.repeat(65)], Array.from({ length: 13 }, (_, i) => `0-${i}`)]) {
+    assert.equal((await call('yt.quickViews.set', { server: 'one', ids })).ok, false, JSON.stringify(ids).slice(0, 40))
+  }
+  assert.deepEqual((await call('yt.quickViews', { server: 'one' })).data, { ids: ['0-1', '0-2'] })
+  assert.equal((await call('yt.quickViews.set', { server: 'one', ids: ['--x'] })).error.message, 'Invalid saved search')
+})
+
+test('servers.remove forgets the quick views of that server', async () => {
+  const { call, orca } = setup()
+  await call('yt.quickViews.set', { server: 'one', ids: ['0-1'] })
+  await call('yt.quickViews.set', { server: 'two', ids: ['0-2'] })
+  await call('yt.servers.remove', { server: 'one' })
+  assert.deepEqual(orca.storage.data().quickViews, { two: ['0-2'] })
+})
+
+test('issue.removeTag removes one tag by name, after --, and checks its input', async () => {
+  const removed = []
+  const { call } = setup({ yt: fakeYt({ removeTag: async (...a) => (removed.push(a), ok({})) }) })
+  assert.deepEqual(await call('yt.issue.removeTag', { server: 'one', id: 'DEMO-1', tag: '-needs review' }), ok({}))
+  assert.deepEqual(removed, [['one', 'DEMO-1', '-needs review']])
+  for (const bad of [{ id: '-x', tag: 'a' }, { id: 'DEMO-1', tag: '' }, { id: 'DEMO-1', tag: 'a\nb' }, { id: 'DEMO-1', tag: 'x'.repeat(201) }, { id: 'DEMO-1', tag: 7 }]) {
+    assert.equal((await call('yt.issue.removeTag', { server: 'one', ...bad })).ok, false, JSON.stringify(bad).slice(0, 40))
+  }
+  assert.equal(removed.length, 1)
 })

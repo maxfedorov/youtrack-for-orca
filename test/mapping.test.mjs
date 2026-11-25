@@ -1,6 +1,6 @@
 import { test, assert } from 'orca/testing'
 import { readFileSync } from 'node:fs'
-import { toIssueRow, toIssueDetail, toSavedQuery, toServer, toServers, toSavedQueries } from '../worker/mapping.mjs'
+import { toIssueRow, toIssueDetail, toSavedQuery, toServer, toServers, toSavedQueries, toListedFields } from '../worker/mapping.mjs'
 
 const load = (name) =>
   JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8'))
@@ -213,7 +213,7 @@ test('missing customFields gives no fields', () => {
 
 test('fields without a name are skipped and values are always strings', () => {
   const f = fieldsOf({ idReadable: 'DEMO-3', customFields: [{ value: 'x' }, { name: 'N', value: { weird: true } }, null] })
-  assert.deepEqual(f, [{ name: 'N', value: 'n/a' }])
+  assert.deepEqual(f, [{ name: 'N', value: 'n/a', kind: 'other', multi: false, required: false }])
 })
 
 test('a field value that cannot be formatted is n/a and the other fields stay', () => {
@@ -238,7 +238,7 @@ test('a field whose value throws while it is read is n/a', () => {
   const odd = { name: 'Odd' }
   Object.defineProperty(odd, 'value', { get: () => { throw new Error('boom') }, enumerable: true })
   const f = fieldsOf({ idReadable: 'DEMO-3', customFields: [odd, { name: 'Points', value: 5 }] })
-  assert.deepEqual(f, [{ name: 'Odd', value: 'n/a' }, { name: 'Points', value: '5' }])
+  assert.deepEqual(f, [{ name: 'Odd', value: 'n/a', kind: 'other', multi: false, required: false }, { name: 'Points', value: '5', kind: 'other', multi: false, required: false }])
 })
 
 test('toIssueDetail maps the reporter and tag names', async () => {
@@ -265,4 +265,53 @@ test('toLinks names each group from this issue side and leaves out empty link ty
     { type: 'depends on', issues: [{ id: 'DEMO-8', summary: 'B', resolved: true }] }
   ])
   assert.deepEqual(toLinks(null), [])
+})
+
+test('each field says how it is changed: its kind, one or many values, and whether it is required', () => {
+  const f = fieldsOf({ idReadable: 'DEMO-3', customFields: [
+    { name: 'Priority', value: { name: 'Major' }, projectCustomField: { canBeEmpty: false, field: { fieldType: { id: 'enum[1]' } } } },
+    { name: 'Fix versions', value: [], projectCustomField: { canBeEmpty: true, field: { fieldType: { id: 'version[*]' } } } }
+  ] })
+  assert.deepEqual(f.map(({ name, kind, multi, required }) => [name, kind, multi, required]), [['Priority', 'enum', false, true], ['Fix versions', 'version', true, false]])
+})
+
+test('a saved search the user starred in YouTrack is a favorite', () => {
+  assert.deepEqual(toSavedQuery({ id: '1-1', name: 'Mine', query: 'for: me', pinned: true }), { id: '1-1', name: 'Mine', query: 'for: me', favorite: true })
+  assert.deepEqual(toSavedQuery({ id: '1-2', name: 'All', query: '', pinned: false }), { id: '1-2', name: 'All', query: '' })
+  assert.deepEqual(toSavedQuery({ id: '1-3', name: 'Odd', query: '', pinned: 'yes' }), { id: '1-3', name: 'Odd', query: '' })
+})
+
+test('fields of issue field list: value as shown, kind, several values and required, in YouTrack order', () => {
+  const listed = [
+    { name: 'Priority', valueType: 'enum', multiValue: false, required: true, value: { name: 'Major' } },
+    { name: 'Stage', valueType: 'state', multiValue: false, required: true, value: { name: 'Open' } },
+    { name: 'Assignee', valueType: 'user', multiValue: false, required: false, emptyText: 'Unassigned', value: null },
+    { name: 'Sprints', valueType: 'version', multiValue: true, required: false, value: [{ name: '1' }, { name: '2' }] },
+    { name: 'Due', valueType: 'date', multiValue: false, required: false, value: Date.UTC(2026, 10, 9, 15) },
+    { name: 'Checked', valueType: 'date and time', multiValue: false, required: false, value: Date.UTC(2026, 10, 9, 15, 30) },
+    { name: 'Estimation', valueType: 'period', multiValue: false, required: false, value: { presentation: '2h' } },
+    { name: 'Odd', valueType: 'enum', multiValue: false, required: false, value: { weird: true } },
+    { valueType: 'enum', value: null }, null
+  ]
+  assert.deepEqual(toListedFields(listed), [
+    { name: 'Priority', value: 'Major', kind: 'enum', multi: false, required: true },
+    { name: 'Stage', value: 'Open', kind: 'state', multi: false, required: true },
+    { name: 'Assignee', value: 'Unassigned', kind: 'user', multi: false, required: false },
+    { name: 'Sprints', value: '1, 2', kind: 'version', multi: true, required: false },
+    { name: 'Due', value: '2026-11-09', kind: 'other', multi: false, required: false },
+    { name: 'Checked', value: '2026-11-09 15:30', kind: 'other', multi: false, required: false },
+    { name: 'Estimation', value: '2h', kind: 'period', multi: false, required: false },
+    { name: 'Odd', value: 'n/a', kind: 'enum', multi: false, required: false }
+  ])
+  assert.deepEqual(toListedFields(null), [])
+  // A field typed into says whether it is empty, so the panel does not offer its empty text as the value.
+  assert.deepEqual(toListedFields([
+    { name: 'bla', valueType: 'string', emptyText: 'No bla', value: null },
+    { name: 'n', valueType: 'integer', value: 0 }
+  ]), [
+    { name: 'bla', value: 'No bla', kind: 'string', multi: false, required: false, empty: true },
+    { name: 'n', value: '0', kind: 'integer', multi: false, required: false }
+  ])
+  assert.deepEqual(toIssueDetail({ idReadable: 'DEMO-3', customFields: [{ name: 'bla', value: null, projectCustomField: { emptyFieldText: 'No bla', field: { fieldType: { id: 'string[1]' } } } }] }, [], BASE).fields,
+    [{ name: 'bla', value: 'No bla', kind: 'string', multi: false, required: false, empty: true }])
 })

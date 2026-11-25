@@ -7,10 +7,11 @@ const env = (over: Record<string, unknown> = {}) =>
   ok({ cli: { found: true }, orcaCli: { found: true }, servers: [server('main')], server: 'main', query: 'for: me', ...over })
 
 test('no CLI shows install screen', async () => {
-  const host = mockHost({ requests: { 'yt.env': env({ cli: { found: false, installCommand: 'brew install jetbrains/utils/youtrack' }, servers: [], server: null }) } })
+  const host = mockHost({ requests: { 'yt.env': env({ cli: { found: false }, servers: [], server: null }) } })
   const view = await mount(panel, { host })
   assert.ok(view.find({ type: 'EmptyState', label: 'Install YouTrack CLI' }))
-  assert.ok(view.find({ type: 'Code', text: 'brew install jetbrains/utils/youtrack' }))
+  assert.equal(view.find({ type: 'Link', text: 'YouTrack CLI install instructions' }).props.href, 'https://github.com/JetBrains/youtrack-cli#install')
+  assert.equal(view.find({ type: 'Code' }), null)
   assert.equal(view.find({ role: 'button', text: 'Open terminal with command' }), null)
   assert.ok(view.find({ role: 'button', text: 'Check again' }))
   assert.deepEqual(view.refusals, [])
@@ -18,7 +19,7 @@ test('no CLI shows install screen', async () => {
 })
 
 test('Check again re-requests env', async () => {
-  const host = mockHost({ requests: { 'yt.env': env({ cli: { found: false, installCommand: 'brew install jetbrains/utils/youtrack' }, servers: [], server: null }) } })
+  const host = mockHost({ requests: { 'yt.env': env({ cli: { found: false }, servers: [], server: null }) } })
   const view = await mount(panel, { host })
   const before = host.callsOf('plugin.request').length
   await view.press({ role: 'button', text: 'Check again' })
@@ -164,7 +165,7 @@ test('a request that finds the CLI gone returns to the install screen', async ()
     requests: {
       'yt.env': () =>
         gone
-          ? env({ cli: { found: false, installCommand: 'brew install jetbrains/utils/youtrack' }, servers: [], server: null })
+          ? env({ cli: { found: false }, servers: [], server: null })
           : env(),
       'yt.issues.search': () => (gone ? { ok: false, error: { code: 'CLI_NOT_FOUND', message: 'The YouTrack CLI was not found.' } } : ok({ issues: [], hasMore: false, total: 0 })),
       'yt.savedQueries': ok([]),
