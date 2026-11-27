@@ -9,6 +9,7 @@ import { StartView } from './views/StartView'
 import { Settings } from './views/Settings'
 import { CreateIssue } from './views/CreateIssue'
 import { ArticleList } from './views/ArticleList'
+import { ArticleDetail } from './views/ArticleDetail'
 import { onAdded, authUrl, AddServer, Setup } from './views/Setup'
 import { loadCliUpdate, onUpgraded } from './views/CliUpdate'
 
@@ -58,6 +59,8 @@ function Screen() {
       return <Settings />
     case 'create':
       return <CreateIssue />
+    case 'article':
+      return <ArticleDetail id={current.articleId ?? ''} />
   }
 }
 

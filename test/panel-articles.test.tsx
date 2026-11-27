@@ -145,3 +145,115 @@ test('a project without articles says so, and a failed load offers Retry', async
   assert.equal(asked(h, 'yt.articles.roots').length, 2)
   await broken.unmount()
 })
+
+const article = (id: string, over: Record<string, unknown> = {}) => ({
+  id, summary: `Title ${id}`, url: `https://main.example.com/articles/${id}`, project: { shortName: 'DEMO', name: 'Demo' }, contentMd: `Body of ${id}`,
+  path: [{ id: 'DEMO-A-3', summary: 'Architecture' }], children: [node('DEMO-A-5', 'Error codes')],
+  mentionedArticles: [{ id: 'DEMO-A-6', summary: 'Release process' }], mentionedIssues: [{ id: 'DEMO-1', summary: 'Fix login', resolved: true }],
+  attachments: ['diagram.png'], comments: [{ id: '8-1', author: { login: 'jane', fullName: 'Jane Doe' }, created: 1, textMd: 'Looks good' }],
+  updated: 2, updatedBy: { login: 'jane', fullName: 'Jane Doe' }, ...over
+})
+const issueDetail = (id: string) => ({
+  id, summary: `Issue ${id}`, created: 1, updated: 2, resolved: false, url: `https://main.example.com/issue/${id}`,
+  project: { shortName: 'DEMO', name: 'Demo' }, fields: [], descriptionMd: 'Body', comments: [], tags: [], links: []
+})
+const withArticles = (over: Record<string, unknown> = {}) =>
+  host({ 'yt.article.get': (input: { id: string }) => ok(article(input.id)), 'yt.issue.get': (input: { id: string }) => ok(issueDetail(input.id)), ...over })
+
+const openFromTree = async (h = withArticles()) => {
+  const view = await toArticles(h)
+  await view.expand({ type: 'Tree' }, 'DEMO-A-3')
+  await view.selectItem({ type: 'Tree' }, 'DEMO-A-4')
+  return view
+}
+
+test('selecting an article shows its path, content, sub-articles, mentions, attachments and comments', async () => {
+  const view = await openFromTree()
+  assert.ok(view.find({ type: 'Heading', text: 'Title DEMO-A-4' }))
+  assert.ok(view.find({ type: 'Markdown' }).props.content === 'Body of DEMO-A-4')
+  assert.ok(view.find({ type: 'Link', text: 'Architecture' }))
+  for (const key of ['child:DEMO-A-5', 'article:DEMO-A-6', 'issue:DEMO-1']) assert.ok(view.find({ type: 'ListItem', testId: key }), key)
+  assert.ok(view.find({ text: 'diagram.png' }))
+  assert.ok(view.find({ text: 'Looks good' }) || view.findAll({ type: 'Markdown' }).some((m: any) => m.props.content === 'Looks good'))
+  await view.unmount()
+})
+
+test('Back from an article returns to the tree with its branches still open', async () => {
+  const view = await openFromTree()
+  await view.press({ type: 'Button', text: '← Back' })
+  assert.deepEqual(view.expandedOf({ type: 'Tree' }), ['DEMO-A-3'])
+  assert.equal(view.valueOf({ type: 'Tabs' }), 'articles')
+  await view.unmount()
+})
+
+test('a mentioned issue opens inside the plugin, and Back returns to the article', async () => {
+  const h = withArticles()
+  const view = await openFromTree(h)
+  await view.press({ type: 'ListItem', testId: 'issue:DEMO-1' })
+  assert.deepEqual(asked(h, 'yt.issue.get').at(-1), { server: 'main', id: 'DEMO-1' })
+  await view.press({ type: 'Button', text: '← Back' })
+  assert.ok(view.find({ type: 'Heading', text: 'Title DEMO-A-4' }))
+  await view.unmount()
+})
+
+test('a mentioned article, then Back twice, walks back the chain to the tree', async () => {
+  const view = await openFromTree()
+  await view.press({ type: 'ListItem', testId: 'article:DEMO-A-6' })
+  assert.ok(view.find({ type: 'Heading', text: 'Title DEMO-A-6' }))
+  await view.press({ type: 'Button', text: '← Back' })
+  assert.ok(view.find({ type: 'Heading', text: 'Title DEMO-A-4' }))
+  await view.press({ type: 'Button', text: '← Back' })
+  assert.ok(view.find({ type: 'Tree' }))
+  await view.unmount()
+})
+
+test('a path link opens the parent article', async () => {
+  const h = withArticles()
+  const view = await openFromTree(h)
+  await view.press({ type: 'Link', text: 'Architecture' })
+  assert.deepEqual(asked(h, 'yt.article.get').at(-1), { server: 'main', id: 'DEMO-A-3' })
+  await view.unmount()
+})
+
+test('sending a comment adds it to the article and loads the article again', async () => {
+  const h = withArticles({ 'yt.article.comment': ok({}) })
+  const view = await openFromTree(h)
+  await view.type({ type: 'Textarea', label: 'Add comment' }, 'Thanks')
+  await view.press({ type: 'Button', text: 'Send' })
+  assert.deepEqual(asked(h, 'yt.article.comment'), [{ server: 'main', id: 'DEMO-A-4', text: 'Thanks' }])
+  assert.equal(asked(h, 'yt.article.get').length, 2)
+  assert.equal(view.find({ type: 'Textarea', label: 'Add comment' }).props.value, '')
+  await view.unmount()
+})
+
+test('a failed comment keeps the text and says why', async () => {
+  const view = await openFromTree(withArticles({ 'yt.article.comment': fail('No permission') }))
+  await view.type({ type: 'Textarea', label: 'Add comment' }, 'Thanks')
+  await view.press({ type: 'Button', text: 'Send' })
+  assert.ok(view.find({ text: 'No permission' }))
+  assert.equal(view.find({ type: 'Textarea', label: 'Add comment' }).props.value, 'Thanks')
+  await view.unmount()
+})
+
+test('an article too large to draw offers the browser', async () => {
+  const view = await openFromTree(withArticles({ 'yt.article.get': ok(article('DEMO-A-4', { contentMd: 'x'.repeat(70 * 1024) })) }))
+  assert.ok(view.find({ text: 'This article is too large to show here. Open it in the browser.' }))
+  assert.equal(view.find({ type: 'Markdown' }), null)
+  await view.unmount()
+})
+
+test('a cut article says so and offers the browser', async () => {
+  const view = await openFromTree(withArticles({ 'yt.article.get': ok(article('DEMO-A-4', { truncated: true, commentsOmitted: 3 })) }))
+  assert.ok(view.find({ text: 'This article is too long to show in full. Open it in the browser to see everything.' }))
+  await view.unmount()
+})
+
+test('switching the server closes an open article of the old server', async () => {
+  const h = withArticles()
+  const view = await openFromTree(h)
+  await view.select({ type: 'Select', label: 'Server' }, 'other')
+  assert.equal(view.find({ type: 'Heading', text: 'Title DEMO-A-4' }), null)
+  assert.ok(view.find({ type: 'Tree' }))
+  assert.deepEqual(asked(h, 'yt.articles.roots').at(-1), { server: 'other', project: 'DEMO' })
+  await view.unmount()
+})
