@@ -160,7 +160,7 @@ const ARTICLE_ID = /^[A-Za-z0-9_]+-A-\d+$/
  */
 export function articleLine({ server, id }) {
   if (typeof server !== 'string' || !SAFE_ALIAS.test(server) || typeof id !== 'string' || !ARTICLE_ID.test(id)) return ''
-  return `Also read this YouTrack article for context: \`youtrack --server ${quoted(server)} article view ${id}\``
+  return `Read this YouTrack article for context: \`youtrack --server ${quoted(server)} article view ${id}\``
 }
 
 /** Articles the Start prompt asks the agent to read, at most. */

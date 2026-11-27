@@ -107,7 +107,7 @@ seen less use.
   inside the panel, and Back walks back the way you came. An issue that mentions articles lists them
   under **Articles**.
 - **Send to agent**: in an article, asks an agent open in the focused workspace to read it. The button
-  types one line into the agent's terminal — `Also read this YouTrack article for context:` and the
+  types one line into the agent's terminal — `Read this YouTrack article for context:` and the
   `youtrack article view <ID>` command — without pressing Enter, so you can check it and send it
   yourself. With several agents, choose which one first.
 - **New issue**: choose the project, write the summary and description, and set its fields; the

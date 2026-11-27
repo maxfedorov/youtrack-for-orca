@@ -138,7 +138,7 @@ test('workspaceName never returns empty', () => {
 })
 
 test('articleLine holds only the server alias and the article id', () => {
-  assert.equal(articleLine({ server: 'work', id: 'DEMO-A-12' }), "Also read this YouTrack article for context: `youtrack --server 'work' article view DEMO-A-12`")
+  assert.equal(articleLine({ server: 'work', id: 'DEMO-A-12' }), "Read this YouTrack article for context: `youtrack --server 'work' article view DEMO-A-12`")
 })
 
 test('articleLine is empty for an unsafe alias or an id that is not an article id', () => {

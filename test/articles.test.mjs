@@ -183,7 +183,7 @@ test('send types the line into the chosen agent without pressing Enter', async (
   const sent = []
   const { call } = setup({ host: { 'agents.list': AGENTS, 'terminal.sendText': (p) => (sent.push(p), { accepted: true }) } })
   assert.deepEqual(await call('yt.article.send', { server: 'one', id: 'DEMO-A-4', terminalId: 't1' }), { ok: true, data: { accepted: true } })
-  assert.deepEqual(sent, [{ terminalId: 't1', text: "Also read this YouTrack article for context: `youtrack --server 'one' article view DEMO-A-4`", enter: false }])
+  assert.deepEqual(sent, [{ terminalId: 't1', text: "Read this YouTrack article for context: `youtrack --server 'one' article view DEMO-A-4`", enter: false }])
 })
 
 test('send refuses a terminal that is no longer listed', async () => {
