@@ -1,4 +1,4 @@
-import { Box, Button, EmptyState, Field, IconButton, Input, List, ListItem, Row, Select, Skeleton, Stack, Text, Tree, read, set } from 'orca'
+import { Box, Button, EmptyState, Field, IconButton, Input, Row, Select, Skeleton, Stack, Text, Tree, read, set } from 'orca'
 import {
   appliedSearch, childErrors, children, chooseProject, expanded, favorites, loadArticles, loadRoots, openArticle, project, projects, projectsError,
   results, resultsCut, resultsError, resultsStatus, roots, rootsCut, rootsError, rootsStatus, runSearch, searchText, searching, syncArticles,
@@ -88,13 +88,15 @@ function Results() {
   if (status !== 'ok') return <Skeleton shape="text" lines={5} label="Searching articles" />
   const list = read(results)
   if (list.length === 0) return <EmptyState title={read(favorites) && !read(appliedSearch) ? 'No favorite articles' : 'No articles found'} />
+  // Drawn like the tree, flat: the id under each title, and the parent after it when there is one.
+  const items = list.map((node) => ({
+    key: node.id,
+    label: node.summary || node.id,
+    description: node.parent ? `${node.id} · ${node.parent.summary || node.parent.id}` : node.id
+  }))
   return (
     <Stack gap="xs">
-      <List label="Articles found">
-        {list.map((node) => (
-          <ListItem key={node.id} title={node.summary || node.id} description={node.parent ? node.parent.summary || node.parent.id : undefined} onPress={() => openArticle(node.id)} />
-        ))}
-      </List>
+      <Tree label="Articles found" items={items} selected="" onSelect={({ key }: { key: string }) => openArticle(key)} />
       {read(resultsCut) ? (
         <Text muted size="sm">
           {CUT}

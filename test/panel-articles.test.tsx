@@ -48,7 +48,7 @@ const toArticles = async (h = host()) => {
 test('the Articles tab shows the remembered project as a tree of top-level articles', async () => {
   const h = host()
   const view = await toArticles(h)
-  const tree = view.find({ type: 'Tree' })
+  const tree = view.find({ type: 'Tree', label: 'Articles' })
   assert.deepEqual(tree.props.items.map((i: any) => [i.key, i.label, i.hasChildren === true]), [
     ['DEMO-A-1', 'Getting started', false], ['DEMO-A-3', 'Architecture', true]
   ])
@@ -61,28 +61,28 @@ test('the Articles tab shows the remembered project as a tree of top-level artic
 test('expanding an article loads its children once, and nested ones too', async () => {
   const h = host()
   const view = await toArticles(h)
-  await view.expand({ type: 'Tree' }, 'DEMO-A-3')
-  await view.expand({ type: 'Tree' }, 'DEMO-A-4')
-  const items = view.find({ type: 'Tree' }).props.items
+  await view.expand({ type: 'Tree', label: 'Articles' }, 'DEMO-A-3')
+  await view.expand({ type: 'Tree', label: 'Articles' }, 'DEMO-A-4')
+  const items = view.find({ type: 'Tree', label: 'Articles' }).props.items
   assert.equal(items[1].children[0].key, 'DEMO-A-4')
   assert.equal(items[1].children[0].children[0].key, 'DEMO-A-5')
-  await view.collapse({ type: 'Tree' }, 'DEMO-A-3')
-  await view.expand({ type: 'Tree' }, 'DEMO-A-3')
+  await view.collapse({ type: 'Tree', label: 'Articles' }, 'DEMO-A-3')
+  await view.expand({ type: 'Tree', label: 'Articles' }, 'DEMO-A-3')
   assert.deepEqual(asked(h, 'yt.articles.children').map((i: any) => i.id), ['DEMO-A-3', 'DEMO-A-4'])
-  assert.deepEqual(view.expandedOf({ type: 'Tree' }).sort(), ['DEMO-A-3', 'DEMO-A-4'])
+  assert.deepEqual(view.expandedOf({ type: 'Tree', label: 'Articles' }).sort(), ['DEMO-A-3', 'DEMO-A-4'])
   await view.unmount()
 })
 
-test('a search shows a flat list with each article’s parent', async () => {
+test('a search shows the articles like the tree, flat, each with its id and parent', async () => {
   const h = host()
   const view = await toArticles(h)
   await view.type({ type: 'Input', label: 'Search articles' }, 'error', { submit: true })
-  assert.equal(view.find({ type: 'Tree' }), null)
-  const item = view.find({ type: 'ListItem', testId: 'DEMO-A-5' })
-  assert.deepEqual([item.props.title, item.props.description], ['Error codes', 'API guidelines'])
+  assert.equal(view.find({ type: 'Tree', label: 'Articles' }), null)
+  const found = view.find({ type: 'Tree', label: 'Articles found' })
+  assert.deepEqual(found.props.items, [{ key: 'DEMO-A-5', label: 'Error codes', description: 'DEMO-A-5 · API guidelines' }])
   assert.deepEqual(asked(h, 'yt.articles.search').at(-1), { server: 'main', project: 'DEMO', query: 'error', favorites: false })
   await view.type({ type: 'Input', label: 'Search articles' }, '', { replace: true, submit: true })
-  assert.ok(view.find({ type: 'Tree' }))
+  assert.ok(view.find({ type: 'Tree', label: 'Articles' }))
   await view.unmount()
 })
 
@@ -96,7 +96,7 @@ test('Favorites is a star that lights up while it lists the starred articles of 
   assert.deepEqual([star().props.variant, star().props.tone], ['solid', 'accent'])
   assert.deepEqual(asked(h, 'yt.articles.search').at(-1), { server: 'main', project: 'DEMO', query: '', favorites: true })
   await view.press({ type: 'IconButton', label: 'Favorite articles' })
-  assert.ok(view.find({ type: 'Tree' }))
+  assert.ok(view.find({ type: 'Tree', label: 'Articles' }))
   await view.unmount()
 })
 
@@ -104,7 +104,7 @@ test('choosing another project loads its articles and remembers it', async () =>
   const h = host()
   const view = await toArticles(h)
   await view.select({ type: 'Select', label: 'Project' }, 'OPS')
-  assert.deepEqual(view.find({ type: 'Tree' }).props.items.map((i: any) => i.key), ['OPS-A-1'])
+  assert.deepEqual(view.find({ type: 'Tree', label: 'Articles' }).props.items.map((i: any) => i.key), ['OPS-A-1'])
   assert.deepEqual(asked(h, 'yt.articles.setProject'), [{ server: 'main', project: 'OPS' }])
   await view.unmount()
 })
@@ -118,10 +118,10 @@ test('without a remembered project the first project is shown', async () => {
 test('switching the server shows the articles of the new server only', async () => {
   const h = host()
   const view = await toArticles(h)
-  await view.expand({ type: 'Tree' }, 'DEMO-A-3')
+  await view.expand({ type: 'Tree', label: 'Articles' }, 'DEMO-A-3')
   await view.select({ type: 'Select', label: 'Server' }, 'other')
   assert.deepEqual(asked(h, 'yt.articles.roots').at(-1), { server: 'other', project: 'DEMO' })
-  assert.deepEqual(view.expandedOf({ type: 'Tree' }), [])
+  assert.deepEqual(view.expandedOf({ type: 'Tree', label: 'Articles' }), [])
   await view.unmount()
 })
 
@@ -130,7 +130,7 @@ test('Settings and back keeps the Articles tab', async () => {
   await view.press({ type: 'IconButton', label: 'Prompt templates and servers' })
   await view.press({ type: 'Button', text: '← Back' })
   assert.equal(view.valueOf({ type: 'Tabs' }), 'articles')
-  assert.ok(view.find({ type: 'Tree' }))
+  assert.ok(view.find({ type: 'Tree', label: 'Articles' }))
   await view.unmount()
 })
 
@@ -168,8 +168,8 @@ const withArticles = (over: Record<string, unknown> = {}) =>
 
 const openFromTree = async (h = withArticles()) => {
   const view = await toArticles(h)
-  await view.expand({ type: 'Tree' }, 'DEMO-A-3')
-  await view.selectItem({ type: 'Tree' }, 'DEMO-A-4')
+  await view.expand({ type: 'Tree', label: 'Articles' }, 'DEMO-A-3')
+  await view.selectItem({ type: 'Tree', label: 'Articles' }, 'DEMO-A-4')
   return view
 }
 
@@ -187,7 +187,7 @@ test('selecting an article shows its path, content, sub-articles, mentions, atta
 test('Back from an article returns to the tree with its branches still open', async () => {
   const view = await openFromTree()
   await view.press({ type: 'Button', text: '← Back' })
-  assert.deepEqual(view.expandedOf({ type: 'Tree' }), ['DEMO-A-3'])
+  assert.deepEqual(view.expandedOf({ type: 'Tree', label: 'Articles' }), ['DEMO-A-3'])
   assert.equal(view.valueOf({ type: 'Tabs' }), 'articles')
   await view.unmount()
 })
@@ -209,7 +209,7 @@ test('a mentioned article, then Back twice, walks back the chain to the tree', a
   await view.press({ type: 'Button', text: '← Back' })
   assert.ok(view.find({ type: 'Heading', text: 'Title DEMO-A-4' }))
   await view.press({ type: 'Button', text: '← Back' })
-  assert.ok(view.find({ type: 'Tree' }))
+  assert.ok(view.find({ type: 'Tree', label: 'Articles' }))
   await view.unmount()
 })
 
@@ -259,7 +259,7 @@ test('switching the server closes an open article of the old server', async () =
   const view = await openFromTree(h)
   await view.select({ type: 'Select', label: 'Server' }, 'other')
   assert.equal(view.find({ type: 'Heading', text: 'Title DEMO-A-4' }), null)
-  assert.ok(view.find({ type: 'Tree' }))
+  assert.ok(view.find({ type: 'Tree', label: 'Articles' }))
   assert.deepEqual(asked(h, 'yt.articles.roots').at(-1), { server: 'other', project: 'DEMO' })
   await view.unmount()
 })
@@ -369,5 +369,15 @@ test('the search field and the star share one line at the same height, under one
   // Orca draws an Input 36 px high, and an IconButton of size md too.
   assert.equal(view.find({ type: 'IconButton', label: 'Favorite articles' }).props.size, 'md')
   assert.deepEqual(view.warnings, [])
+  await view.unmount()
+})
+
+test('an article found without a parent shows only its id, and selecting it opens it', async () => {
+  const h = withArticles({ 'yt.articles.search': ok({ articles: [node('DEMO-A-6', 'Release process')] }) })
+  const view = await toArticles(h)
+  await view.type({ type: 'Input', label: 'Search articles' }, 'release', { submit: true })
+  assert.deepEqual(view.find({ type: 'Tree', label: 'Articles found' }).props.items, [{ key: 'DEMO-A-6', label: 'Release process', description: 'DEMO-A-6' }])
+  await view.selectItem({ type: 'Tree', label: 'Articles found' }, 'DEMO-A-6')
+  assert.deepEqual(asked(h, 'yt.article.get').at(-1), { server: 'main', id: 'DEMO-A-6' })
   await view.unmount()
 })
