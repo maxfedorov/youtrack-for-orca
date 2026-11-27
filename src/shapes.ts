@@ -201,6 +201,7 @@ function fixArticle(v: Obj): Obj {
     mentionedIssues: keep(v.mentionedIssues, titled).map((i) => ({ id: (i as Obj).id, summary: (i as Obj).summary, resolved: (i as Obj).resolved === true })),
     attachments: keep(v.attachments, id),
     comments: Array.isArray(v.comments) ? fixComments(v.comments) : [],
+    created: or(num, v.created, 0),
     updated: or(num, v.updated, 0)
   }
   for (const key of ['reporter', 'updatedBy']) if (!user(v[key])) delete out[key]

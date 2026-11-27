@@ -333,7 +333,8 @@ test('toArticleNodes drops entries without an id, keeps the first of each id and
 
 test('toArticleDetail builds the path from the root, the article url and its lists', () => {
   const a = toArticleDetail({
-    idReadable: 'DEMO-A-3', summary: 'API', content: 'Body', updated: 7, project: { shortName: 'DEMO', name: 'Demo' },
+    idReadable: 'DEMO-A-3', summary: 'API', content: 'Body', created: 3, updated: 7, project: { shortName: 'DEMO', name: 'Demo' },
+    reporter: { login: 'bob', fullName: 'Bob Roe' },
     updatedBy: { login: 'jane', fullName: 'Jane Doe' },
     parentArticle: { idReadable: 'DEMO-A-2', summary: 'Design', parentArticle: { idReadable: 'DEMO-A-1', summary: 'Root', parentArticle: null } },
     childArticles: [{ idReadable: 'DEMO-A-4', summary: 'Child', ordinal: 0 }],
@@ -353,6 +354,8 @@ test('toArticleDetail builds the path from the root, the article url and its lis
   assert.deepEqual(a.comments.map((c) => c.id), ['8-1'])
   assert.deepEqual(a.updatedBy, { login: 'jane', fullName: 'Jane Doe' })
   assert.equal(a.updated, 7)
+  assert.equal(a.created, 3)
+  assert.deepEqual(a.reporter, { login: 'bob', fullName: 'Bob Roe' })
 })
 
 test('toArticleDetail treats null content, lists and parents as empty', () => {

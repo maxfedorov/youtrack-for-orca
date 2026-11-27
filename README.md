@@ -102,7 +102,7 @@ seen less use.
   Choose the project; an article with sub-articles opens with its arrow, and its sub-articles are read
   when it first opens. Type in the search field and press Enter to find articles of the project (each
   with its parent article), or press **Favorites** for the ones you starred in YouTrack. Pressing an
-  article opens it: the path of its parent articles, its content, sub-articles, the articles and issues
+  article opens it: the path of its parent articles, who created it and changed it last, its content, sub-articles, the articles and issues
   it mentions, attachment names and comments, where you can add one. Mentioned articles and issues open
   inside the panel, and Back walks back the way you came. An issue that mentions articles lists them
   under **Articles**.

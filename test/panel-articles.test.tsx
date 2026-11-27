@@ -153,7 +153,7 @@ const article = (id: string, over: Record<string, unknown> = {}) => ({
   path: [{ id: 'DEMO-A-3', summary: 'Architecture' }], children: [node('DEMO-A-5', 'Error codes')],
   mentionedArticles: [{ id: 'DEMO-A-6', summary: 'Release process' }], mentionedIssues: [{ id: 'DEMO-1', summary: 'Fix login', resolved: true }],
   attachments: ['diagram.png'], comments: [{ id: '8-1', author: { login: 'jane', fullName: 'Jane Doe' }, created: 1, textMd: 'Looks good' }],
-  updated: 2, updatedBy: { login: 'jane', fullName: 'Jane Doe' }, ...over
+  created: 1, reporter: { login: 'bob', fullName: 'Bob Roe' }, updated: 2, updatedBy: { login: 'jane', fullName: 'Jane Doe' }, ...over
 })
 const issueDetail = (id: string) => ({
   id, summary: `Issue ${id}`, created: 1, updated: 2, resolved: false, url: `https://main.example.com/issue/${id}`,
@@ -299,12 +299,12 @@ test('broken mentioned articles are left out of the issue card', async () => {
 
 const agents = (...list: [string, string][]) => ok({ agents: list.map(([terminalId, title]) => ({ terminalId, title, agent: 'claude' })) })
 
-test('one agent: Send to agent sends the article to it and says what to do next', async () => {
+test('one agent: Send to agent sends the article to it without any note', async () => {
   const h = withArticles({ 'yt.agents': agents(['t1', 'Claude']), 'yt.article.send': ok({ accepted: true }) })
   const view = await openFromTree(h)
   await view.press({ type: 'Button', text: 'Send to agent' })
   assert.deepEqual(asked(h, 'yt.article.send'), [{ server: 'main', id: 'DEMO-A-4', terminalId: 't1' }])
-  assert.ok(view.find({ text: 'Sent to Claude. Press Enter there to send it.' }))
+  for (const text of [/Sent to/, /Press Enter/, /Asks /]) assert.equal(view.find({ text }), null, String(text))
   await view.unmount()
 })
 
@@ -348,5 +348,12 @@ test('an older search that answers last does not replace the newer one', async (
   assert.deepEqual(asked(h, 'yt.articles.search').map((i: any) => i.query), ['slow', 'fast'])
   assert.deepEqual(read(results).map((a) => a.id), ['DEMO-A-2'])
   assert.equal(read(appliedSearch), 'fast')
+  await view.unmount()
+})
+
+test('an article says who created it and who changed it last', async () => {
+  const view = await openFromTree()
+  assert.ok(view.find({ text: /^Created by Bob Roe/ }))
+  assert.ok(view.find({ text: /Updated by Jane Doe/ }))
   await view.unmount()
 })

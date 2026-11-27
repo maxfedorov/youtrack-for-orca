@@ -308,6 +308,7 @@ export function toArticleDetail(raw, baseUrl) {
       .filter(Boolean)
       .slice(0, MAX_ATTACHMENTS),
     comments: toComments(raw.comments),
+    created: count(raw.created),
     updated: count(raw.updated)
   }
   const reporter = toUser(raw.reporter)

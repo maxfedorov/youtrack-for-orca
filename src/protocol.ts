@@ -118,7 +118,9 @@ export type ArticleDetail = {
   /** Attachment names. */
   attachments: string[]
   comments: Comment[]
+  /** Who created the article, when the YouTrack CLI says. */
   reporter?: User
+  created: number
   updated: number
   updatedBy?: User
   /** Content or comments were cut (long text, only the newest comments kept). */

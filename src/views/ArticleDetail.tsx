@@ -24,12 +24,11 @@ const drawable = (article: Detail) =>
   article.contentMd.length <= MAX_MARKDOWN &&
   article.comments.every((comment) => comment.textMd.length <= MAX_MARKDOWN)
 
-/** Agents of the focused workspace for Send to agent, the chosen one, and what the last send did. */
+/** Agents of the focused workspace for Send to agent, the chosen one, and why the last send failed. */
 const agents = atom<Agent[]>([])
 const agentsError = atom('')
 const agentChoice = atom<string | null>(null)
 const sending = atom(false)
-const sendNote = atom('')
 const sendError = atom('')
 
 /** Reads the agents of the focused workspace again (the article opened, or the workspace changed). */
@@ -54,13 +53,11 @@ async function sendToAgent(id: string): Promise<void> {
   const agent = read(agents).find((a) => a.terminalId === terminalId)
   if (!alias || !agent || read(sending)) return
   set(sending, true)
-  set(sendNote, '')
   set(sendError, '')
   const answer = await call('yt.article.send', { server: alias, id, terminalId: agent.terminalId })
   set(sending, false)
-  if (answer.ok && answer.data.accepted) set(sendNote, `Sent to ${agentName(agent)}. Press Enter there to send it.`)
-  else if (answer.ok) set(sendError, `${agentName(agent)} did not take the text.`)
-  else {
+  if (answer.ok && !answer.data.accepted) set(sendError, 'The agent did not take the text.')
+  else if (!answer.ok) {
     set(sendError, answer.message)
     if (answer.code === 'NOT_FOUND') void loadAgents()
   }
@@ -77,7 +74,6 @@ async function load(id: string): Promise<void> {
   seenTick = read(refreshTick)
   set(loadedFor, `${current}|${id}`)
   set(status, 'loading')
-  set(sendNote, '')
   set(sendError, '')
   void loadAgents()
   const answer = await call('yt.article.get', { server: current, id })
@@ -196,21 +192,15 @@ function SendToAgent({ id }: { id: string }) {
         <Text tone="danger" size="sm">
           {read(sendError)}
         </Text>
-      ) : read(sendNote) ? (
-        <Text muted size="sm">
-          {read(sendNote)}
-        </Text>
-      ) : list.length === 1 ? (
-        <Text muted size="sm">
-          {`Asks ${agentName(list[0])} to read this article with the YouTrack CLI.`}
-        </Text>
       ) : null}
     </Stack>
   )
 }
 
 function Body({ article }: { article: Detail }) {
-  const changed = [article.updatedBy ? `Updated by ${article.updatedBy.fullName || article.updatedBy.login}` : 'Updated', article.updated > 0 ? when(article.updated) : '']
+  const name = (u: { login: string; fullName: string }) => u.fullName || u.login
+  const created = [article.reporter ? `Created by ${name(article.reporter)}` : 'Created', article.created > 0 ? when(article.created) : '']
+  const changed = [article.updatedBy ? `Updated by ${name(article.updatedBy)}` : 'Updated', article.updated > 0 ? when(article.updated) : '']
   return (
     <Stack gap="sm">
       {article.path.length > 0 ? (
@@ -232,6 +222,11 @@ function Body({ article }: { article: Detail }) {
         <IconButton icon="open-external" label="Open in browser" variant="ghost" onPress={() => void openInBrowser(article.url)} />
       </Row>
       <Heading level={1}>{article.summary}</Heading>
+      {article.reporter || article.created > 0 ? (
+        <Text muted size="sm">
+          {created.filter(Boolean).join(' · ')}
+        </Text>
+      ) : null}
       {article.updated > 0 || article.updatedBy ? (
         <Text muted size="sm">
           {changed.filter(Boolean).join(' · ')}
