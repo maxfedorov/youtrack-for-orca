@@ -154,6 +154,9 @@
     },
     {
       "kind": "notifications:show"
+    },
+    {
+      "kind": "terminal:send"
     }
   ],
   "cover": {

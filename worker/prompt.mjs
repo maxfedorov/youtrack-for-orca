@@ -150,3 +150,15 @@ export function finishBlock({ server, id, comment, stateField, state }) {
   }
   return steps.length ? `When you are done:\n${steps.join('\n')}` : ''
 }
+
+const ARTICLE_ID = /^[A-Za-z0-9_]+-A-\d+$/
+
+/**
+ * The line Send to agent types into an agent's terminal: only the server alias and the article id,
+ * never its title or content, which other people write. '' when either is not safe.
+ * @param {{ server: string, id: string }} p
+ */
+export function articleLine({ server, id }) {
+  if (typeof server !== 'string' || !SAFE_ALIAS.test(server) || typeof id !== 'string' || !ARTICLE_ID.test(id)) return ''
+  return `Also read this YouTrack article for context: \`youtrack --server ${quoted(server)} article view ${id}\``
+}

@@ -97,6 +97,9 @@ export type StartPrepare = {
 
 export type FinishField = { name: string; values: string[]; state: string }
 
+/** An agent in the focused workspace; `title` and `agent` are '' when Orca does not say. */
+export type Agent = { terminalId: string; title: string; agent: string }
+
 /** An article in the tree or a search, without its content; `parent` only in searches. */
 export type ArticleNode = { id: string; summary: string; hasChildren: boolean; starred: boolean; parent?: { id: string; summary: string } }
 /** `cut`: more articles than one answer holds were left out. */
@@ -203,6 +206,13 @@ declare module 'orca' {
     'yt.article.get': { input: { server: string; id: string }; output: Result<ArticleDetail> }
     /** Adds a comment to an article; text <= 10000 characters. */
     'yt.article.comment': { input: { server: string; id: string; text: string }; output: Result<Record<string, never>> }
+    /** The agents of the focused workspace that have a terminal (at most 20). */
+    'yt.agents': { input: Record<string, never>; output: Result<{ agents: Agent[] }> }
+    /**
+     * Types a line asking the agent to read the article (its id and a YouTrack CLI command, no title)
+     * into that agent's terminal, without Enter; fails when the terminal is no longer an agent's.
+     */
+    'yt.article.send': { input: { server: string; id: string; terminalId: string }; output: Result<{ accepted: boolean }> }
     /** The project whose articles were shown last on the server. */
     'yt.articles.project': { input: { server: string }; output: Result<{ project: string | null }> }
     'yt.articles.setProject': { input: { server: string; project: string }; output: Result<Record<string, never>> }

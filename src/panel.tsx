@@ -9,7 +9,7 @@ import { StartView } from './views/StartView'
 import { Settings } from './views/Settings'
 import { CreateIssue } from './views/CreateIssue'
 import { ArticleList } from './views/ArticleList'
-import { ArticleDetail } from './views/ArticleDetail'
+import { ArticleDetail, loadAgents } from './views/ArticleDetail'
 import { onAdded, authUrl, AddServer, Setup } from './views/Setup'
 import { loadCliUpdate, onUpgraded } from './views/CliUpdate'
 
@@ -24,7 +24,7 @@ export function setup(ctx: PanelContext): void {
     plugin.on('yt.cli.upgraded', (result) => onUpgraded(result)),
     plugin.on('yt.agentFinished', () => void loadLinks()),
     plugin.on('yt.linksChanged', () => void loadLinks()),
-    plugin.on('yt.currentChanged', () => void Promise.all([loadCurrent(), loadLinks()]))
+    plugin.on('yt.currentChanged', () => void Promise.all([loadCurrent(), loadLinks(), read(view).kind === 'article' ? loadAgents() : null]))
   )
   visible = ctx.visible
   void loadEnv().then(loadCliUpdate)

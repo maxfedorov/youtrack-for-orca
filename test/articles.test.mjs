@@ -155,3 +155,47 @@ test('article requests answer a Result whatever the YouTrack CLI returned', asyn
     }
   }
 })
+
+const AGENTS = { agents: [
+  { terminalId: 't1', title: 'Claude', agent: 'claude', state: 'waiting', stateStartedAt: 1 },
+  { terminalId: null, title: 'Lost', agent: 'codex', state: 'working', stateStartedAt: 1 },
+  { terminalId: 't2', title: null, agent: null, state: 'done', stateStartedAt: 1 },
+] }
+
+test('agents lists the agents of the focused workspace that have a terminal', async () => {
+  const { call } = setup({ host: { 'agents.list': AGENTS } })
+  assert.deepEqual((await call('yt.agents', {})).data, { agents: [
+    { terminalId: 't1', title: 'Claude', agent: 'claude' },
+    { terminalId: 't2', title: '', agent: '' },
+  ] })
+})
+
+test('agents fails when Orca cannot list them', async () => {
+  const { call } = setup({ host: {} })
+  const r = await call('yt.agents', {})
+  assert.equal(r.ok, false)
+})
+
+test('send types the line into the chosen agent without pressing Enter', async () => {
+  const sent = []
+  const { call } = setup({ host: { 'agents.list': AGENTS, 'terminal.sendText': (p) => (sent.push(p), { accepted: true }) } })
+  assert.deepEqual(await call('yt.article.send', { server: 'one', id: 'DEMO-A-4', terminalId: 't1' }), { ok: true, data: { accepted: true } })
+  assert.deepEqual(sent, [{ terminalId: 't1', text: "Also read this YouTrack article for context: `youtrack --server 'one' article view DEMO-A-4`", enter: false }])
+})
+
+test('send refuses a terminal that is no longer listed', async () => {
+  const sent = []
+  const { call } = setup({ host: { 'agents.list': AGENTS, 'terminal.sendText': (p) => (sent.push(p), { accepted: true }) } })
+  const r = await call('yt.article.send', { server: 'one', id: 'DEMO-A-4', terminalId: 't9' })
+  assert.equal(r.ok, false)
+  assert.equal(r.error.message, 'That agent is no longer open in this workspace.')
+  assert.deepEqual(sent, [])
+})
+
+test('send checks the article id and terminal before asking Orca anything', async () => {
+  const { call, orca } = setup({ host: { 'agents.list': AGENTS, 'terminal.sendText': { accepted: true } } })
+  for (const input of [{ id: 'DEMO-1', terminalId: 't1' }, { id: 'DEMO-A-1', terminalId: '-t1' }, { id: 'DEMO-A-1', terminalId: '' }, { id: 'DEMO-A-1' }]) {
+    assert.equal((await call('yt.article.send', { server: 'one', ...input })).ok, false, JSON.stringify(input))
+  }
+  assert.deepEqual(orca.hostCalls, [])
+})

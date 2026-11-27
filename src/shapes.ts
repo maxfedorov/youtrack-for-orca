@@ -24,6 +24,7 @@ const CHECKS: Record<string, Check> = {
   'yt.start.run': shape({ workspaceId: str, warning: optional(str) }),
   'yt.runInExisting': shape({ warning: optional(str) }),
   'yt.servers.remove': shape({ warning: optional(str) }),
+  'yt.article.send': shape({ accepted: bool }),
   'yt.cli.update': (v) => isObj(v) && (v.available === false || (v.available === true && str(v.current) && str(v.latest) && str(v.url)))
 }
 
@@ -269,6 +270,12 @@ const REPAIRS: Record<string, { core: Check; fix: (v: Obj) => unknown }> = {
   'yt.articles.search': { core: shape({ articles: Array.isArray }), fix: fixNodes },
   'yt.article.get': { core: shape({ id, url: str }), fix: fixArticle },
   'yt.articles.project': { core: isObj, fix: (v) => ({ project: id(v.project) ? v.project : null }) },
+  'yt.agents': {
+    core: shape({ agents: Array.isArray }),
+    fix: (v) => ({
+      agents: (v.agents as unknown[]).filter((a): a is Obj => isObj(a) && id(a.terminalId)).map((a) => ({ terminalId: a.terminalId, title: or(str, a.title, ''), agent: or(str, a.agent, '') }))
+    })
+  },
   'yt.issue.get': { core: shape({ id, url: str }), fix: fixDetail },
   'yt.issue.comments': {
     core: shape({ comments: Array.isArray }),

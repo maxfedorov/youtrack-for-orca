@@ -148,12 +148,13 @@ seen less use.
 | Permission           | Used for                                                                                 |
 | -------------------- | ---------------------------------------------------------------------------------------- |
 | `settings:own`       | Reading the plugin's settings below.                                                     |
-| `storage:own`        | The chosen server, the last query and the quick views of each server, prompt templates, which workspace was started for which issue, the project and when-done field and value remembered for each YouTrack project, and the last YouTrack CLI update check and a skipped release. |
+| `storage:own`        | The chosen server, the last query and the quick views of each server, prompt templates, which workspace was started for which issue, the project and when-done field and value remembered for each YouTrack project, the project whose articles were shown last on each server, and the last YouTrack CLI update check and a skipped release. |
 | `workspace:read`     | Listing workspaces for Start and Open, finding the focused one and the issue its branch names, and forgetting links to removed workspaces. |
 | `workspace:write`    | The Open button (switches to the issue's workspace) and opening the right sidebar.        |
-| `agent:read`         | Noticing when an agent started from an issue has finished.                               |
+| `agent:read`         | Noticing when an agent started from an issue has finished, and listing the agents of the focused workspace for Send to agent. |
 | `agent:launch`       | Starting an agent in the current workspace when the Orca CLI cannot.                     |
 | `notifications:show` | The "Agent finished" notification.                                                       |
+| `terminal:send`      | Send to agent: types one line into an agent's terminal in the focused workspace, asking it to read an article with `youtrack article view <ID>`. It holds only the server alias and the article id, and Enter is left to you. |
 
 The plugin runs a Node.js worker on your machine with your user account's access (`trusted-worker`),
 because it starts the `youtrack` and `orca` command-line tools.

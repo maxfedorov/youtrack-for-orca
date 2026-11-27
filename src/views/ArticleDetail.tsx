@@ -1,10 +1,10 @@
-import { Button, Callout, Heading, IconButton, Link, List, ListItem, Markdown, Row, Separator, Skeleton, Stack, Text, atom, read, set } from 'orca'
+import { Button, Callout, Heading, IconButton, Link, List, ListItem, Markdown, Row, Select, Separator, Skeleton, Stack, Text, atom, read, set } from 'orca'
 import { openArticle } from '../articleState'
 import { call, goBack, refreshTick, section, server, view } from '../state'
 import { openInBrowser, openLinked } from './IssueRowActions'
 import { CommentBox } from './CommentBox'
 import { when } from './IssueDetail'
-import type { ArticleDetail as Detail } from '../protocol'
+import type { Agent, ArticleDetail as Detail } from '../protocol'
 
 type Status = 'idle' | 'loading' | 'ok' | 'error'
 
@@ -24,6 +24,48 @@ const drawable = (article: Detail) =>
   article.contentMd.length <= MAX_MARKDOWN &&
   article.comments.every((comment) => comment.textMd.length <= MAX_MARKDOWN)
 
+/** Agents of the focused workspace for Send to agent, the chosen one, and what the last send did. */
+const agents = atom<Agent[]>([])
+const agentsError = atom('')
+const agentChoice = atom<string | null>(null)
+const sending = atom(false)
+const sendNote = atom('')
+const sendError = atom('')
+
+/** Reads the agents of the focused workspace again (the article opened, or the workspace changed). */
+export async function loadAgents(): Promise<void> {
+  const answer = await call('yt.agents', {})
+  if (answer.ok) {
+    set(agents, answer.data.agents)
+    set(agentsError, '')
+    if (!answer.data.agents.some((a) => a.terminalId === read(agentChoice))) set(agentChoice, answer.data.agents[0]?.terminalId ?? null)
+  } else {
+    set(agents, [])
+    set(agentChoice, null)
+    set(agentsError, answer.message)
+  }
+}
+
+const agentName = (a: Agent) => a.title || a.agent || 'the agent'
+
+async function sendToAgent(id: string): Promise<void> {
+  const alias = read(server)
+  const terminalId = read(agentChoice)
+  const agent = read(agents).find((a) => a.terminalId === terminalId)
+  if (!alias || !agent || read(sending)) return
+  set(sending, true)
+  set(sendNote, '')
+  set(sendError, '')
+  const answer = await call('yt.article.send', { server: alias, id, terminalId: agent.terminalId })
+  set(sending, false)
+  if (answer.ok && answer.data.accepted) set(sendNote, `Sent to ${agentName(agent)}. Press Enter there to send it.`)
+  else if (answer.ok) set(sendError, `${agentName(agent)} did not take the text.`)
+  else {
+    set(sendError, answer.message)
+    if (answer.code === 'NOT_FOUND') void loadAgents()
+  }
+}
+
 let seq = 0
 let seenTick = 0
 let queued: string | null = null
@@ -35,6 +77,9 @@ async function load(id: string): Promise<void> {
   seenTick = read(refreshTick)
   set(loadedFor, `${current}|${id}`)
   set(status, 'loading')
+  set(sendNote, '')
+  set(sendError, '')
+  void loadAgents()
   const answer = await call('yt.article.get', { server: current, id })
   if (mine !== seq) return
   if (answer.ok && !drawable(answer.data)) {
@@ -124,6 +169,46 @@ function Section({ title, children }: { title: string; children: unknown[] }) {
   )
 }
 
+/** Send to agent: asks an agent of this workspace to read the article with the YouTrack CLI. */
+function SendToAgent({ id }: { id: string }) {
+  const list = read(agents)
+  const none = list.length === 0
+  return (
+    <Stack gap="xs">
+      <Row gap="xs" align="end" wrap>
+        {list.length > 1 ? (
+          <Select
+            label="Agent"
+            value={read(agentChoice) ?? undefined}
+            options={list.map((a) => ({ value: a.terminalId, label: agentName(a) }))}
+            onChange={(value) => set(agentChoice, value)}
+          />
+        ) : null}
+        <Button variant="outline" size="sm" icon="agent" disabled={none || read(sending)} onPress={() => void sendToAgent(id)}>
+          Send to agent
+        </Button>
+      </Row>
+      {none ? (
+        <Text muted size="sm">
+          {read(agentsError) || 'No agent is open in this workspace.'}
+        </Text>
+      ) : read(sendError) ? (
+        <Text tone="danger" size="sm">
+          {read(sendError)}
+        </Text>
+      ) : read(sendNote) ? (
+        <Text muted size="sm">
+          {read(sendNote)}
+        </Text>
+      ) : list.length === 1 ? (
+        <Text muted size="sm">
+          {`Asks ${agentName(list[0])} to read this article with the YouTrack CLI.`}
+        </Text>
+      ) : null}
+    </Stack>
+  )
+}
+
 function Body({ article }: { article: Detail }) {
   const changed = [article.updatedBy ? `Updated by ${article.updatedBy.fullName || article.updatedBy.login}` : 'Updated', article.updated > 0 ? when(article.updated) : '']
   return (
@@ -164,6 +249,7 @@ function Body({ article }: { article: Detail }) {
           </Stack>
         </Callout>
       ) : null}
+      <SendToAgent id={article.id} />
       {article.contentMd ? <Markdown content={article.contentMd} /> : <Text muted>No content</Text>}
       <Section title="Sub-articles">
         {article.children.map((child) => (

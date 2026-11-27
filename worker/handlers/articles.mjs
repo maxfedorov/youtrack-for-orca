@@ -1,7 +1,8 @@
 /** Requests about knowledge base articles: the tree of a project, searches, one article, its comments. */
-import { ok } from '../result.mjs'
+import { ok, fail, CODES } from '../result.mjs'
+import { articleLine } from '../prompt.mjs'
 import { toArticleDetail, toArticleNodes } from '../mapping.mjs'
-import { ARTICLE_ID, MAX_NEW_COMMENT, MAX_QUERY, capDetail, hasId, invalid, safeHandle, unexpected } from './common.mjs'
+import { ARTICLE_ID, MAX_NEW_COMMENT, MAX_QUERY, capDetail, hasId, invalid, safeHandle, token, unexpected } from './common.mjs'
 import { PROJECT } from './youtrack.mjs'
 
 /** Articles read by one scan of a project at most; a larger project shows a note. */
@@ -9,6 +10,10 @@ const MAX_ARTICLE_SCAN = 5000
 /** Articles in one answer of the tree, and results of one search. */
 const MAX_ARTICLE_NODES = 500
 const MAX_ARTICLE_RESULTS = 200
+/** Agents listed for Send to agent, and the longest title or agent name shown. */
+const MAX_AGENTS = 20
+const MAX_AGENT_TEXT = 100
+const GONE = 'That agent is no longer open in this workspace.'
 
 const checkProject = (project) => (typeof project === 'string' && PROJECT.test(project) ? null : 'Invalid project')
 const checkArticle = (id) => (typeof id === 'string' && ARTICLE_ID.test(id) ? null : 'Invalid article id')
@@ -91,6 +96,34 @@ export function registerArticleHandlers(ctx) {
     if (!s.ok) return s
     const r = await ctx.youtrack.addArticleComment(s.data.alias, id, body)
     return r.ok ? ok({}) : r
+  })
+
+  const host = (method, params) => orca.host.call(method, params)
+  /** The agents of the focused workspace that Orca ties to a terminal. */
+  async function agents() {
+    const r = await host('agents.list', {})
+    const list = Array.isArray(r?.agents) ? r.agents : []
+    const clip = (v) => (typeof v === 'string' ? v.slice(0, MAX_AGENT_TEXT) : '')
+    return list
+      .filter((a) => a && typeof a.terminalId === 'string' && a.terminalId)
+      .slice(0, MAX_AGENTS)
+      .map((a) => ({ terminalId: a.terminalId, title: clip(a.title), agent: clip(a.agent) }))
+  }
+
+  handle('yt.agents', async () => ok({ agents: await agents() }))
+
+  // Types one line into an agent's terminal, without Enter: runs only when Send to agent is pressed.
+  handle('yt.article.send', async ({ server, id, terminalId }) => {
+    const bad = checkArticle(id) ?? token(terminalId, 'agent')
+    if (bad) return invalid(bad)
+    const s = await resolveServer(server)
+    if (!s.ok) return s
+    const text = articleLine({ server: s.data.alias, id })
+    if (!text) return invalid('This server cannot be named in a command.')
+    // The terminal must still belong to an agent of this workspace: the panel's list may be stale.
+    if (!(await agents()).some((a) => a.terminalId === terminalId)) return fail(CODES.NOT_FOUND, GONE)
+    const r = await host('terminal.sendText', { terminalId, text, enter: false })
+    return ok({ accepted: r?.accepted === true })
   })
 
   handle('yt.articles.project', async ({ server }) => {

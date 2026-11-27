@@ -1,7 +1,7 @@
 import { test, assert } from 'orca/testing'
 import { readFileSync } from 'node:fs'
 import {
-  PROMPT_LIMIT, slugify, issueVars, renderTemplate, workspaceName, buildPrompt,
+  PROMPT_LIMIT, slugify, issueVars, renderTemplate, workspaceName, buildPrompt, articleLine,
 } from '../worker/prompt.mjs'
 import { BUILT_IN } from '../worker/templates.mjs'
 
@@ -135,4 +135,14 @@ test('truncation does not split a surrogate pair', () => {
 
 test('workspaceName never returns empty', () => {
   assert.equal(workspaceName('{{summary}}', { summary: 'Ошибка' }), 'issue')
+})
+
+test('articleLine holds only the server alias and the article id', () => {
+  assert.equal(articleLine({ server: 'work', id: 'DEMO-A-12' }), "Also read this YouTrack article for context: `youtrack --server 'work' article view DEMO-A-12`")
+})
+
+test('articleLine is empty for an unsafe alias or an id that is not an article id', () => {
+  for (const [server, id] of [['work', 'DEMO-1'], ['work', '-A-1'], ['work', "DEMO-A-1'; rm -rf ~"], ["x' ; rm", 'DEMO-A-1'], ['', 'DEMO-A-1'], ['work', '']]) {
+    assert.equal(articleLine({ server, id }), '', `${server} ${id}`)
+  }
 })

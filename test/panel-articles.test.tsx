@@ -294,3 +294,37 @@ test('broken mentioned articles are left out of the issue card', async () => {
   assert.deepEqual(view.findAll({ type: 'ListItem' }).map((i: any) => String(i.key)).filter((k: string) => k.startsWith('article:')), ['article:DEMO-A-4'])
   await view.unmount()
 })
+
+const agents = (...list: [string, string][]) => ok({ agents: list.map(([terminalId, title]) => ({ terminalId, title, agent: 'claude' })) })
+
+test('one agent: Send to agent sends the article to it and says what to do next', async () => {
+  const h = withArticles({ 'yt.agents': agents(['t1', 'Claude']), 'yt.article.send': ok({ accepted: true }) })
+  const view = await openFromTree(h)
+  await view.press({ type: 'Button', text: 'Send to agent' })
+  assert.deepEqual(asked(h, 'yt.article.send'), [{ server: 'main', id: 'DEMO-A-4', terminalId: 't1' }])
+  assert.ok(view.find({ text: 'Sent to Claude. Press Enter there to send it.' }))
+  await view.unmount()
+})
+
+test('several agents: the chosen one gets the article', async () => {
+  const h = withArticles({ 'yt.agents': agents(['t1', 'Claude'], ['t2', 'Codex']), 'yt.article.send': ok({ accepted: true }) })
+  const view = await openFromTree(h)
+  await view.select({ type: 'Select', label: 'Agent' }, 't2')
+  await view.press({ type: 'Button', text: 'Send to agent' })
+  assert.deepEqual(asked(h, 'yt.article.send'), [{ server: 'main', id: 'DEMO-A-4', terminalId: 't2' }])
+  await view.unmount()
+})
+
+test('no agent: Send to agent is disabled and says why', async () => {
+  const view = await openFromTree(withArticles({ 'yt.agents': agents() }))
+  assert.equal(view.find({ type: 'Button', text: 'Send to agent' }).props.disabled, true)
+  assert.ok(view.find({ text: 'No agent is open in this workspace.' }))
+  await view.unmount()
+})
+
+test('a failed send says why', async () => {
+  const view = await openFromTree(withArticles({ 'yt.agents': agents(['t1', 'Claude']), 'yt.article.send': fail('That agent is no longer open in this workspace.') }))
+  await view.press({ type: 'Button', text: 'Send to agent' })
+  assert.ok(view.find({ text: 'That agent is no longer open in this workspace.' }))
+  await view.unmount()
+})
