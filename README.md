@@ -230,6 +230,9 @@ JavaScript modules.
     orca plugin check ./        # type-check and render the panel scenarios
     orca plugin validate ./     # manifest and file checks
 
+GitHub Actions runs the tests and the manifest checks on every pull request and on `main`
+(`.github/workflows/test.yml`), with the test runtime and validator of the Orca release named there.
+
 ## License
 
 [MIT](LICENSE)
