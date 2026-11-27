@@ -86,12 +86,16 @@ test('a search shows a flat list with each article’s parent', async () => {
   await view.unmount()
 })
 
-test('Favorites lists starred articles of the project', async () => {
+test('Favorites is a star that lights up while it lists the starred articles of the project', async () => {
   const h = host()
   const view = await toArticles(h)
-  await view.press({ type: 'Button', text: 'Favorites' })
+  const star = () => view.find({ type: 'IconButton', label: 'Favorite articles' })
+  assert.deepEqual([star().props.icon, star().props.variant], ['star', 'outline'])
+  assert.equal(view.find({ type: 'Button', text: 'Favorites' }), null)
+  await view.press({ type: 'IconButton', label: 'Favorite articles' })
+  assert.deepEqual([star().props.variant, star().props.tone], ['solid', 'accent'])
   assert.deepEqual(asked(h, 'yt.articles.search').at(-1), { server: 'main', project: 'DEMO', query: '', favorites: true })
-  await view.press({ type: 'Button', text: 'Favorites' })
+  await view.press({ type: 'IconButton', label: 'Favorite articles' })
   assert.ok(view.find({ type: 'Tree' }))
   await view.unmount()
 })
