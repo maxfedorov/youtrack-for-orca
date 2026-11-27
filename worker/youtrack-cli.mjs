@@ -21,6 +21,25 @@ const listFields = (columns) => {
 }
 const VIEW_FIELDS = 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText,canBeEmpty,field(fieldType(id))))'
 const CLI_ENV = Object.freeze({ YOUTRACK_NO_UPDATE: '1', NO_COLOR: '1' })
+/** Reading every article of a large project takes a few seconds per thousand. */
+const SCAN_MS = 60_000
+const ARTICLE_PAGE = '500'
+/** An article in a tree or a search, without its content. */
+export const ARTICLE_NODE_FIELDS = 'idReadable,summary,hasChildren,hasStar,ordinal,parentArticle(idReadable,summary)'
+/** Eight levels of parents above an article, for the path the card shows. */
+const PARENTS = Array.from({ length: 8 }).reduce((inner) => `parentArticle(idReadable,summary${inner ? `,${inner}` : ''})`, '')
+const ARTICLE_FIELDS = [
+  'idReadable,summary,content,created,updated,ordinal,hasStar',
+  'project(shortName,name)',
+  'reporter(login,fullName)',
+  'updatedBy(login,fullName)',
+  `childArticles(${ARTICLE_NODE_FIELDS})`,
+  'mentionedArticles(idReadable,summary)',
+  'mentionedIssues(idReadable,summary,resolved)',
+  'attachments(name)',
+  'comments(id,text,created,deleted,author(login,fullName))',
+  PARENTS
+].join(',')
 
 /**
  * Locate the youtrack binary: setting, PATH, then well-known install dirs.
@@ -174,6 +193,25 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
      * (in this user's favorites) is one of them.
      */
     savedSearches: (server) => read(server, ['raw', '/api/savedQueries', '--fields', 'id,name,query,pinned', '--paginate'], list),
+    /**
+     * Articles through `raw`: `article list` prints the whole content of every article and ignores
+     * `--fields`. The query goes into the path URL-encoded, so it cannot add parameters of its own.
+     */
+    scanArticles: (server, query) =>
+      exec(
+        ['--server', server, 'raw', `/api/articles?query=${encodeURIComponent(query)}`, '--fields', ARTICLE_NODE_FIELDS, '--paginate', '--page-size', ARTICLE_PAGE, ...tail],
+        SCAN_MS,
+        list
+      ),
+    childArticles: (server, id) =>
+      read(server, ['raw', `/api/articles/${id}/childArticles`, '--fields', ARTICLE_NODE_FIELDS, '--paginate', '--page-size', ARTICLE_PAGE], list),
+    viewArticle: (server, id) => read(server, ['raw', `/api/articles/${id}`, '--fields', ARTICLE_FIELDS]),
+    /**
+     * Adds a comment to an article. `article comment create` takes the text only as an argument (it has
+     * no `--text-file`), so it is one `--text=` argument, never read as a flag, with the id after `--`.
+     */
+    addArticleComment: (server, id, text) =>
+      exec(['--server', server, 'article', 'comment', 'create', `--text=${text}`, ...tail, '--', id], WRITE_MS, () => ({})),
     createSavedSearch: (server, name, query) =>
       exec(['--server', server, 'search', 'create', '--name', name, '--query', query, ...tail], WRITE_MS, json),
     /**

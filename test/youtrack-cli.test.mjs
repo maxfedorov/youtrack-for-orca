@@ -1,6 +1,6 @@
 import { test, assert } from 'orca/testing'
 import { readFileSync } from 'node:fs'
-import { resolveYoutrack, createYoutrack, classifyCliError } from '../worker/youtrack-cli.mjs'
+import { resolveYoutrack, createYoutrack, classifyCliError, ARTICLE_NODE_FIELDS } from '../worker/youtrack-cli.mjs'
 import { findOnPath, runProcess } from '../worker/exec.mjs'
 import { fakeRun } from './helpers.mjs'
 import { createOrcaCli } from '../worker/orca-cli.mjs'
@@ -424,5 +424,43 @@ test('removeTag puts the issue and the tag after --, as a write', async () => {
   const yt = createYoutrack({ bin: 'youtrack', run })
   assert.deepEqual(await yt.removeTag('work', 'DEMO-1', '-ui'), { ok: true, data: {} })
   assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'tag', 'remove', '--json', '--quiet', '--', 'DEMO-1', '-ui'])
+  assert.equal(run.calls[0].opts.timeoutMs, 30_000)
+})
+
+test('scanArticles builds an encoded raw query with light fields, every page, and a long time limit', async () => {
+  const run = fakeRun({ '--server work raw': { stdout: '[]' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.scanArticles('work', 'project: {DEMO} a&b#'), { ok: true, data: [] })
+  const { args, opts } = run.calls[0]
+  assert.deepEqual(args.slice(0, 4), ['--server', 'work', 'raw', '/api/articles?query=project%3A%20%7BDEMO%7D%20a%26b%23'])
+  assert.deepEqual(args.slice(4, 10), ['--fields', ARTICLE_NODE_FIELDS, '--paginate', '--page-size', '500', '--json'])
+  assert.equal(opts.timeoutMs, 60_000)
+})
+
+test('childArticles reads the children of one article, every page', async () => {
+  const run = fakeRun({ '--server work raw': { stdout: 'null' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.childArticles('work', 'DEMO-A-1'), { ok: true, data: [] })
+  assert.deepEqual(run.calls[0].args.slice(0, 9), ['--server', 'work', 'raw', '/api/articles/DEMO-A-1/childArticles', '--fields', ARTICLE_NODE_FIELDS, '--paginate', '--page-size', '500'])
+})
+
+test('viewArticle asks for the content, mentions, comments and eight levels of parents', async () => {
+  const run = fakeRun({ '--server work raw': { stdout: '{"idReadable":"DEMO-A-1"}' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.viewArticle('work', 'DEMO-A-1'), { ok: true, data: { idReadable: 'DEMO-A-1' } })
+  const args = run.calls[0].args
+  assert.deepEqual(args.slice(0, 5), ['--server', 'work', 'raw', '/api/articles/DEMO-A-1', '--fields'])
+  const fields = args[5]
+  for (const part of ['content', 'mentionedArticles(idReadable,summary)', 'mentionedIssues(idReadable,summary,resolved)', 'comments(id,text,created,deleted,author(login,fullName))', 'attachments(name)']) {
+    assert.ok(fields.includes(part), part)
+  }
+  assert.ok(fields.includes(`${'parentArticle(idReadable,summary,'.repeat(7)}parentArticle(idReadable,summary${')'.repeat(8)}`))
+})
+
+test('addArticleComment passes the text as one --text= argument, then -- and the id, as a write', async () => {
+  const run = fakeRun({ '--server work article comment create': { stdout: '{"id":"8-1"}' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.addArticleComment('work', 'DEMO-A-1', '-x\ny'), { ok: true, data: {} })
+  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'article', 'comment', 'create', '--text=-x\ny', '--json', '--quiet', '--', 'DEMO-A-1'])
   assert.equal(run.calls[0].opts.timeoutMs, 30_000)
 })

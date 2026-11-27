@@ -236,6 +236,81 @@ export function toLinks(rawLinks) {
     .filter((link) => link.issues.length > 0)
 }
 
+/** An article title stays one line; the lists of an article are capped. */
+const MAX_ARTICLE_SUMMARY = 300
+const MAX_MENTIONS = 100
+const MAX_ATTACHMENTS = 100
+const MAX_ATTACHMENT_NAME = 200
+/** Parents read above an article, as many as `viewArticle` asks for. */
+const MAX_PATH = 8
+
+const hasReadableId = (raw) => raw !== null && typeof raw === 'object' && typeof raw.idReadable === 'string' && raw.idReadable !== ''
+const summaryOf = (raw) => text(raw?.summary).slice(0, MAX_ARTICLE_SUMMARY).replace(/[\ud800-\udbff]$/, '')
+const titled = (raw) => ({ id: raw.idReadable, summary: summaryOf(raw) })
+
+/**
+ * One article of a tree or a search, without its content; null without a readable id.
+ * @param {any} raw
+ * @returns {{ id: string, summary: string, hasChildren: boolean, starred: boolean, ordinal: number, parent?: { id: string, summary: string } } | null}
+ */
+export function toArticleNode(raw) {
+  if (!hasReadableId(raw)) return null
+  /** @type {{ id: string, summary: string, hasChildren: boolean, starred: boolean, ordinal: number, parent?: { id: string, summary: string } }} */
+  const node = { id: raw.idReadable, summary: summaryOf(raw), hasChildren: raw.hasChildren === true, starred: raw.hasStar === true, ordinal: count(raw.ordinal) }
+  if (hasReadableId(raw.parentArticle)) node.parent = titled(raw.parentArticle)
+  return node
+}
+
+/** Articles in YouTrack's order (`ordinal`), the first of each id, without ones that have no id. */
+export function toArticleNodes(list) {
+  const seen = new Set()
+  const nodes = []
+  for (const raw of Array.isArray(list) ? list : []) {
+    const node = toArticleNode(raw)
+    if (!node || seen.has(node.id)) continue
+    seen.add(node.id)
+    nodes.push(node)
+  }
+  return nodes.sort((a, b) => a.ordinal - b.ordinal || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+}
+
+/**
+ * An article as the card shows it: its parents from the root down, content, sub-articles, what it
+ * mentions, attachment names and comments.
+ * @param {any} raw `raw /api/articles/<id>`
+ * @param {string} baseUrl
+ */
+export function toArticleDetail(raw, baseUrl) {
+  const path = []
+  for (let p = raw.parentArticle; hasReadableId(p) && path.length < MAX_PATH; p = p.parentArticle) path.unshift(titled(p))
+  const listOf = (v) => (Array.isArray(v) ? v : [])
+  const detail = {
+    id: raw.idReadable,
+    summary: summaryOf(raw),
+    url: baseUrl.replace(/\/+$/, '') + '/articles/' + raw.idReadable,
+    project: { shortName: text(raw.project?.shortName), name: text(raw.project?.name) },
+    contentMd: text(raw.content),
+    path,
+    children: toArticleNodes(raw.childArticles),
+    mentionedArticles: listOf(raw.mentionedArticles).filter(hasReadableId).slice(0, MAX_MENTIONS).map(titled),
+    mentionedIssues: listOf(raw.mentionedIssues)
+      .filter(hasReadableId)
+      .slice(0, MAX_MENTIONS)
+      .map((i) => ({ ...titled(i), resolved: i.resolved != null && i.resolved !== false })),
+    attachments: listOf(raw.attachments)
+      .map((a) => text(a?.name).slice(0, MAX_ATTACHMENT_NAME))
+      .filter(Boolean)
+      .slice(0, MAX_ATTACHMENTS),
+    comments: toComments(raw.comments),
+    updated: count(raw.updated)
+  }
+  const reporter = toUser(raw.reporter)
+  if (reporter) detail.reporter = reporter
+  const updatedBy = toUser(raw.updatedBy)
+  if (updatedBy) detail.updatedBy = updatedBy
+  return detail
+}
+
 /**
  * `favorite`: starred by the user in YouTrack (`pinned`; CLIs that do not report it leave it out).
  * @param {any} raw @returns {{ id: string, name: string, query: string, favorite?: true } | null} null when there is no query
