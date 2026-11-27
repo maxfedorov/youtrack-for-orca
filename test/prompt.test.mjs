@@ -1,7 +1,7 @@
 import { test, assert } from 'orca/testing'
 import { readFileSync } from 'node:fs'
 import {
-  PROMPT_LIMIT, slugify, issueVars, renderTemplate, workspaceName, buildPrompt,
+  PROMPT_LIMIT, slugify, issueVars, renderTemplate, workspaceName, buildPrompt, articleLine, articlesBlock,
 } from '../worker/prompt.mjs'
 import { BUILT_IN } from '../worker/templates.mjs'
 
@@ -135,4 +135,29 @@ test('truncation does not split a surrogate pair', () => {
 
 test('workspaceName never returns empty', () => {
   assert.equal(workspaceName('{{summary}}', { summary: 'Ошибка' }), 'issue')
+})
+
+test('articleLine holds only the server alias and the article id', () => {
+  assert.equal(articleLine({ server: 'work', id: 'DEMO-A-12' }), "Read this YouTrack article for context: `youtrack --server 'work' article view DEMO-A-12`")
+})
+
+test('articleLine is empty for an unsafe alias or an id that is not an article id', () => {
+  for (const [server, id] of [['work', 'DEMO-1'], ['work', '-A-1'], ['work', "DEMO-A-1'; rm -rf ~"], ["x' ; rm", 'DEMO-A-1'], ['', 'DEMO-A-1'], ['work', '']]) {
+    assert.equal(articleLine({ server, id }), '', `${server} ${id}`)
+  }
+})
+
+test('articlesBlock asks to read each article with one command per line, and nothing else', () => {
+  assert.equal(
+    articlesBlock({ server: 'work', ids: ['DEMO-A-1', 'DEMO-A-2', 'DEMO-A-1'] }),
+    "Also read these YouTrack articles for context:\n  youtrack --server 'work' article view DEMO-A-1\n  youtrack --server 'work' article view DEMO-A-2"
+  )
+})
+
+test('articlesBlock leaves out ids that are not article ids, keeps at most 20, and is empty without any', () => {
+  assert.equal(articlesBlock({ server: 'work', ids: ['DEMO-1', "x'; rm", '-A-1'] }), '')
+  assert.equal(articlesBlock({ server: "a'b", ids: ['DEMO-A-1'] }), '')
+  assert.equal(articlesBlock({ server: 'work', ids: [] }), '')
+  const many = Array.from({ length: 30 }, (_, i) => `DEMO-A-${i + 1}`)
+  assert.equal(articlesBlock({ server: 'work', ids: many }).split('\n').length, 21)
 })

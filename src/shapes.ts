@@ -24,6 +24,7 @@ const CHECKS: Record<string, Check> = {
   'yt.start.run': shape({ workspaceId: str, warning: optional(str) }),
   'yt.runInExisting': shape({ warning: optional(str) }),
   'yt.servers.remove': shape({ warning: optional(str) }),
+  'yt.article.send': shape({ accepted: bool }),
   'yt.cli.update': (v) => isObj(v) && (v.available === false || (v.available === true && str(v.current) && str(v.latest) && str(v.url)))
 }
 
@@ -70,6 +71,10 @@ const fixMeta = (f: Obj): Obj => {
   return meta
 }
 
+const titled = (v: unknown): v is Obj => isObj(v) && id(v.id) && str(v.summary)
+/** A readable article id, as the worker checks it. */
+const ARTICLE = /^[A-Za-z0-9_]+-A-\d+$/
+
 function fixDetail(v: Obj): Obj {
   const out: Obj = { ...fixRow(v) }
   out.fields = (Array.isArray(v.fields) ? v.fields : [])
@@ -89,6 +94,9 @@ function fixDetail(v: Obj): Obj {
       .filter((l) => l.issues.length > 0)
   } else delete out.links
   if (!str(v.linksError)) delete out.linksError
+  const articles = keep(v.articles, (x) => titled(x) && ARTICLE.test((x as Obj).id as string)).map((x) => ({ id: (x as Obj).id, summary: (x as Obj).summary }))
+  if (articles.length > 0) out.articles = articles
+  else delete out.articles
   out.descriptionMd = or(str, v.descriptionMd, '')
   out.comments = Array.isArray(v.comments) ? fixComments(v.comments) : []
   if (!Array.isArray(v.comments)) out.commentsError = str(v.commentsError) ? v.commentsError : COMMENTS_FAILED
@@ -159,8 +167,46 @@ function fixPrepare(v: Obj): Obj {
     field: fields.some((x) => x.name === f.field) ? f.field : (fields[0]?.name ?? null),
     fields
   }
+  out.articles = keep(v.articles, (x) => str(x) && ARTICLE.test(x as string)).slice(0, 20)
+  out.includeArticles = v.includeArticles === true
   for (const key of ['reposError', 'workspacesError', 'agentsError']) if (!str(v[key])) delete out[key]
   if (!detected && !str(v.agentsError)) out.agentsError = 'Installed agents could not be detected.'
+  return out
+}
+
+/** Articles of an unexpected shape are left out; a broken parent is dropped. */
+const fixNodes = (v: Obj): Obj => {
+  const out: Obj = {
+    articles: keep(v.articles, titled).map((a) => {
+      const n = a as Obj
+      const node: Obj = { id: n.id, summary: n.summary, hasChildren: n.hasChildren === true, starred: n.starred === true }
+      if (titled(n.parent)) node.parent = { id: n.parent.id, summary: n.parent.summary }
+      return node
+    })
+  }
+  if (v.cut === true) out.cut = true
+  return out
+}
+
+function fixArticle(v: Obj): Obj {
+  const pairs = (x: unknown) => keep(x, titled).map((p) => ({ id: (p as Obj).id, summary: (p as Obj).summary }))
+  const out: Obj = {
+    ...v,
+    summary: or(str, v.summary, NOT_AVAILABLE),
+    project: isObj(v.project) && str(v.project.shortName) && str(v.project.name) ? v.project : { shortName: '', name: '' },
+    contentMd: or(str, v.contentMd, ''),
+    path: pairs(v.path),
+    children: (fixNodes({ articles: v.children }).articles as unknown[]),
+    mentionedArticles: pairs(v.mentionedArticles),
+    mentionedIssues: keep(v.mentionedIssues, titled).map((i) => ({ id: (i as Obj).id, summary: (i as Obj).summary, resolved: (i as Obj).resolved === true })),
+    attachments: keep(v.attachments, id),
+    comments: Array.isArray(v.comments) ? fixComments(v.comments) : [],
+    created: or(num, v.created, 0),
+    updated: or(num, v.updated, 0)
+  }
+  for (const key of ['reporter', 'updatedBy']) if (!user(v[key])) delete out[key]
+  if (!num(v.commentsOmitted)) delete out.commentsOmitted
+  if (v.truncated !== true) delete out.truncated
   return out
 }
 
@@ -222,6 +268,17 @@ const REPAIRS: Record<string, { core: Check; fix: (v: Obj) => unknown }> = {
     })
   },
   'yt.issues.search': { core: shape({ issues: Array.isArray, hasMore: bool }), fix: fixIssues },
+  'yt.articles.roots': { core: shape({ articles: Array.isArray }), fix: fixNodes },
+  'yt.articles.children': { core: shape({ articles: Array.isArray }), fix: fixNodes },
+  'yt.articles.search': { core: shape({ articles: Array.isArray }), fix: fixNodes },
+  'yt.article.get': { core: shape({ id, url: str }), fix: fixArticle },
+  'yt.articles.project': { core: isObj, fix: (v) => ({ project: id(v.project) ? v.project : null }) },
+  'yt.agents': {
+    core: shape({ agents: Array.isArray }),
+    fix: (v) => ({
+      agents: (v.agents as unknown[]).filter((a): a is Obj => isObj(a) && id(a.terminalId)).map((a) => ({ terminalId: a.terminalId, title: or(str, a.title, ''), agent: or(str, a.agent, '') }))
+    })
+  },
   'yt.issue.get': { core: shape({ id, url: str }), fix: fixDetail },
   'yt.issue.comments': {
     core: shape({ comments: Array.isArray }),

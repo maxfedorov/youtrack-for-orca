@@ -1,6 +1,6 @@
 import { test, assert } from 'orca/testing'
 import { readFileSync } from 'node:fs'
-import { toIssueRow, toIssueDetail, toSavedQuery, toServer, toServers, toSavedQueries, toListedFields } from '../worker/mapping.mjs'
+import { toIssueRow, toIssueDetail, toSavedQuery, toServer, toServers, toSavedQueries, toListedFields, toArticleNodes, toArticleDetail } from '../worker/mapping.mjs'
 
 const load = (name) =>
   JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8'))
@@ -314,4 +314,62 @@ test('fields of issue field list: value as shown, kind, several values and requi
   ])
   assert.deepEqual(toIssueDetail({ idReadable: 'DEMO-3', customFields: [{ name: 'bla', value: null, projectCustomField: { emptyFieldText: 'No bla', field: { fieldType: { id: 'string[1]' } } } }] }, [], BASE).fields,
     [{ name: 'bla', value: 'No bla', kind: 'string', multi: false, required: false, empty: true }])
+})
+
+test('toArticleNodes drops entries without an id, keeps the first of each id and sorts by ordinal', () => {
+  const nodes = toArticleNodes([
+    { idReadable: 'DEMO-A-2', summary: 'Second', ordinal: 2, hasChildren: true, hasStar: true },
+    { summary: 'No id' },
+    null,
+    { idReadable: 'DEMO-A-1', summary: null, ordinal: 1, parentArticle: { idReadable: 'DEMO-A-9', summary: 'Parent' } },
+    { idReadable: 'DEMO-A-2', summary: 'Again', ordinal: 0 },
+  ])
+  assert.deepEqual(nodes, [
+    { id: 'DEMO-A-1', summary: '', hasChildren: false, starred: false, ordinal: 1, parent: { id: 'DEMO-A-9', summary: 'Parent' } },
+    { id: 'DEMO-A-2', summary: 'Second', hasChildren: true, starred: true, ordinal: 2 },
+  ])
+  assert.deepEqual(toArticleNodes(null), [])
+})
+
+test('toArticleDetail builds the path from the root, the article url and its lists', () => {
+  const a = toArticleDetail({
+    idReadable: 'DEMO-A-3', summary: 'API', content: 'Body', created: 3, updated: 7, project: { shortName: 'DEMO', name: 'Demo' },
+    reporter: { login: 'bob', fullName: 'Bob Roe' },
+    updatedBy: { login: 'jane', fullName: 'Jane Doe' },
+    parentArticle: { idReadable: 'DEMO-A-2', summary: 'Design', parentArticle: { idReadable: 'DEMO-A-1', summary: 'Root', parentArticle: null } },
+    childArticles: [{ idReadable: 'DEMO-A-4', summary: 'Child', ordinal: 0 }],
+    mentionedArticles: [{ idReadable: 'DEMO-A-5', summary: 'Other' }, { summary: 'no id' }],
+    mentionedIssues: [{ idReadable: 'DEMO-1', summary: 'Fix', resolved: 123 }, { idReadable: 'DEMO-2', summary: 'Open', resolved: null }],
+    attachments: [{ name: 'a.png' }, { name: '' }, {}],
+    comments: [{ id: '8-1', text: 'Hi', created: 2, author: { login: 'jane', fullName: 'Jane Doe' } }, { id: '8-2', text: 'gone', deleted: true }],
+  }, 'https://example.com/')
+  assert.equal(a.url, 'https://example.com/articles/DEMO-A-3')
+  assert.deepEqual(a.path, [{ id: 'DEMO-A-1', summary: 'Root' }, { id: 'DEMO-A-2', summary: 'Design' }])
+  assert.equal(a.contentMd, 'Body')
+  assert.deepEqual(a.project, { shortName: 'DEMO', name: 'Demo' })
+  assert.deepEqual(a.children.map((c) => c.id), ['DEMO-A-4'])
+  assert.deepEqual(a.mentionedArticles, [{ id: 'DEMO-A-5', summary: 'Other' }])
+  assert.deepEqual(a.mentionedIssues, [{ id: 'DEMO-1', summary: 'Fix', resolved: true }, { id: 'DEMO-2', summary: 'Open', resolved: false }])
+  assert.deepEqual(a.attachments, ['a.png'])
+  assert.deepEqual(a.comments.map((c) => c.id), ['8-1'])
+  assert.deepEqual(a.updatedBy, { login: 'jane', fullName: 'Jane Doe' })
+  assert.equal(a.updated, 7)
+  assert.equal(a.created, 3)
+  assert.deepEqual(a.reporter, { login: 'bob', fullName: 'Bob Roe' })
+})
+
+test('toArticleDetail treats null content, lists and parents as empty', () => {
+  const a = toArticleDetail({ idReadable: 'DEMO-A-1', summary: 'S', content: null, childArticles: null, comments: null, mentionedArticles: null, mentionedIssues: null, attachments: null, parentArticle: null }, 'https://example.com')
+  assert.equal(a.contentMd, '')
+  assert.deepEqual([a.path, a.children, a.comments, a.mentionedArticles, a.mentionedIssues, a.attachments], [[], [], [], [], [], []])
+  assert.deepEqual(a.project, { shortName: '', name: '' })
+})
+
+test('toIssueDetail lists the articles the issue mentions, at most 100, without broken ones', () => {
+  const mentioned = [{ idReadable: 'DEMO-A-1', summary: 'Guide' }, { summary: 'no id' }, { idReadable: 'DEMO-A-2', summary: null }]
+  const d = toIssueDetail({ ...view, mentionedArticles: mentioned }, [], BASE)
+  assert.deepEqual(d.articles, [{ id: 'DEMO-A-1', summary: 'Guide' }, { id: 'DEMO-A-2', summary: '' }])
+  const many = Array.from({ length: 150 }, (_, i) => ({ idReadable: `DEMO-A-${i + 1}`, summary: 'x' }))
+  assert.equal(toIssueDetail({ ...view, mentionedArticles: many }, [], BASE).articles.length, 100)
+  assert.deepEqual(toIssueDetail({ ...view, mentionedArticles: null }, [], BASE).articles, [])
 })

@@ -1,6 +1,6 @@
 import { test, assert } from 'orca/testing'
 import { readFileSync } from 'node:fs'
-import { resolveYoutrack, createYoutrack, classifyCliError } from '../worker/youtrack-cli.mjs'
+import { resolveYoutrack, createYoutrack, classifyCliError, ARTICLE_NODE_FIELDS } from '../worker/youtrack-cli.mjs'
 import { findOnPath, runProcess } from '../worker/exec.mjs'
 import { fakeRun } from './helpers.mjs'
 import { createOrcaCli } from '../worker/orca-cli.mjs'
@@ -81,7 +81,7 @@ test('other methods build argv', async () => {
   await yt.version()
   await yt.instances()
   assert.deepEqual(run.calls.map((c) => c.args), [
-    ['--server', 'work', 'issue', 'view', 'DEMO-1', '-f', 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText,canBeEmpty,field(fieldType(id))))', '--json', '--quiet'],
+    ['--server', 'work', 'issue', 'view', 'DEMO-1', '-f', 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText,canBeEmpty,field(fieldType(id)))),mentionedArticles(idReadable,summary)', '--json', '--quiet'],
     ['--server', 'work', 'issue', 'comment', 'list', 'DEMO-1', '--json', '--quiet'],
     ['--server', 'work', 'raw', '/api/savedQueries', '--fields', 'id,name,query,pinned', '--paginate', '--json', '--quiet'],
     ['--server', 'work', 'issue', 'field', 'list', '--json', '--quiet', '--', '-3-9'],
@@ -424,5 +424,63 @@ test('removeTag puts the issue and the tag after --, as a write', async () => {
   const yt = createYoutrack({ bin: 'youtrack', run })
   assert.deepEqual(await yt.removeTag('work', 'DEMO-1', '-ui'), { ok: true, data: {} })
   assert.deepEqual(run.calls[0].args, ['--server', 'work', 'issue', 'tag', 'remove', '--json', '--quiet', '--', 'DEMO-1', '-ui'])
+  assert.equal(run.calls[0].opts.timeoutMs, 30_000)
+})
+
+test('scanArticles reads pages of 500 with $skip and $top, and never more than one past the cap', async () => {
+  const calls = []
+  const run = async (args, opts) => {
+    calls.push({ args, opts })
+    const top = Number(/\$top=(\d+)/.exec(args[3])[1])
+    return { exitCode: 0, stdout: JSON.stringify(Array.from({ length: top }, (_, i) => ({ idReadable: `DEMO-A-${i}` }))), stderr: '' }
+  }
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  const r = await yt.scanArticles('work', 'project: {DEMO} a&b#', 1000)
+  assert.equal(r.data.length, 1001)
+  assert.deepEqual(calls.map((c) => c.args[3]), [
+    '/api/articles?query=project%3A%20%7BDEMO%7D%20a%26b%23&$skip=0&$top=500',
+    '/api/articles?query=project%3A%20%7BDEMO%7D%20a%26b%23&$skip=500&$top=500',
+    '/api/articles?query=project%3A%20%7BDEMO%7D%20a%26b%23&$skip=1000&$top=1',
+  ])
+  assert.deepEqual(calls[0].args.slice(0, 3), ['--server', 'work', 'raw'])
+  assert.deepEqual(calls[0].args.slice(4, 6), ['--fields', ARTICLE_NODE_FIELDS])
+  assert.equal(calls[0].args.includes('--paginate'), false)
+})
+
+test('scanArticles stops at the first short page and passes a failure on', async () => {
+  const pages = [Array.from({ length: 500 }, (_, i) => ({ idReadable: `DEMO-A-${i}` })), [{ idReadable: 'DEMO-A-9999' }]]
+  let n = 0
+  const yt = createYoutrack({ bin: 'youtrack', run: async () => ({ exitCode: 0, stdout: JSON.stringify(pages[n++]), stderr: '' }) })
+  assert.equal((await yt.scanArticles('work', 'q', 5000)).data.length, 501)
+  assert.equal(n, 2)
+  const failing = createYoutrack({ bin: 'youtrack', run: fakeRun({ '--server work raw': { exitCode: 1, stderr: errText('query-invalid-400') } }) })
+  assert.equal((await failing.scanArticles('work', '{', 5000)).ok, false)
+})
+
+test('childArticles reads the children of one article, every page', async () => {
+  const run = fakeRun({ '--server work raw': { stdout: 'null' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.childArticles('work', 'DEMO-A-1'), { ok: true, data: [] })
+  assert.deepEqual(run.calls[0].args.slice(0, 9), ['--server', 'work', 'raw', '/api/articles/DEMO-A-1/childArticles', '--fields', ARTICLE_NODE_FIELDS, '--paginate', '--page-size', '500'])
+})
+
+test('viewArticle asks for the content, mentions, comments and eight levels of parents', async () => {
+  const run = fakeRun({ '--server work raw': { stdout: '{"idReadable":"DEMO-A-1"}' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.viewArticle('work', 'DEMO-A-1'), { ok: true, data: { idReadable: 'DEMO-A-1' } })
+  const args = run.calls[0].args
+  assert.deepEqual(args.slice(0, 5), ['--server', 'work', 'raw', '/api/articles/DEMO-A-1', '--fields'])
+  const fields = args[5]
+  for (const part of ['content', 'mentionedArticles(idReadable,summary)', 'mentionedIssues(idReadable,summary,resolved)', 'comments(id,text,created,deleted,author(login,fullName))', 'attachments(name)']) {
+    assert.ok(fields.includes(part), part)
+  }
+  assert.ok(fields.includes(`${'parentArticle(idReadable,summary,'.repeat(7)}parentArticle(idReadable,summary${')'.repeat(8)}`))
+})
+
+test('addArticleComment passes the text as one --text= argument, then -- and the id, as a write', async () => {
+  const run = fakeRun({ '--server work article comment create': { stdout: '{"id":"8-1"}' } })
+  const yt = createYoutrack({ bin: 'youtrack', run })
+  assert.deepEqual(await yt.addArticleComment('work', 'DEMO-A-1', '-x\ny'), { ok: true, data: {} })
+  assert.deepEqual(run.calls[0].args, ['--server', 'work', 'article', 'comment', 'create', '--text=-x\ny', '--json', '--quiet', '--', 'DEMO-A-1'])
   assert.equal(run.calls[0].opts.timeoutMs, 30_000)
 })

@@ -2,6 +2,8 @@
 import { fail, CODES } from '../result.mjs'
 
 export const ISSUE_ID = /^[A-Za-z0-9_]+-\d+$/
+/** A readable article id, such as DEMO-A-12. */
+export const ARTICLE_ID = /^[A-Za-z0-9_]+-A-\d+$/
 export const MAX_QUERY = 2000
 export const MAX_NAME = 60
 export const MAX_COMMAND = 500

@@ -5,11 +5,15 @@ of them: in a new worktree or in the workspace you are in, with a prompt built f
 
 This is an unofficial plugin.
 
-![The issue list: the issue of this workspace, quick views, the query, starred saved searches, sortable columns and the actions of the selected issue](images/issues.png)
+![The issue list: the Issues and Articles tabs, quick views, New issue, the query, saved searches, sortable columns and the actions of the selected issue](images/issues.png)
 
 | Issue details | Start work on an issue | New issue |
 | --- | --- | --- |
 | ![The detail of an issue: creator, its blockers, Apply command, the fields grid with drop-downs, description, linked issues and comments](images/issue-detail.png) | ![The Start view: where to run, project, name, workspace, agent, the prompt switches, template, what the agent does when done and the editable prompt](images/start.png) | ![The New issue form: project, summary, description, the required fields of the project with their defaults, and More fields](images/create.png) |
+
+| Articles |
+| --- |
+| ![The Articles tab: the project, the article search with the favorites star, and the tree of articles with their sub-articles and ids](images/articles.png) |
 
 ## Install
 
@@ -98,6 +102,19 @@ seen less use.
   machine has no list of values to pick from, so its drop-down asks for a command too. Without
   permission to change the issue, the panel says so.
 - **Edit** the summary and the description of an issue (the pencil next to its id).
+- **Articles**: the **Articles** tab next to **Issues** shows the knowledge base of a project as a tree,
+  each article with its id under the title. Choose the project; an article with sub-articles opens with
+  its arrow, and its sub-articles are read when it first opens. Type in the search field and press
+  Enter to find articles of the project, or press the star next to it for the ones you starred in
+  YouTrack (it lights up while it is on); the two combine, and found articles show their parent after
+  the id. Pressing an article opens it: the path of its parent articles, who created it and changed it
+  last, its content, sub-articles, the articles and issues it mentions, attachment names and comments,
+  where you can add one. Mentioned articles and issues open inside the panel, and Back walks back the
+  way you came. An issue that mentions articles lists them under **Articles**.
+- **Send to agent**: in an article, asks an agent open in the focused workspace to read it. The button
+  types one line into the agent's terminal — `Read this YouTrack article for context:` and the
+  `youtrack article view <ID>` command — without pressing Enter, so you can check it and send it
+  yourself. With several agents, choose which one first.
 - **New issue**: choose the project, write the summary and description, and set its fields; the
   required ones come first, with the defaults YouTrack fills in. The form works on a YouTrack draft, like
   YouTrack's own New issue: Create submits it, Back deletes it. A project where you cannot create
@@ -106,13 +123,16 @@ seen less use.
   detail. It runs only when you press Apply or Enter.
 - **Add comment**: write a comment in the issue detail and press Send (or Cmd+Enter, Ctrl+Enter off macOS);
   it gets the server's default visibility. Applying a command, adding a comment, changing a field,
-  removing a tag, editing or creating an issue and saving a search are the plugin's only YouTrack
-  writes, and each runs only when you press its button or choose a value.
+  removing a tag, editing or creating an issue, commenting on an article and saving a search are the
+  plugin's only YouTrack writes, and each runs only when you press its button or choose a value.
 - **Start**: choose **Run in** (New worktree or Current workspace); for a new worktree the project,
   the name of the new workspace and branch, and the branch to create it from ("Create from"), otherwise
   the workspace; and the agent. Then either **Start without a prompt** (the agent waits for you in its
   terminal), or build the prompt: include the issue description or not, pick a template, and edit or
   clear the prompt (up to 4096 characters) before it is sent.
+- **Articles as context**: when the issue mentions knowledge base articles, "Include mentioned articles"
+  in Start adds a short paragraph to the end of the prompt asking the agent to read each of them with
+  `youtrack --server <server> article view <ID>`. It holds only the article ids, never their text.
 - **When the agent finishes**: in Start, "Comment on the issue when done" and "Then set State to"
   add steps at the end of the prompt, so the agent adds a comment that sums up its work and sets the
   field to the value you chose, with the YouTrack CLI. The field is the issue's own (State, Stage,
@@ -148,12 +168,13 @@ seen less use.
 | Permission           | Used for                                                                                 |
 | -------------------- | ---------------------------------------------------------------------------------------- |
 | `settings:own`       | Reading the plugin's settings below.                                                     |
-| `storage:own`        | The chosen server, the last query and the quick views of each server, prompt templates, which workspace was started for which issue, the project and when-done field and value remembered for each YouTrack project, and the last YouTrack CLI update check and a skipped release. |
+| `storage:own`        | The chosen server, the last query and the quick views of each server, prompt templates, which workspace was started for which issue, the project and when-done field and value remembered for each YouTrack project, the project whose articles were shown last on each server, and the last YouTrack CLI update check and a skipped release. |
 | `workspace:read`     | Listing workspaces for Start and Open, finding the focused one and the issue its branch names, and forgetting links to removed workspaces. |
 | `workspace:write`    | The Open button (switches to the issue's workspace) and opening the right sidebar.        |
-| `agent:read`         | Noticing when an agent started from an issue has finished.                               |
+| `agent:read`         | Noticing when an agent started from an issue has finished, and listing the agents of the focused workspace for Send to agent. |
 | `agent:launch`       | Starting an agent in the current workspace when the Orca CLI cannot.                     |
 | `notifications:show` | The "Agent finished" notification.                                                       |
+| `terminal:send`      | Send to agent: types one line into an agent's terminal in the focused workspace, asking it to read an article with `youtrack article view <ID>`. It holds only the server alias and the article id, and Enter is left to you. |
 
 The plugin runs a Node.js worker on your machine with your user account's access (`trusted-worker`),
 because it starts the `youtrack` and `orca` command-line tools.
@@ -162,12 +183,15 @@ because it starts the `youtrack` and `orca` command-line tools.
 
 Only two programs, always with an argument list and never through a shell:
 
-- `youtrack`, to read issues, comments, projects and saved searches, save a search, apply a command,
-  add a comment, change a field, remove a tag, edit and create issues, install the agent skill, check
+- `youtrack`, to read issues, comments, projects, saved searches and knowledge base articles, save a
+  search, apply a command, add a comment to an issue or an article, change a field, remove a tag, edit and create issues, install the agent skill, check
   for and install a newer YouTrack CLI, add a server through the browser and remove a server. Fields
   come from `youtrack issue field list` and their values from `youtrack issue field list-values`, so
   each user sees what YouTrack lets them pick; no admin rights are needed;
 - `orca`, to list projects and branches, create worktrees and launch agents.
+
+Articles are read with `youtrack raw` on `/api/articles` (`youtrack article list` prints the whole
+text of every article), a page of 500 at a time.
 
 The plugin makes no network requests of its own, stores no tokens and collects no data about you;
 everything that talks to YouTrack goes through the CLI. So does the update check: the CLI asks
@@ -182,6 +206,10 @@ GitHub for its latest release.
 - Issue text and comments are untrusted input. The built-in templates tell the agent to treat them as
   data, not instructions. The description goes into the prompt only when the switch is on or the
   template contains `{{description}}`, and always inside a block marked untrusted.
+- Send to agent and "Include mentioned articles" pass on only the server alias and article ids, in a
+  `youtrack article view` command; an article's title and text never reach the agent's terminal or the
+  prompt. Send to agent types into a terminal only after checking that an agent of the focused
+  workspace runs there, and never presses Enter.
 - The "when the agent finishes" steps are written by the plugin from the issue id, the server alias
   and names from the project's own value lists, each in single quotes; only names made of letters,
   digits, spaces and `_ . -` are offered.
@@ -197,6 +225,7 @@ GitHub for its latest release.
 | Default launch mode     | New worktree                           | "Run in" choice preselected in the Start view: `New worktree` or `Current workspace`. |
 | Start agents without a prompt | off                              | Initial state of the "Start without a prompt" switch in the Start view. |
 | Include issue description | off                                  | Initial state of the switch in the Start view.                          |
+| Include mentioned articles | on                                  | Initial state of the "Include mentioned articles" switch in the Start view: the prompt asks the agent to read the articles the issue mentions. |
 | Agent comments when done | off                                   | Initial state of "Comment on the issue when done" in the Start view.    |
 | State when done         | empty                                  | Values that "Then set State to" offers first, separated by commas, such as `In Review, Review`: the first one the field has is chosen. A choice made in Start for a YouTrack project wins there. |
 | YouTrack CLI path       | empty (auto-detect)                    | Full path to the `youtrack` executable if it is not found.              |

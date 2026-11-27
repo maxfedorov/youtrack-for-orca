@@ -19,8 +19,27 @@ const listFields = (columns) => {
   for (const c of columns) if (!seen.has(c.toLowerCase())) seen.add(c.toLowerCase()) && names.push(c)
   return names.join(',')
 }
-const VIEW_FIELDS = 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText,canBeEmpty,field(fieldType(id))))'
+const VIEW_FIELDS = 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText,canBeEmpty,field(fieldType(id)))),mentionedArticles(idReadable,summary)'
 const CLI_ENV = Object.freeze({ YOUTRACK_NO_UPDATE: '1', NO_COLOR: '1' })
+/** One page of a scan of articles; the scan reads page after page up to its cap. */
+const ARTICLE_PAGE = 500
+const ARTICLE_PAGE_MS = 30_000
+/** An article in a tree or a search, without its content. */
+export const ARTICLE_NODE_FIELDS = 'idReadable,summary,hasChildren,hasStar,ordinal,parentArticle(idReadable,summary)'
+/** Eight levels of parents above an article, for the path the card shows. */
+const PARENTS = Array.from({ length: 8 }).reduce((inner) => `parentArticle(idReadable,summary${inner ? `,${inner}` : ''})`, '')
+const ARTICLE_FIELDS = [
+  'idReadable,summary,content,created,updated,ordinal,hasStar',
+  'project(shortName,name)',
+  'reporter(login,fullName)',
+  'updatedBy(login,fullName)',
+  `childArticles(${ARTICLE_NODE_FIELDS})`,
+  'mentionedArticles(idReadable,summary)',
+  'mentionedIssues(idReadable,summary,resolved)',
+  'attachments(name)',
+  'comments(id,text,created,deleted,author(login,fullName))',
+  PARENTS
+].join(',')
 
 /**
  * Locate the youtrack binary: setting, PATH, then well-known install dirs.
@@ -174,6 +193,34 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
      * (in this user's favorites) is one of them.
      */
     savedSearches: (server) => read(server, ['raw', '/api/savedQueries', '--fields', 'id,name,query,pinned', '--paginate'], list),
+    /**
+     * Articles through `raw`: `article list` prints the whole content of every article and ignores
+     * `--fields`. The query goes into the path URL-encoded, so it cannot add parameters of its own.
+     * At most `max + 1` articles are read, page by page, so a huge project cannot outrun the time limit.
+     */
+    scanArticles: async (server, query, max) => {
+      const items = []
+      // Pages of 500, and one article past `max` at most, so the caller can tell the project has more.
+      while (items.length <= max) {
+        const top = Math.min(ARTICLE_PAGE, max + 1 - items.length)
+        const path = `/api/articles?query=${encodeURIComponent(query)}&$skip=${items.length}&$top=${top}`
+        const r = await exec(['--server', server, 'raw', path, '--fields', ARTICLE_NODE_FIELDS, ...tail], ARTICLE_PAGE_MS, list)
+        if (!r.ok) return r
+        if (!Array.isArray(r.data)) return ok(r.data)
+        items.push(...r.data)
+        if (r.data.length < top) break
+      }
+      return ok(items)
+    },
+    childArticles: (server, id) =>
+      read(server, ['raw', `/api/articles/${id}/childArticles`, '--fields', ARTICLE_NODE_FIELDS, '--paginate', '--page-size', String(ARTICLE_PAGE)], list),
+    viewArticle: (server, id) => read(server, ['raw', `/api/articles/${id}`, '--fields', ARTICLE_FIELDS]),
+    /**
+     * Adds a comment to an article. `article comment create` takes the text only as an argument (it has
+     * no `--text-file`), so it is one `--text=` argument, never read as a flag, with the id after `--`.
+     */
+    addArticleComment: (server, id, text) =>
+      exec(['--server', server, 'article', 'comment', 'create', `--text=${text}`, ...tail, '--', id], WRITE_MS, () => ({})),
     createSavedSearch: (server, name, query) =>
       exec(['--server', server, 'search', 'create', '--name', name, '--query', query, ...tail], WRITE_MS, json),
     /**

@@ -150,3 +150,30 @@ export function finishBlock({ server, id, comment, stateField, state }) {
   }
   return steps.length ? `When you are done:\n${steps.join('\n')}` : ''
 }
+
+const ARTICLE_ID = /^[A-Za-z0-9_]+-A-\d+$/
+
+/**
+ * The line Send to agent types into an agent's terminal: only the server alias and the article id,
+ * never its title or content, which other people write. '' when either is not safe.
+ * @param {{ server: string, id: string }} p
+ */
+export function articleLine({ server, id }) {
+  if (typeof server !== 'string' || !SAFE_ALIAS.test(server) || typeof id !== 'string' || !ARTICLE_ID.test(id)) return ''
+  return `Read this YouTrack article for context: \`youtrack --server ${quoted(server)} article view ${id}\``
+}
+
+/** Articles the Start prompt asks the agent to read, at most. */
+const MAX_PROMPT_ARTICLES = 20
+
+/**
+ * The paragraph that asks the agent to read the articles the issue mentions: one YouTrack CLI command per
+ * article, with only the server alias and the ids. '' when the alias is not safe or no id is an article id.
+ * @param {{ server: string, ids: string[] }} p
+ */
+export function articlesBlock({ server, ids }) {
+  if (typeof server !== 'string' || !SAFE_ALIAS.test(server) || !Array.isArray(ids)) return ''
+  const valid = [...new Set(ids.filter((id) => typeof id === 'string' && ARTICLE_ID.test(id)))].slice(0, MAX_PROMPT_ARTICLES)
+  if (valid.length === 0) return ''
+  return `Also read these YouTrack articles for context:\n${valid.map((id) => `  youtrack --server ${quoted(server)} article view ${id}`).join('\n')}`
+}

@@ -9,7 +9,7 @@ export const MAY_HAVE_POSTED = 'The comment may have been added. Check the comme
 type CommentState = { text: string; busy: boolean; error: string; note: string }
 const EMPTY: CommentState = { text: '', busy: false, error: '', note: '' }
 
-/** The draft of each issue, by `server|id`: a comment still being sent keeps its own. */
+/** The draft of each issue or article, by `server|id`: a comment still being sent keeps its own. */
 const drafts = atom<Record<string, CommentState>>({})
 
 const keyOf = (alias: string, id: string) => `${alias}|${id}`
@@ -17,7 +17,10 @@ const stateOf = (key: string): CommentState => read(drafts)[key] ?? EMPTY
 const patch = (key: string, next: Partial<CommentState>) =>
   update(drafts, (all) => ({ ...all, [key]: { ...(all[key] ?? EMPTY), ...next } }))
 
-async function send(id: string, reload: (id: string) => unknown): Promise<void> {
+/** Where a comment goes: an issue or an article. */
+type CommentRequest = 'yt.issue.comment' | 'yt.article.comment'
+
+async function send(id: string, reload: (id: string) => unknown, request: CommentRequest): Promise<void> {
   const alias = read(server)
   if (!alias) return
   const key = keyOf(alias, id)
@@ -25,7 +28,7 @@ async function send(id: string, reload: (id: string) => unknown): Promise<void> 
   const text = state.text.trim()
   if (!text || state.busy) return
   patch(key, { busy: true, error: '', note: '' })
-  const answer = await call('yt.issue.comment', { server: alias, id, text })
+  const answer = await call(request, { server: alias, id, text })
   if (answer.ok) {
     patch(key, EMPTY)
   } else if (answer.code === 'TIMEOUT') {
@@ -38,10 +41,10 @@ async function send(id: string, reload: (id: string) => unknown): Promise<void> 
 }
 
 /**
- * Adds a comment to the issue when Send or Cmd+Enter (Ctrl+Enter) is pressed. On success the text is
- * cleared and the comments load again; a failure keeps the text and shows why.
+ * Adds a comment to the issue (or, with `request`, the article) when Send or Cmd+Enter (Ctrl+Enter) is
+ * pressed. On success the text is cleared and the comments load again; a failure keeps the text and shows why.
  */
-export function CommentBox({ id, onPosted }: { id: string; onPosted: (id: string) => unknown }) {
+export function CommentBox({ id, onPosted, request = 'yt.issue.comment' }: { id: string; onPosted: (id: string) => unknown; request?: CommentRequest }) {
   const key = keyOf(read(server) ?? '', id)
   const state = stateOf(key)
   return (
@@ -58,12 +61,12 @@ export function CommentBox({ id, onPosted }: { id: string; onPosted: (id: string
           onChange={(text) => patch(key, { text, error: '', note: '' })}
           onSubmit={(text) => {
             patch(key, { text })
-            void send(id, onPosted)
+            void send(id, onPosted, request)
           }}
         />
       </Field>
       <Row gap="xs" align="center">
-        <Button variant="outline" size="sm" disabled={state.busy || !state.text.trim()} onPress={() => void send(id, onPosted)}>
+        <Button variant="outline" size="sm" disabled={state.busy || !state.text.trim()} onPress={() => void send(id, onPosted, request)}>
           Send
         </Button>
         {state.error ? (

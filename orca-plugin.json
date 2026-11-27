@@ -2,7 +2,7 @@
   "manifestVersion": 2,
   "id": "youtrack-for-orca",
   "name": "YouTrack for Orca",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Browse YouTrack issues in the right sidebar and start coding agents on them.",
   "author": {
     "name": "maxfedorov",
@@ -111,6 +111,13 @@
         "default": false
       },
       {
+        "key": "includeArticles",
+        "title": "Include mentioned articles",
+        "description": "Whether the \"Include mentioned articles\" switch starts on in the Start view: the prompt then asks the agent to read the knowledge base articles the issue mentions, with youtrack article view.",
+        "type": "boolean",
+        "default": true
+      },
+      {
         "key": "finishComment",
         "title": "Agent comments when done",
         "description": "Whether the \"Comment on the issue when done\" switch starts on in the Start view: the prompt then asks the agent to add a comment that sums up its work.",
@@ -154,6 +161,9 @@
     },
     {
       "kind": "notifications:show"
+    },
+    {
+      "kind": "terminal:send"
     }
   ],
   "cover": {
@@ -163,8 +173,13 @@
   "screenshots": [
     {
       "path": "images/issues.png",
-      "alt": "The issue list: the issue of this workspace, quick views, the query, starred saved searches, sortable columns and the actions of the selected issue",
+      "alt": "The issue list: the Issues and Articles tabs, quick views, New issue, the query, saved searches, sortable columns and the actions of the selected issue",
       "caption": "Issues of a YouTrack query"
+    },
+    {
+      "path": "images/articles.png",
+      "alt": "The Articles tab: the project, the article search with the favorites star, and the tree of articles with their sub-articles and ids",
+      "caption": "Browse knowledge base articles"
     },
     {
       "path": "images/issue-detail.png",
