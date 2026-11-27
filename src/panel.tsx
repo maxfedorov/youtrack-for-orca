@@ -1,5 +1,5 @@
-import { Button, Callout, plugin, read, set, Stack, Text, type PanelContext } from 'orca'
-import { env, loadEnv, notice, panelError, view } from './state'
+import { Button, Callout, plugin, read, set, Stack, Tab, Tabs, Text, type PanelContext } from 'orca'
+import { env, loadEnv, notice, panelError, section, view } from './state'
 import { loadCurrent, loadLinks } from './listState'
 import { postedUrl } from './shapes'
 import { Header } from './views/Header'
@@ -8,6 +8,7 @@ import { IssueList } from './views/IssueList'
 import { StartView } from './views/StartView'
 import { Settings } from './views/Settings'
 import { CreateIssue } from './views/CreateIssue'
+import { ArticleList } from './views/ArticleList'
 import { onAdded, authUrl, AddServer, Setup } from './views/Setup'
 import { loadCliUpdate, onUpgraded } from './views/CliUpdate'
 
@@ -48,7 +49,7 @@ function Screen() {
     case 'add':
       return <AddServer />
     case 'list':
-      return <IssueList />
+      return read(section) === 'articles' ? <ArticleList /> : <IssueList />
     case 'detail':
       return <IssueDetail id={current.issueId ?? ''} />
     case 'start':
@@ -87,6 +88,12 @@ export default function Panel() {
             </Button>
           </Stack>
         </Callout>
+      ) : null}
+      {read(view).kind === 'list' ? (
+        <Tabs label="Section" value={read(section)} onChange={(value) => set(section, value === 'articles' ? 'articles' : 'issues')}>
+          <Tab value="issues" label="Issues" />
+          <Tab value="articles" label="Articles" />
+        </Tabs>
       ) : null}
       <Screen />
     </Stack>

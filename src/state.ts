@@ -13,7 +13,12 @@ export type Env = {
   error?: string
 }
 /** `back`: the screen Back returns to (an issue opened from another issue's links, say); the list without one. */
-export type View = { kind: 'setup' | 'list' | 'detail' | 'start' | 'add' | 'settings' | 'create'; issueId?: string; back?: View }
+export type View = {
+  kind: 'setup' | 'list' | 'detail' | 'start' | 'add' | 'settings' | 'create' | 'article'
+  issueId?: string
+  articleId?: string
+  back?: View
+}
 
 export type Unwrapped<T> = { ok: true; data: T } | { ok: false; code: ErrorCode; message: string }
 
@@ -22,6 +27,8 @@ export const env = atom<Env | null>(null)
 export const server = atom<string | null>(null)
 export const query = atom('')
 export const view = atom<View>({ kind: 'setup' })
+/** Which list the `list` view shows; every way back to the list lands on the tab that was open. */
+export const section = atom<'issues' | 'articles'>('issues')
 
 /** Screens Back can step through; older ones are dropped, so Back from them returns to the list. */
 const MAX_BACK = 20
