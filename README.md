@@ -98,14 +98,15 @@ seen less use.
   machine has no list of values to pick from, so its drop-down asks for a command too. Without
   permission to change the issue, the panel says so.
 - **Edit** the summary and the description of an issue (the pencil next to its id).
-- **Articles**: the **Articles** tab next to **Issues** shows the knowledge base of a project as a tree.
-  Choose the project; an article with sub-articles opens with its arrow, and its sub-articles are read
-  when it first opens. Type in the search field and press Enter to find articles of the project (each
-  with its parent article), or press the star next to it for the ones you starred in YouTrack (it lights up while it is on). Pressing an
-  article opens it: the path of its parent articles, who created it and changed it last, its content, sub-articles, the articles and issues
-  it mentions, attachment names and comments, where you can add one. Mentioned articles and issues open
-  inside the panel, and Back walks back the way you came. An issue that mentions articles lists them
-  under **Articles**.
+- **Articles**: the **Articles** tab next to **Issues** shows the knowledge base of a project as a tree,
+  each article with its id under the title. Choose the project; an article with sub-articles opens with
+  its arrow, and its sub-articles are read when it first opens. Type in the search field and press
+  Enter to find articles of the project, or press the star next to it for the ones you starred in
+  YouTrack (it lights up while it is on); the two combine, and found articles show their parent after
+  the id. Pressing an article opens it: the path of its parent articles, who created it and changed it
+  last, its content, sub-articles, the articles and issues it mentions, attachment names and comments,
+  where you can add one. Mentioned articles and issues open inside the panel, and Back walks back the
+  way you came. An issue that mentions articles lists them under **Articles**.
 - **Send to agent**: in an article, asks an agent open in the focused workspace to read it. The button
   types one line into the agent's terminal — `Read this YouTrack article for context:` and the
   `youtrack article view <ID>` command — without pressing Enter, so you can check it and send it
@@ -178,12 +179,15 @@ because it starts the `youtrack` and `orca` command-line tools.
 
 Only two programs, always with an argument list and never through a shell:
 
-- `youtrack`, to read issues, comments, projects and saved searches, save a search, apply a command,
-  add a comment, change a field, remove a tag, edit and create issues, install the agent skill, check
+- `youtrack`, to read issues, comments, projects, saved searches and knowledge base articles, save a
+  search, apply a command, add a comment to an issue or an article, change a field, remove a tag, edit and create issues, install the agent skill, check
   for and install a newer YouTrack CLI, add a server through the browser and remove a server. Fields
   come from `youtrack issue field list` and their values from `youtrack issue field list-values`, so
   each user sees what YouTrack lets them pick; no admin rights are needed;
 - `orca`, to list projects and branches, create worktrees and launch agents.
+
+Articles are read with `youtrack raw` on `/api/articles` (`youtrack article list` prints the whole
+text of every article), a page of 500 at a time.
 
 The plugin makes no network requests of its own, stores no tokens and collects no data about you;
 everything that talks to YouTrack goes through the CLI. So does the update check: the CLI asks
@@ -198,6 +202,10 @@ GitHub for its latest release.
 - Issue text and comments are untrusted input. The built-in templates tell the agent to treat them as
   data, not instructions. The description goes into the prompt only when the switch is on or the
   template contains `{{description}}`, and always inside a block marked untrusted.
+- Send to agent and "Include mentioned articles" pass on only the server alias and article ids, in a
+  `youtrack article view` command; an article's title and text never reach the agent's terminal or the
+  prompt. Send to agent types into a terminal only after checking that an agent of the focused
+  workspace runs there, and never presses Enter.
 - The "when the agent finishes" steps are written by the plugin from the issue id, the server alias
   and names from the project's own value lists, each in single quotes; only names made of letters,
   digits, spaces and `_ . -` are offered.
