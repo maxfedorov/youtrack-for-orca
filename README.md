@@ -5,11 +5,15 @@ of them: in a new worktree or in the workspace you are in, with a prompt built f
 
 This is an unofficial plugin.
 
-![The issue list: the issue of this workspace, quick views, the query, starred saved searches, sortable columns and the actions of the selected issue](images/issues.png)
+![The issue list: the Issues and Articles tabs, quick views, New issue, the query, saved searches, sortable columns and the actions of the selected issue](images/issues.png)
 
 | Issue details | Start work on an issue | New issue |
 | --- | --- | --- |
 | ![The detail of an issue: creator, its blockers, Apply command, the fields grid with drop-downs, description, linked issues and comments](images/issue-detail.png) | ![The Start view: where to run, project, name, workspace, agent, the prompt switches, template, what the agent does when done and the editable prompt](images/start.png) | ![The New issue form: project, summary, description, the required fields of the project with their defaults, and More fields](images/create.png) |
+
+| Articles |
+| --- |
+| ![The Articles tab: the project, the article search with the favorites star, and the tree of articles with their sub-articles and ids](images/articles.png) |
 
 ## Install
 

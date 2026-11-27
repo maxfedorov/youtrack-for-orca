@@ -173,8 +173,13 @@
   "screenshots": [
     {
       "path": "images/issues.png",
-      "alt": "The issue list: the issue of this workspace, quick views, the query, starred saved searches, sortable columns and the actions of the selected issue",
+      "alt": "The issue list: the Issues and Articles tabs, quick views, New issue, the query, saved searches, sortable columns and the actions of the selected issue",
       "caption": "Issues of a YouTrack query"
+    },
+    {
+      "path": "images/articles.png",
+      "alt": "The Articles tab: the project, the article search with the favorites star, and the tree of articles with their sub-articles and ids",
+      "caption": "Browse knowledge base articles"
     },
     {
       "path": "images/issue-detail.png",
