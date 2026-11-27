@@ -95,6 +95,28 @@ export type StartPrepare = {
 
 export type FinishField = { name: string; values: string[]; state: string }
 
+/** An article in the tree or a search, without its content; `parent` only in searches. */
+export type ArticleNode = { id: string; summary: string; hasChildren: boolean; starred: boolean; parent?: { id: string; summary: string } }
+/** `cut`: more articles than one answer holds were left out. */
+export type ArticleNodes = { articles: ArticleNode[]; cut?: true }
+/** An article as its card shows it; `path` runs from the root down to its parent. */
+export type ArticleDetail = {
+  id: string; summary: string; url: string; project: { shortName: string; name: string }; contentMd: string
+  path: { id: string; summary: string }[]
+  children: ArticleNode[]
+  mentionedArticles: { id: string; summary: string }[]
+  mentionedIssues: { id: string; summary: string; resolved: boolean }[]
+  /** Attachment names. */
+  attachments: string[]
+  comments: Comment[]
+  reporter?: User
+  updated: number
+  updatedBy?: User
+  /** Content or comments were cut (long text, only the newest comments kept). */
+  truncated?: true
+  commentsOmitted?: number
+}
+
 /** The field and value the agent was asked to set when done; remembered for the issue's project. */
 export type FinishChoice = { field: string; state: string }
 
@@ -169,6 +191,19 @@ declare module 'orca' {
     /** Removes a tag from the issue by its exact name. */
     'yt.issue.removeTag': { input: { server: string; id: string; tag: string }; output: Result<Record<string, never>> }
     'yt.issue.comment': { input: { server: string; id: string; text: string }; output: Result<Record<string, never>> }
+    /** The top-level articles of a project, in YouTrack's order; at most 500. */
+    'yt.articles.roots': { input: { server: string; project: string }; output: Result<ArticleNodes> }
+    /** The sub-articles of an article. */
+    'yt.articles.children': { input: { server: string; id: string }; output: Result<ArticleNodes> }
+    /** Articles of a project matching a query (<= 2000 characters), only starred ones with `favorites`; at most 200. */
+    'yt.articles.search': { input: { server: string; project: string; query: string; favorites: boolean }; output: Result<ArticleNodes> }
+    /** One article with its comments; content and comments are cut to what the panel can draw. */
+    'yt.article.get': { input: { server: string; id: string }; output: Result<ArticleDetail> }
+    /** Adds a comment to an article; text <= 10000 characters. */
+    'yt.article.comment': { input: { server: string; id: string; text: string }; output: Result<Record<string, never>> }
+    /** The project whose articles were shown last on the server. */
+    'yt.articles.project': { input: { server: string }; output: Result<{ project: string | null }> }
+    'yt.articles.setProject': { input: { server: string; project: string }; output: Result<Record<string, never>> }
     /** Puts every setting of the plugin back to its default. */
     'yt.settings.reset': { input: Record<string, never>; output: Result<Record<string, never>> }
     'yt.savedQueries': { input: { server: string }; output: Result<SavedQuery[]> }

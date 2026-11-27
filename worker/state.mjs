@@ -1,6 +1,7 @@
 // Selected server, the last query used on each server, the saved searches shown there as quick views,
 // and what to offer when starting work: the Orca project last chosen for each YouTrack project (and an
-// optional default for each server), and the field and value last chosen for the agent to set when done.
+// optional default for each server), the field and value last chosen for the agent to set when done,
+// and the project whose articles were shown last on each server.
 
 import { createSerial } from './serial.mjs'
 
@@ -28,6 +29,8 @@ export function createStateStore(storage) {
   const finishChoices = async () => record(await storage.get('finishChoices'))
   /** `{ server: [savedSearchId] }` */
   const quickViews = async () => record(await storage.get('quickViews'))
+  /** `{ server: shortName }`: the project the article list shows */
+  const articleProjects = async () => strings(await storage.get('articleProjects'))
 
   return {
     /** @returns {Promise<string | null>} */
@@ -63,6 +66,17 @@ export function createStateStore(storage) {
         const all = await quickViews()
         all[server] = [...new Set(ids)]
         await storage.set('quickViews', all)
+      }),
+
+    /** The project whose articles were shown last on a server, or null. */
+    async articleProject(server) {
+      return (await articleProjects())[server] ?? null
+    },
+    setArticleProject: (server, project) =>
+      serial(async () => {
+        const all = await articleProjects()
+        all[server] = project
+        await storage.set('articleProjects', all)
       }),
 
     /** The Orca project last chosen for this YouTrack project on this server, or null. */
@@ -116,7 +130,7 @@ export function createStateStore(storage) {
     forgetServer: (server) =>
       serial(async () => {
         if ((await storage.get('server')) === server) await storage.set('server', null)
-        for (const key of ['queries', 'quickViews', 'projectRepos', 'serverRepos', 'finishChoices']) {
+        for (const key of ['queries', 'quickViews', 'projectRepos', 'serverRepos', 'finishChoices', 'articleProjects']) {
           const all = record(await storage.get(key))
           if (!(server in all)) continue
           delete all[server]

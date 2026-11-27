@@ -89,6 +89,10 @@ const TIMEOUTS: Partial<Record<string, number>> = {
   'yt.savedQueries.create': 120_000,
   'yt.issue.command': 120_000,
   'yt.issue.comment': 120_000,
+  'yt.article.comment': 120_000,
+  // A large project is read in pages; the worker gives it up to a minute.
+  'yt.articles.roots': 90_000,
+  'yt.articles.search': 90_000,
   'yt.issue.update': 120_000,
   'yt.issue.setField': 120_000,
   'yt.issue.create': 120_000,

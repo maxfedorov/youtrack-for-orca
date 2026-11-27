@@ -1,7 +1,8 @@
 /**
  * The panel <-> worker contract: every request is answered with a `Result`, never a thrown error.
  * Requests are grouped in handlers/youtrack.mjs (servers, issues, saved queries) and
- * handlers/start.mjs (repos, workspaces, agent launches, terminals).
+ * handlers/start.mjs (repos, workspaces, agent launches, terminals) and handlers/articles.mjs
+ * (knowledge base articles).
  */
 import os from 'node:os'
 import { fail, ok, CODES } from './result.mjs'
@@ -9,6 +10,7 @@ import { toServers } from './mapping.mjs'
 import { registerYoutrackHandlers } from './handlers/youtrack.mjs'
 import { registerStartHandlers } from './handlers/start.mjs'
 import { registerSettingsHandlers } from './handlers/settings.mjs'
+import { registerArticleHandlers } from './handlers/articles.mjs'
 import { createTemplateStore } from './templates.mjs'
 import { createDraftStore } from './drafts.mjs'
 import { createCliUpdates } from './cli-update.mjs'
@@ -59,4 +61,5 @@ export function registerHandlers(orca, deps) {
   registerYoutrackHandlers(ctx)
   registerStartHandlers(ctx)
   registerSettingsHandlers(ctx)
+  registerArticleHandlers(ctx)
 }

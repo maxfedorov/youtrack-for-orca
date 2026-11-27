@@ -164,6 +164,42 @@ function fixPrepare(v: Obj): Obj {
   return out
 }
 
+const titled = (v: unknown): v is Obj => isObj(v) && id(v.id) && str(v.summary)
+/** Articles of an unexpected shape are left out; a broken parent is dropped. */
+const fixNodes = (v: Obj): Obj => {
+  const out: Obj = {
+    articles: keep(v.articles, titled).map((a) => {
+      const n = a as Obj
+      const node: Obj = { id: n.id, summary: n.summary, hasChildren: n.hasChildren === true, starred: n.starred === true }
+      if (titled(n.parent)) node.parent = { id: n.parent.id, summary: n.parent.summary }
+      return node
+    })
+  }
+  if (v.cut === true) out.cut = true
+  return out
+}
+
+function fixArticle(v: Obj): Obj {
+  const pairs = (x: unknown) => keep(x, titled).map((p) => ({ id: (p as Obj).id, summary: (p as Obj).summary }))
+  const out: Obj = {
+    ...v,
+    summary: or(str, v.summary, NOT_AVAILABLE),
+    project: isObj(v.project) && str(v.project.shortName) && str(v.project.name) ? v.project : { shortName: '', name: '' },
+    contentMd: or(str, v.contentMd, ''),
+    path: pairs(v.path),
+    children: (fixNodes({ articles: v.children }).articles as unknown[]),
+    mentionedArticles: pairs(v.mentionedArticles),
+    mentionedIssues: keep(v.mentionedIssues, titled).map((i) => ({ id: (i as Obj).id, summary: (i as Obj).summary, resolved: (i as Obj).resolved === true })),
+    attachments: keep(v.attachments, id),
+    comments: Array.isArray(v.comments) ? fixComments(v.comments) : [],
+    updated: or(num, v.updated, 0)
+  }
+  for (const key of ['reporter', 'updatedBy']) if (!user(v[key])) delete out[key]
+  if (!num(v.commentsOmitted)) delete out.commentsOmitted
+  if (v.truncated !== true) delete out.truncated
+  return out
+}
+
 /** Answers whose parts can be repaired: the core the screen needs is checked, the rest is fixed. */
 const REPAIRS: Record<string, { core: Check; fix: (v: Obj) => unknown }> = {
   'yt.env': { core: shape({ cli: shape({ found: bool }), servers: Array.isArray }), fix: fixEnv },
@@ -222,6 +258,11 @@ const REPAIRS: Record<string, { core: Check; fix: (v: Obj) => unknown }> = {
     })
   },
   'yt.issues.search': { core: shape({ issues: Array.isArray, hasMore: bool }), fix: fixIssues },
+  'yt.articles.roots': { core: shape({ articles: Array.isArray }), fix: fixNodes },
+  'yt.articles.children': { core: shape({ articles: Array.isArray }), fix: fixNodes },
+  'yt.articles.search': { core: shape({ articles: Array.isArray }), fix: fixNodes },
+  'yt.article.get': { core: shape({ id, url: str }), fix: fixArticle },
+  'yt.articles.project': { core: isObj, fix: (v) => ({ project: id(v.project) ? v.project : null }) },
   'yt.issue.get': { core: shape({ id, url: str }), fix: fixDetail },
   'yt.issue.comments': {
     core: shape({ comments: Array.isArray }),
