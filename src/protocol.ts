@@ -30,6 +30,8 @@ export type IssueDetail = IssueRow & {
   links?: { type: string; issues: { id: string; summary: string; resolved: boolean }[] }[]
   /** Set when only the linked issues could not be loaded. */
   linksError?: string
+  /** Knowledge base articles the issue mentions. */
+  articles?: { id: string; summary: string }[]
   /** Description or comments were cut (long text, only the newest 200 comments kept). */
   truncated?: true
   /** Number of older comments left out. */

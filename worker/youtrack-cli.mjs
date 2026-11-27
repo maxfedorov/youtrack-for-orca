@@ -19,7 +19,7 @@ const listFields = (columns) => {
   for (const c of columns) if (!seen.has(c.toLowerCase())) seen.add(c.toLowerCase()) && names.push(c)
   return names.join(',')
 }
-const VIEW_FIELDS = 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText,canBeEmpty,field(fieldType(id))))'
+const VIEW_FIELDS = 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText,canBeEmpty,field(fieldType(id)))),mentionedArticles(idReadable,summary)'
 const CLI_ENV = Object.freeze({ YOUTRACK_NO_UPDATE: '1', NO_COLOR: '1' })
 /** Reading every article of a large project takes a few seconds per thousand. */
 const SCAN_MS = 60_000

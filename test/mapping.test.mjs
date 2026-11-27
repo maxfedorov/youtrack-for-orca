@@ -361,3 +361,12 @@ test('toArticleDetail treats null content, lists and parents as empty', () => {
   assert.deepEqual([a.path, a.children, a.comments, a.mentionedArticles, a.mentionedIssues, a.attachments], [[], [], [], [], [], []])
   assert.deepEqual(a.project, { shortName: '', name: '' })
 })
+
+test('toIssueDetail lists the articles the issue mentions, at most 100, without broken ones', () => {
+  const mentioned = [{ idReadable: 'DEMO-A-1', summary: 'Guide' }, { summary: 'no id' }, { idReadable: 'DEMO-A-2', summary: null }]
+  const d = toIssueDetail({ ...view, mentionedArticles: mentioned }, [], BASE)
+  assert.deepEqual(d.articles, [{ id: 'DEMO-A-1', summary: 'Guide' }, { id: 'DEMO-A-2', summary: '' }])
+  const many = Array.from({ length: 150 }, (_, i) => ({ idReadable: `DEMO-A-${i + 1}`, summary: 'x' }))
+  assert.equal(toIssueDetail({ ...view, mentionedArticles: many }, [], BASE).articles.length, 100)
+  assert.deepEqual(toIssueDetail({ ...view, mentionedArticles: null }, [], BASE).articles, [])
+})

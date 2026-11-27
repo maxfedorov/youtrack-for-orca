@@ -257,3 +257,40 @@ test('switching the server closes an open article of the old server', async () =
   assert.deepEqual(asked(h, 'yt.articles.roots').at(-1), { server: 'other', project: 'DEMO' })
   await view.unmount()
 })
+
+const issueRow = { id: 'DEMO-20', summary: 'Follow the guidelines', created: 1, updated: 2, resolved: false, url: 'https://main.example.com/issue/DEMO-20' }
+const openIssue = async (articles?: unknown) => {
+  const h = withArticles({
+    'yt.issues.search': ok({ issues: [issueRow], hasMore: false, total: 1 }),
+    'yt.issue.get': ok({ ...issueDetail('DEMO-20'), ...(articles === undefined ? {} : { articles }) })
+  })
+  const view = await mount(panel, { host: h })
+  await view.activateRow(view.find({ type: 'Table' }), 'DEMO-20')
+  return { view, h }
+}
+
+test('the issue card lists the articles it mentions; one opens, and Back returns to the issue', async () => {
+  const { view, h } = await openIssue([{ id: 'DEMO-A-4', summary: 'API guidelines' }, { id: 'DEMO-A-5', summary: 'Error codes' }])
+  assert.ok(view.find({ type: 'Heading', text: 'Articles' }))
+  await view.press({ type: 'ListItem', testId: 'article:DEMO-A-5' })
+  assert.deepEqual(asked(h, 'yt.article.get').at(-1), { server: 'main', id: 'DEMO-A-5' })
+  assert.ok(view.find({ type: 'Heading', text: 'Title DEMO-A-5' }))
+  await view.press({ type: 'Button', text: '← Back' })
+  assert.ok(view.find({ type: 'Heading', text: 'Issue DEMO-20' }))
+  await view.unmount()
+})
+
+test('an issue without mentioned articles has no Articles block', async () => {
+  for (const articles of [undefined, []]) {
+    const { view } = await openIssue(articles)
+    assert.ok(view.find({ type: 'Heading', text: 'Issue DEMO-20' }))
+    assert.equal(view.find({ type: 'Heading', text: 'Articles' }), null)
+    await view.unmount()
+  }
+})
+
+test('broken mentioned articles are left out of the issue card', async () => {
+  const { view } = await openIssue([{ id: 'DEMO-1', summary: 'not an article' }, { id: 'DEMO-A-4', summary: 'API guidelines' }, { summary: 'no id' }, 'x'])
+  assert.deepEqual(view.findAll({ type: 'ListItem' }).map((i: any) => String(i.key)).filter((k: string) => k.startsWith('article:')), ['article:DEMO-A-4'])
+  await view.unmount()
+})

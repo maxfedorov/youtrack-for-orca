@@ -214,6 +214,7 @@ export function toIssueDetail(rawView, rawComments, baseUrl) {
   const login = text(rawView.reporter?.login)
   if (login) detail.reporter = { login, fullName: text(rawView.reporter?.fullName) }
   detail.tags = (Array.isArray(rawView.tags) ? rawView.tags : []).map((tag) => text(tag?.name)).filter(Boolean)
+  detail.articles = mentionedArticles(rawView.mentionedArticles)
   return detail
 }
 
@@ -247,6 +248,11 @@ const MAX_PATH = 8
 const hasReadableId = (raw) => raw !== null && typeof raw === 'object' && typeof raw.idReadable === 'string' && raw.idReadable !== ''
 const summaryOf = (raw) => text(raw?.summary).slice(0, MAX_ARTICLE_SUMMARY).replace(/[\ud800-\udbff]$/, '')
 const titled = (raw) => ({ id: raw.idReadable, summary: summaryOf(raw) })
+
+/** Articles an issue or article mentions: id and title, at most MAX_MENTIONS. */
+function mentionedArticles(list) {
+  return (Array.isArray(list) ? list : []).filter(hasReadableId).slice(0, MAX_MENTIONS).map(titled)
+}
 
 /**
  * One article of a tree or a search, without its content; null without a readable id.
@@ -292,7 +298,7 @@ export function toArticleDetail(raw, baseUrl) {
     contentMd: text(raw.content),
     path,
     children: toArticleNodes(raw.childArticles),
-    mentionedArticles: listOf(raw.mentionedArticles).filter(hasReadableId).slice(0, MAX_MENTIONS).map(titled),
+    mentionedArticles: mentionedArticles(raw.mentionedArticles),
     mentionedIssues: listOf(raw.mentionedIssues)
       .filter(hasReadableId)
       .slice(0, MAX_MENTIONS)

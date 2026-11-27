@@ -10,6 +10,7 @@ import { IssueRelations } from './IssueRelations'
 import { IssueTags } from './IssueTags'
 import { FieldList, resetFieldEditor } from './FieldEditor'
 import { IssueEditForm, editing, startEdit, stopEdit } from './IssueEdit'
+import { openArticle } from '../articleState'
 import type { IssueComments, IssueDetail as Detail } from '../protocol'
 
 type Status = 'idle' | 'loading' | 'ok' | 'error'
@@ -197,6 +198,23 @@ function LinkedIssues({ issue }: { issue: Detail }) {
   )
 }
 
+/** Knowledge base articles the issue mentions; pressing one opens it, and Back returns here. */
+function MentionedArticles({ issue }: { issue: Detail }) {
+  const articles = issue.articles ?? []
+  if (articles.length === 0) return null
+  return (
+    <Stack gap="xs">
+      <Separator />
+      <Heading level={3}>Articles</Heading>
+      <List label={`Articles ${issue.id} mentions`}>
+        {articles.map((article) => (
+          <ListItem key={`article:${article.id}`} title={article.summary || article.id} description={article.id} onPress={() => openArticle(article.id)} />
+        ))}
+      </List>
+    </Stack>
+  )
+}
+
 function Body({ issue }: { issue: Detail }) {
   const workspaceId = read(links)[issue.id]
   const keys = commentKeys(issue)
@@ -240,6 +258,7 @@ function Body({ issue }: { issue: Detail }) {
       {issue.fields.length > 0 ? <FieldList issue={issue} /> : null}
       {editing(issue) ? null : issue.descriptionMd ? <Markdown content={issue.descriptionMd} /> : <Text muted>No description</Text>}
       <LinkedIssues issue={issue} />
+      <MentionedArticles issue={issue} />
       <Separator />
       <Heading level={3}>Comments</Heading>
       {issue.commentsError ? (

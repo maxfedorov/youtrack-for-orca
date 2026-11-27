@@ -70,6 +70,10 @@ const fixMeta = (f: Obj): Obj => {
   return meta
 }
 
+const titled = (v: unknown): v is Obj => isObj(v) && id(v.id) && str(v.summary)
+/** A readable article id, as the worker checks it. */
+const ARTICLE = /^[A-Za-z0-9_]+-A-\d+$/
+
 function fixDetail(v: Obj): Obj {
   const out: Obj = { ...fixRow(v) }
   out.fields = (Array.isArray(v.fields) ? v.fields : [])
@@ -89,6 +93,9 @@ function fixDetail(v: Obj): Obj {
       .filter((l) => l.issues.length > 0)
   } else delete out.links
   if (!str(v.linksError)) delete out.linksError
+  const articles = keep(v.articles, (x) => titled(x) && ARTICLE.test((x as Obj).id as string)).map((x) => ({ id: (x as Obj).id, summary: (x as Obj).summary }))
+  if (articles.length > 0) out.articles = articles
+  else delete out.articles
   out.descriptionMd = or(str, v.descriptionMd, '')
   out.comments = Array.isArray(v.comments) ? fixComments(v.comments) : []
   if (!Array.isArray(v.comments)) out.commentsError = str(v.commentsError) ? v.commentsError : COMMENTS_FAILED
@@ -164,7 +171,6 @@ function fixPrepare(v: Obj): Obj {
   return out
 }
 
-const titled = (v: unknown): v is Obj => isObj(v) && id(v.id) && str(v.summary)
 /** Articles of an unexpected shape are left out; a broken parent is dropped. */
 const fixNodes = (v: Obj): Obj => {
   const out: Obj = {
