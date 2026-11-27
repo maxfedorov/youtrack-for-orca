@@ -21,9 +21,9 @@ const listFields = (columns) => {
 }
 const VIEW_FIELDS = 'tags(name),reporter(login,fullName),customFields(name,value(name,login,fullName,text,presentation,minutes,$type),$type,projectCustomField(emptyFieldText,canBeEmpty,field(fieldType(id)))),mentionedArticles(idReadable,summary)'
 const CLI_ENV = Object.freeze({ YOUTRACK_NO_UPDATE: '1', NO_COLOR: '1' })
-/** Reading every article of a large project takes a few seconds per thousand. */
-const SCAN_MS = 60_000
-const ARTICLE_PAGE = '500'
+/** One page of a scan of articles; the scan reads page after page up to its cap. */
+const ARTICLE_PAGE = 500
+const ARTICLE_PAGE_MS = 30_000
 /** An article in a tree or a search, without its content. */
 export const ARTICLE_NODE_FIELDS = 'idReadable,summary,hasChildren,hasStar,ordinal,parentArticle(idReadable,summary)'
 /** Eight levels of parents above an article, for the path the card shows. */
@@ -196,15 +196,24 @@ export function createYoutrack({ bin, run = (args, opts) => runProcess(bin, args
     /**
      * Articles through `raw`: `article list` prints the whole content of every article and ignores
      * `--fields`. The query goes into the path URL-encoded, so it cannot add parameters of its own.
+     * At most `max + 1` articles are read, page by page, so a huge project cannot outrun the time limit.
      */
-    scanArticles: (server, query) =>
-      exec(
-        ['--server', server, 'raw', `/api/articles?query=${encodeURIComponent(query)}`, '--fields', ARTICLE_NODE_FIELDS, '--paginate', '--page-size', ARTICLE_PAGE, ...tail],
-        SCAN_MS,
-        list
-      ),
+    scanArticles: async (server, query, max) => {
+      const items = []
+      // Pages of 500, and one article past `max` at most, so the caller can tell the project has more.
+      while (items.length <= max) {
+        const top = Math.min(ARTICLE_PAGE, max + 1 - items.length)
+        const path = `/api/articles?query=${encodeURIComponent(query)}&$skip=${items.length}&$top=${top}`
+        const r = await exec(['--server', server, 'raw', path, '--fields', ARTICLE_NODE_FIELDS, ...tail], ARTICLE_PAGE_MS, list)
+        if (!r.ok) return r
+        if (!Array.isArray(r.data)) return ok(r.data)
+        items.push(...r.data)
+        if (r.data.length < top) break
+      }
+      return ok(items)
+    },
     childArticles: (server, id) =>
-      read(server, ['raw', `/api/articles/${id}/childArticles`, '--fields', ARTICLE_NODE_FIELDS, '--paginate', '--page-size', ARTICLE_PAGE], list),
+      read(server, ['raw', `/api/articles/${id}/childArticles`, '--fields', ARTICLE_NODE_FIELDS, '--paginate', '--page-size', String(ARTICLE_PAGE)], list),
     viewArticle: (server, id) => read(server, ['raw', `/api/articles/${id}`, '--fields', ARTICLE_FIELDS]),
     /**
      * Adds a comment to an article. `article comment create` takes the text only as an argument (it has

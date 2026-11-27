@@ -31,6 +31,8 @@ export const resultsError = atom('')
 const loadedFor = atom<string | null>(null)
 
 let seq = 0
+/** Bumped by every search, so only the newest one shows its results. */
+let searchSeq = 0
 let seenTick = 0
 let queued = false
 
@@ -175,12 +177,16 @@ export async function runSearch(text: string = read(searchText)): Promise<void> 
   const alias = read(server)
   const p = read(project)
   set(appliedSearch, text.trim())
-  if (!searching()) return clearResults()
+  if (!searching()) {
+    searchSeq++
+    return clearResults()
+  }
   if (!alias || !p) return
   const mine = seq
+  const search = ++searchSeq
   set(resultsStatus, 'loading')
   const answer = await call('yt.articles.search', { server: alias, project: p, query: read(appliedSearch), favorites: read(favorites) })
-  if (mine !== seq) return
+  if (mine !== seq || search !== searchSeq) return
   if (answer.ok) {
     set(results, answer.data.articles)
     set(resultsCut, answer.data.cut === true)

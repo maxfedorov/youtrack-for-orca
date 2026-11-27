@@ -42,15 +42,16 @@ test('roots keep only top-level articles of the project, in YouTrack order', asy
   assert.equal(r.ok, true)
   assert.deepEqual(r.data.articles.map((a) => a.id), ['DEMO-A-1', 'DEMO-A-2'])
   assert.equal(r.data.cut, undefined)
-  assert.deepEqual(yt.calls.find((c) => c.name === 'scanArticles').a, ['one', 'project: {DEMO}'])
+  assert.deepEqual(yt.calls.find((c) => c.name === 'scanArticles').a, ['one', 'project: {DEMO}', 5000])
 })
 
-test('roots say cut when the scan reached the cap', async () => {
-  const many = Array.from({ length: 5000 }, (_, i) => node(`DEMO-A-${i + 1}`, i, i % 2 ? 'DEMO-A-1' : null))
-  const { call } = setup({ yt: fakeYt({ scanArticles: async () => ok(many) }) })
-  const r = await call('yt.articles.roots', { server: 'one', project: 'DEMO' })
-  assert.equal(r.data.cut, true)
-  assert.ok(r.data.articles.length <= 500)
+test('roots say cut only when the project has more articles than the cap', async () => {
+  const many = (n) => Array.from({ length: n }, (_, i) => node(`DEMO-A-${i + 1}`, i, i % 20 ? 'DEMO-A-1' : null))
+  const over = await setup({ yt: fakeYt({ scanArticles: async () => ok(many(5001)) }) }).call('yt.articles.roots', { server: 'one', project: 'DEMO' })
+  assert.equal(over.data.cut, true)
+  assert.ok(over.data.articles.length <= 500)
+  const exact = await setup({ yt: fakeYt({ scanArticles: async () => ok(many(5000)) }) }).call('yt.articles.roots', { server: 'one', project: 'DEMO' })
+  assert.equal(exact.data.cut, undefined)
 })
 
 test('roots reject a project that is not a short name', async () => {
@@ -72,13 +73,15 @@ test('children answers the sub-articles and rejects ids that are not article ids
   assert.equal(yt.calls.filter((c) => c.name === 'childArticles').length, 1)
 })
 
-test('search adds the project, and has: star for favorites, and keeps the parents', async () => {
+test('search keeps the query inside the project, adds has: star for favorites, and keeps the parents', async () => {
   const { call, yt } = setup()
-  const r = await call('yt.articles.search', { server: 'one', project: 'DEMO', query: ' login ', favorites: true })
-  assert.deepEqual(yt.calls.find((c) => c.name === 'scanArticles').a, ['one', 'project: {DEMO} login has: star'])
+  const r = await call('yt.articles.search', { server: 'one', project: 'DEMO', query: ' login or setup ', favorites: true })
+  assert.deepEqual(yt.calls.find((c) => c.name === 'scanArticles').a.slice(0, 2), ['one', 'project: {DEMO} and (login or setup) and has: star'])
+  await call('yt.articles.search', { server: 'one', project: 'DEMO', query: '', favorites: true })
+  assert.deepEqual(yt.calls.filter((c) => c.name === 'scanArticles').at(-1).a.slice(0, 2), ['one', 'project: {DEMO} and has: star'])
   assert.deepEqual(r.data.articles.find((a) => a.id === 'DEMO-A-3').parent, { id: 'DEMO-A-2', summary: 'Article DEMO-A-2' })
   await call('yt.articles.search', { server: 'one', project: 'DEMO', query: '', favorites: false })
-  assert.deepEqual(yt.calls.filter((c) => c.name === 'scanArticles').at(-1).a, ['one', 'project: {DEMO}'])
+  assert.deepEqual(yt.calls.filter((c) => c.name === 'scanArticles').at(-1).a.slice(0, 2), ['one', 'project: {DEMO}'])
 })
 
 test('search rejects a query over 2000 characters and caps its results at 200', async () => {

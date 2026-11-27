@@ -1,5 +1,7 @@
 import { assert, mount, mockHost, test } from 'orca/testing'
 import * as panel from '../src/panel'
+import { read } from 'orca'
+import { appliedSearch, results, runSearch } from '../src/articleState'
 
 const ok = <T,>(data: T) => ({ ok: true as const, data })
 const fail = (message: string) => ({ ok: false as const, error: { code: 'UNKNOWN' as const, message } })
@@ -326,5 +328,25 @@ test('a failed send says why', async () => {
   const view = await openFromTree(withArticles({ 'yt.agents': agents(['t1', 'Claude']), 'yt.article.send': fail('That agent is no longer open in this workspace.') }))
   await view.press({ type: 'Button', text: 'Send to agent' })
   assert.ok(view.find({ text: 'That agent is no longer open in this workspace.' }))
+  await view.unmount()
+})
+
+test('an older search that answers last does not replace the newer one', async () => {
+  let answerSlow: () => void = () => {}
+  const slowAnswered = new Promise<void>((resolve) => (answerSlow = resolve))
+  const h = host({
+    'yt.articles.search': async (input: { query: string }) => {
+      if (input.query === 'slow') await slowAnswered
+      return ok({ articles: [node(input.query === 'slow' ? 'DEMO-A-1' : 'DEMO-A-2', input.query)] })
+    }
+  })
+  const view = await toArticles(h)
+  const older = runSearch('slow')
+  await runSearch('fast')
+  answerSlow()
+  await older
+  assert.deepEqual(asked(h, 'yt.articles.search').map((i: any) => i.query), ['slow', 'fast'])
+  assert.deepEqual(read(results).map((a) => a.id), ['DEMO-A-2'])
+  assert.equal(read(appliedSearch), 'fast')
   await view.unmount()
 })

@@ -29,12 +29,13 @@ export function registerArticleHandlers(ctx) {
   const { orca, state, resolveServer } = ctx
   const handle = (name, fn) => safeHandle(orca, name, fn)
 
-  /** Every article of a project matching `extra`, as tree nodes; `full`: the scan reached its cap. */
-  async function scan(alias, project, extra) {
-    const r = await ctx.youtrack.scanArticles(alias, `project: {${project}}${extra ? ` ${extra}` : ''}`)
+  /** Articles of a project matching every condition in `also`, as tree nodes; `full`: the project has more than the cap. */
+  async function scan(alias, project, also = []) {
+    const query = [`project: {${project}}`, ...also].join(' and ')
+    const r = await ctx.youtrack.scanArticles(alias, query, MAX_ARTICLE_SCAN)
     if (!r.ok) return r
     if (!Array.isArray(r.data)) return unexpected()
-    return ok({ nodes: toArticleNodes(r.data.slice(0, MAX_ARTICLE_SCAN)), full: r.data.length >= MAX_ARTICLE_SCAN })
+    return ok({ nodes: toArticleNodes(r.data.slice(0, MAX_ARTICLE_SCAN)), full: r.data.length > MAX_ARTICLE_SCAN })
   }
 
   // YouTrack has no query for top-level articles, so the roots come from a scan of the whole project.
@@ -43,7 +44,7 @@ export function registerArticleHandlers(ctx) {
     if (bad) return invalid(bad)
     const s = await resolveServer(server)
     if (!s.ok) return s
-    const r = await scan(s.data.alias, project, '')
+    const r = await scan(s.data.alias, project)
     if (!r.ok) return r
     return ok(capped(r.data.nodes.filter((n) => !n.parent), MAX_ARTICLE_NODES, r.data.full))
   })
@@ -65,8 +66,9 @@ export function registerArticleHandlers(ctx) {
     if (typeof query !== 'string' || query.length > MAX_QUERY) return invalid('Invalid query')
     const s = await resolveServer(server)
     if (!s.ok) return s
-    const text = [query.trim(), favorites === true ? 'has: star' : ''].filter(Boolean).join(' ')
-    const r = await scan(s.data.alias, project, text)
+    // The person's query is grouped, so an "or" in it cannot reach past the project.
+    const also = [query.trim() ? `(${query.trim()})` : '', favorites === true ? 'has: star' : ''].filter(Boolean)
+    const r = await scan(s.data.alias, project, also)
     if (!r.ok) return r
     return ok(capped(r.data.nodes, MAX_ARTICLE_RESULTS, r.data.full))
   })
