@@ -361,3 +361,13 @@ test('an article says who created it and who changed it last', async () => {
   assert.ok(view.find({ text: /Updated by Jane Doe/ }))
   await view.unmount()
 })
+
+test('the search field and the star share one line at the same height, under one label', async () => {
+  const view = await toArticles()
+  assert.ok(view.find({ type: 'Field', label: 'Search articles' }))
+  assert.equal(view.find({ type: 'Input', label: 'Search articles' }).props.labelHidden, true)
+  // Orca draws an Input 36 px high, and an IconButton of size md too.
+  assert.equal(view.find({ type: 'IconButton', label: 'Favorite articles' }).props.size, 'md')
+  assert.deepEqual(view.warnings, [])
+  await view.unmount()
+})

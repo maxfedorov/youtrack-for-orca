@@ -1,4 +1,4 @@
-import { Box, Button, EmptyState, IconButton, Input, List, ListItem, Row, Select, Skeleton, Stack, Text, Tree, read, set } from 'orca'
+import { Box, Button, EmptyState, Field, IconButton, Input, List, ListItem, Row, Select, Skeleton, Stack, Text, Tree, read, set } from 'orca'
 import {
   appliedSearch, childErrors, children, chooseProject, expanded, favorites, loadArticles, loadRoots, openArticle, project, projects, projectsError,
   results, resultsCut, resultsError, resultsStatus, roots, rootsCut, rootsError, rootsStatus, runSearch, searchText, searching, syncArticles,
@@ -119,30 +119,37 @@ export function ArticleList() {
           onChange={(value) => void chooseProject(value)}
         />
       )}
-      {/* The search field takes the whole width; the star sits next to it, at the height of the field. */}
-      <Box direction="row" gap="xs" align="end">
-        <Box grow>
-          <Input
-            type="search"
-            label="Search articles"
-            placeholder="Search articles"
-            value={read(searchText)}
-            onChange={(value) => {
-              set(searchText, value)
-              // The native clear sends '' without Enter: back to the tree.
-              if (value === '' && read(appliedSearch)) void runSearch('')
-            }}
-            onSubmit={(value) => void runSearch(value)}
+      {/*
+        One label (the Field's) above one line: the search field takes the whole width, and the star next
+        to it is an IconButton of size md, drawn 36 px high like the Input.
+      */}
+      <Field label="Search articles">
+        <Box direction="row" gap="xs" align="center">
+          <Box grow>
+            <Input
+              type="search"
+              label="Search articles"
+              labelHidden
+              placeholder="Search articles"
+              value={read(searchText)}
+              onChange={(value) => {
+                set(searchText, value)
+                // The native clear sends '' without Enter: back to the tree.
+                if (value === '' && read(appliedSearch)) void runSearch('')
+              }}
+              onSubmit={(value) => void runSearch(value)}
+            />
+          </Box>
+          <IconButton
+            icon="star"
+            label="Favorite articles"
+            size="md"
+            variant={read(favorites) ? 'solid' : 'outline'}
+            tone={read(favorites) ? 'accent' : undefined}
+            onPress={toggleFavorites}
           />
         </Box>
-        <IconButton
-          icon="star"
-          label="Favorite articles"
-          variant={read(favorites) ? 'solid' : 'outline'}
-          tone={read(favorites) ? 'accent' : undefined}
-          onPress={toggleFavorites}
-        />
-      </Box>
+      </Field>
       {read(project) ? searching() ? <Results /> : <ArticleTree /> : read(projectsError) ? null : list.length === 0 && read(rootsStatus) === 'ok' ? <EmptyState title="No projects" /> : <Skeleton shape="text" lines={5} label="Loading articles" />}
     </Stack>
   )
