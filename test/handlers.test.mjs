@@ -1248,3 +1248,12 @@ test('issue.removeTag removes one tag by name, after --, and checks its input', 
   }
   assert.equal(removed.length, 1)
 })
+
+test('start.prepare lists the articles the issue mentions and the includeArticles setting', async () => {
+  const yt = fakeYt({ viewIssue: async (s, id) => ok({ ...rawIssue(id), mentionedArticles: [{ idReadable: 'DEMO-A-1', summary: 'Guide' }, { idReadable: 'bad' }] }) })
+  const on = await setup({ yt }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.deepEqual(on.data.articles, ['DEMO-A-1'])
+  assert.equal(on.data.includeArticles, true)
+  const off = await setup({ yt, settings: { includeArticles: false } }).call('yt.start.prepare', { server: 'one', id: 'DEMO-3' })
+  assert.equal(off.data.includeArticles, false)
+})

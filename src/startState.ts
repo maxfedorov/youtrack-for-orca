@@ -1,5 +1,5 @@
 import { atom, read, set } from 'orca'
-import { buildPrompt, finishBlock, issueVars, PROMPT_LIMIT } from '../worker/prompt.mjs'
+import { articlesBlock, buildPrompt, finishBlock, issueVars, PROMPT_LIMIT } from '../worker/prompt.mjs'
 import { loadLinks } from './listState'
 import { call, goBack, notice, server, view } from './state'
 import { closeComboboxes } from './views/Combobox'
@@ -36,6 +36,8 @@ export const workspaceId = atom<string | null>(null)
 export const agentChoice = atom(NONE)
 export const otherAgent = atom('')
 export const includeDescription = atom(true)
+/** The prompt asks the agent to read the articles the issue mentions. */
+export const includeArticles = atom(true)
 /** The agent starts with no prompt; the prompt and the controls that build it are off. */
 export const withoutPrompt = atom(false)
 /** The chosen prompt template; null when the answer listed none (the prompt template text is used). */
@@ -47,7 +49,7 @@ export const finishComment = atom(false)
 export const finishField = atom<string | null>(null)
 /** The value the prompt asks the agent to set that field to; '' for none. */
 export const finishState = atom('')
-/** The finish steps the prompt ends with now, so a change can replace them in a prompt edited by hand. */
+/** The articles and finish steps the prompt ends with now, so a change can replace them in a prompt edited by hand. */
 let appliedSuffix = ''
 export const promptEdited = atom(false)
 export const running = atom(false)
@@ -177,8 +179,14 @@ export function chooseRef(ref: string): void {
   set(baseBranch, ref)
 }
 
+/** What the prompt ends with: the articles to read (when the switch is on), then the finish steps. */
 const finishSuffix = (p: StartPrepare) =>
-  finishBlock({ server: p.vars?.server ?? '', id: p.vars?.id ?? '', comment: read(finishComment), stateField: read(finishField), state: read(finishState) })
+  [
+    read(includeArticles) ? articlesBlock({ server: p.vars?.server ?? '', ids: p.articles ?? [] }) : '',
+    finishBlock({ server: p.vars?.server ?? '', id: p.vars?.id ?? '', comment: read(finishComment), stateField: read(finishField), state: read(finishState) })
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 
 /** The field the finish choices are about now, with its values. */
 export const chosenFinishField = (p: StartPrepare): FinishField | undefined => p.finish?.fields.find((f) => f.name === read(finishField))
@@ -199,6 +207,21 @@ export function setFinish(next: { comment?: boolean; field?: string; state?: str
     }
   }
   if (next.state !== undefined) set(finishState, next.state)
+  refreshSuffix()
+}
+
+/** The articles switch: the prompt asks the agent to read them, or no longer does. */
+export function toggleArticles(include: boolean): void {
+  set(includeArticles, include)
+  refreshSuffix()
+}
+
+/**
+ * A prompt built from the template is built again; in one edited by hand the old articles and finish
+ * steps at its end are swapped for the new ones, so the switches always say what is sent.
+ */
+function refreshSuffix(): void {
+  const p = read(prep)
   if (!p) return
   if (!read(promptEdited)) return set(prompt, templatePrompt(p, read(includeDescription)))
   let text = read(prompt)
@@ -255,6 +278,7 @@ function init(p: StartPrepare): void {
   set(agentChoice, p.defaultAgent && (known || /^[a-z0-9][a-z0-9-]{0,63}$/.test(p.defaultAgent)) ? p.defaultAgent : NONE)
   set(otherAgent, '')
   set(includeDescription, p.includeDescription)
+  set(includeArticles, p.includeArticles === true)
   set(withoutPrompt, p.withoutPrompt === true)
   set(finishComment, p.finish?.comment === true)
   const field = p.finish?.fields.find((f) => f.name === p.finish?.field)

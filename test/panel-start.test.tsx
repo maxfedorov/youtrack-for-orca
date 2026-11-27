@@ -502,3 +502,40 @@ test('the setting can make Start begin without a prompt, and Clear empties the p
   clean(view)
   await view.unmount()
 })
+
+const ARTICLES_ASK = "Also read these YouTrack articles for context:\n  youtrack --server 'main' article view DEMO-A-1"
+const withArticles = (include = true) =>
+  mockHost({ requests: requests({ 'yt.start.prepare': ok(prepare({ articles: ['DEMO-A-1'], includeArticles: include, vars: { id: 'DEMO-1', summary: 'Issue 1', description: 'Details', server: 'main' } })) }) })
+const promptText = (view: any) => view.find({ type: 'Textarea', label: 'Prompt' }).props.value as string
+
+test('with the articles switch on, the prompt asks the agent to read the mentioned articles', async () => {
+  const view = await open(withArticles())
+  assert.equal(view.find({ type: 'Switch', label: 'Include mentioned articles' }).props.checked, true)
+  assert.ok(promptText(view).endsWith(ARTICLES_ASK))
+  await view.unmount()
+})
+
+test('turning the articles switch off removes them, also from a prompt edited by hand', async () => {
+  const view = await open(withArticles())
+  await view.toggle({ type: 'Switch', label: 'Include mentioned articles' })
+  assert.equal(promptText(view).includes('article view'), false)
+  await view.type({ type: 'Textarea', label: 'Prompt' }, 'Do it', { replace: true })
+  await view.toggle({ type: 'Switch', label: 'Include mentioned articles' })
+  assert.equal(promptText(view), `Do it\n\n${ARTICLES_ASK}`)
+  await view.toggle({ type: 'Switch', label: 'Include mentioned articles' })
+  assert.equal(promptText(view), 'Do it')
+  await view.unmount()
+})
+
+test('the articles setting off starts the switch off', async () => {
+  const view = await open(withArticles(false))
+  assert.equal(view.find({ type: 'Switch', label: 'Include mentioned articles' }).props.checked, false)
+  assert.equal(promptText(view).includes('article view'), false)
+  await view.unmount()
+})
+
+test('an issue that mentions no articles shows no articles switch', async () => {
+  const view = await open(mockHost({ requests: requests() }))
+  assert.equal(view.find({ type: 'Switch', label: 'Include mentioned articles' }), null)
+  await view.unmount()
+})

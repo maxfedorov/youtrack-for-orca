@@ -167,6 +167,8 @@ function fixPrepare(v: Obj): Obj {
     field: fields.some((x) => x.name === f.field) ? f.field : (fields[0]?.name ?? null),
     fields
   }
+  out.articles = keep(v.articles, (x) => str(x) && ARTICLE.test(x as string)).slice(0, 20)
+  out.includeArticles = v.includeArticles === true
   for (const key of ['reposError', 'workspacesError', 'agentsError']) if (!str(v[key])) delete out[key]
   if (!detected && !str(v.agentsError)) out.agentsError = 'Installed agents could not be detected.'
   return out

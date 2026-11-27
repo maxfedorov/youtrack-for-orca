@@ -77,6 +77,10 @@ export type StartPrepare = {
   defaultAgent: string
   launchMode: 'worktree' | 'current'
   includeDescription: boolean
+  /** Articles the issue mentions, by id; the prompt can ask the agent to read them. */
+  articles?: string[]
+  /** Whether the "Include mentioned articles" switch starts on. */
+  includeArticles?: boolean
   /** Start the agent with no prompt (the setting's choice; the Start view can change it). */
   withoutPrompt?: boolean
   /** The prompt templates to choose from; the default one is chosen first. */

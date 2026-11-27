@@ -111,6 +111,13 @@
         "default": false
       },
       {
+        "key": "includeArticles",
+        "title": "Include mentioned articles",
+        "description": "Whether the \"Include mentioned articles\" switch starts on in the Start view: the prompt then asks the agent to read the knowledge base articles the issue mentions, with youtrack article view.",
+        "type": "boolean",
+        "default": true
+      },
+      {
         "key": "finishComment",
         "title": "Agent comments when done",
         "description": "Whether the \"Comment on the issue when done\" switch starts on in the Start view: the prompt then asks the agent to add a comment that sums up its work.",

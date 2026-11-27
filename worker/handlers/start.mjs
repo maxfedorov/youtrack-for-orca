@@ -8,7 +8,7 @@ import { BUILT_IN } from '../templates.mjs'
 import { issueIdFromBranch } from '../branch-issue.mjs'
 import { toListedMeta, toValues, MAX_VALUES } from '../project-fields.mjs'
 import { safeValue } from '../prompt.mjs'
-import { safeHandle, shortMessage, unexpected, hasId, invalid, token, issueUrl, ISSUE_ID, settingString, capDetail, AGENT_ID, attempt, fallback, readSetting } from './common.mjs'
+import { safeHandle, shortMessage, unexpected, hasId, invalid, token, issueUrl, ISSUE_ID, ARTICLE_ID, settingString, capDetail, AGENT_ID, attempt, fallback, readSetting } from './common.mjs'
 
 /** How long the project list of a server is reused for matching branches. */
 const PROJECTS_MS = 10 * 60_000
@@ -192,6 +192,9 @@ export function registerStartHandlers(ctx) {
       defaultAgent: AGENT_ID.test(defaultAgent) ? defaultAgent : '',
       launchMode: (await get('defaultLaunchMode')) === 'current' ? 'current' : 'worktree',
       includeDescription: (await get('includeDescription')) === true,
+      // Articles the issue mentions, for the Start view's switch; on unless the setting is off.
+      articles: (issue.articles ?? []).map((a) => a.id).filter((articleId) => ARTICLE_ID.test(articleId)).slice(0, 20),
+      includeArticles: (await get('includeArticles')) !== false,
       withoutPrompt: (await get('startWithoutPrompt')) === true,
       templates: prompts.templates.map(({ id, name, body }) => ({ id, name, body })),
       defaultTemplateId: chosenTemplate ? chosenTemplate.id : null,

@@ -13,6 +13,7 @@ export const SETTING_DEFAULTS = Object.freeze({
   defaultLaunchMode: 'worktree',
   startWithoutPrompt: false,
   includeDescription: false,
+  includeArticles: true,
   finishComment: false,
   finishState: '',
   youtrackPath: ''

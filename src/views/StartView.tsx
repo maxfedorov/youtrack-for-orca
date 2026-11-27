@@ -2,7 +2,7 @@ import { Button, Callout, Field, Heading, Input, Row, Select, Skeleton, Stack, S
 import {
   back, canStart, editPrompt, failure, includeDescription, load, loadedFor, mode, name, prep, prompt, PROMPT_LIMIT, resetPrompt,
   repoId, runError, running, setProject, status, submit, sync, toggleDescription, workspaceId, chosenAgent, currentAvailable, usableMode,
-  worktreeAvailable, workspaceOptions, templateId, chooseTemplate, withoutPrompt, clearPrompt, finishComment, finishState, setFinish, chosenFinishField
+  worktreeAvailable, workspaceOptions, templateId, chooseTemplate, withoutPrompt, clearPrompt, finishComment, finishState, setFinish, chosenFinishField, includeArticles, toggleArticles
 } from '../startState'
 import { AgentPicker } from './start/AgentPicker'
 import { BranchPicker } from './start/BranchPicker'
@@ -105,6 +105,9 @@ function Form({ id, p }: { id: string; p: StartPrepare }) {
         disabled={promptOff}
         onChange={toggleDescription}
       />
+      {(p.articles?.length ?? 0) > 0 ? (
+        <Switch label="Include mentioned articles" checked={read(includeArticles)} disabled={promptOff} onChange={toggleArticles} />
+      ) : null}
       {p.templates.length > 0 ? (
         <Combobox
           label="Template"
